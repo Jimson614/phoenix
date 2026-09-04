@@ -23,6 +23,8 @@ import type { Subject } from "@/lib/engine/engine-types";
 import type { Attempt } from "@/lib/types";
 
 import AoyuCompanion from "@/components/aoyu/aoyu-companion";
+import CompanionTaskForm from "@/components/task-flow/companion-task-form";
+import { taskCompanionEvent } from "@/lib/aoyu-task-adapter";
 import CardShell from "@/components/ui/card-shell";
 import AskwiseButton from "@/components/ui/button";
 import AttemptHistory from "@/components/task-flow/attempt-history";
@@ -54,18 +56,20 @@ function getFlowState(solved: boolean, attempts: Array<unknown>, hasDiagnosis: b
 
 export default function TaskPage({ params }: { params: { taskId: string } }) {
   const taskId = Number(params.taskId);
-  const task = getTaskById(taskId) as
+  const fetchedTask = getTaskById(taskId) as
     | {
         id: number;
+        student_id: number;
         subject: Subject;
         topic: string;
         question: string;
         status: string;
       }
     | undefined;
-  if (!task) {
+  if (!fetchedTask) {
     return <div className="askwise-card">Task not found.</div>;
   }
+  const task = fetchedTask;
 
   const taskSession = getSessionByTask(task.id);
   if (!taskSession) {
@@ -90,14 +94,12 @@ export default function TaskPage({ params }: { params: { taskId: string } }) {
 
   const flowState = getFlowState(solved, attempts, Boolean(latestDiagnosis), Boolean(latestHint));
 
-  const companionState =
-    flowState === "solved"
-      ? "celebrating"
-      : flowState === "initial"
-        ? "listening"
-        : flowState === "diagnosis"
-          ? "thinking"
-          : "guiding";
+  const companionEvent = taskCompanionEvent({
+    taskId: task.id, sessionId: taskSession.id, solved,
+    evidenceConfirmed: Boolean(evidence), hintLevel: latestHint?.hint_level ?? 0,
+    attemptCount: attempts.length,
+  });
+  const companionScope = `askwise:student:${task.student_id}`;
 
   async function submitAttempt(formData: FormData) {
     "use server";
@@ -110,7 +112,7 @@ export default function TaskPage({ params }: { params: { taskId: string } }) {
 
     const currentSession = getSessionByTask(task.id);
     if (!currentSession) {
-      return;
+      throw new Error("Learning session unavailable");
     }
 
     const history = getAttemptsForSession(currentSession.id) as Array<Attempt>;
@@ -198,16 +200,9 @@ export default function TaskPage({ params }: { params: { taskId: string } }) {
         </div>
       </CardShell>
 
-      <AoyuCompanion
-        state={companionState}
-        message={
-          companionState === "celebrating"
-            ? "Great, finish and review evidence."
-            : companionState === "thinking"
-              ? "I can see the error type. Let&apos;s move to a focused hint."
-              : "Share your thought first, then we'll guide the next move."
-        }
-      />
+      {solved && <AoyuCompanion aoyuState={companionEvent.state}
+        eventKey={companionEvent.eventId} completionKey={companionEvent.completionKey}
+        scopeKey={companionScope} soundEnabled={false} />}
 
       <CardShell
         title="Learning Metrics"
@@ -226,7 +221,8 @@ export default function TaskPage({ params }: { params: { taskId: string } }) {
           title={flowState === "initial" ? "Initial Attempt" : "Retry Attempt"}
           description={flowState === "initial" ? "First step is diagnostic, not answer-dictating." : "Use one concise retry."}
         >
-          <form action={submitAttempt}>
+          <CompanionTaskForm action={submitAttempt} scopeKey={companionScope}
+            sourceEvent={companionEvent} retry={attempts.length > 0}>
             <label htmlFor="studentAttempt">
               {flowState === "initial" ? "Initial Attempt" : "Retry Attempt"}
             </label>
@@ -242,7 +238,7 @@ export default function TaskPage({ params }: { params: { taskId: string } }) {
             <AskwiseButton type="submit" variant="primary">
               Submit
             </AskwiseButton>
-          </form>
+          </CompanionTaskForm>
         </CardShell>
       ) : null}
 

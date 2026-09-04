@@ -2,18 +2,29 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import { Attempt, DiagnosisType } from "./types";
+import type { HintLevel } from "./engine/engine-types";
 
 const appRoot = process.cwd();
 const dbDir = path.join(appRoot, "data");
 const dbPath = path.join(dbDir, "askwise.db");
 
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+// Build workers import pages concurrently. Opening/seeding only on an actual
+// request avoids build-time writes and SQLITE_BUSY without changing the schema.
+let connection: Database.Database | undefined;
+function getDatabase() {
+  if (!connection) {
+    fs.mkdirSync(dbDir, { recursive: true });
+    connection = new Database(dbPath);
+    connection.pragma("journal_mode = WAL");
+    connection.pragma("foreign_keys = ON");
+    pilotStudentId = ensureStudentAndExperiment();
+  }
+  return connection;
 }
-
-const db = new Database(dbPath);
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = ON");
+const db = {
+  prepare: (sql: string) => getDatabase().prepare(sql),
+  exec: (sql: string) => getDatabase().exec(sql),
+};
 
 function dayStart(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -219,7 +230,11 @@ function ensureStudentAndExperiment() {
   return david.id;
 }
 
-const STUDENT_ID = ensureStudentAndExperiment();
+let pilotStudentId: number | undefined;
+function getStudentId(): number {
+  getDatabase();
+  return pilotStudentId!;
+}
 
 function getExperiment(studentId: number) {
   return db
@@ -247,7 +262,7 @@ function getCurrentPilotDay(studentId: number): number {
 }
 
 export function getPilotContext() {
-  const studentId = STUDENT_ID;
+  const studentId = getStudentId();
   const exp = getExperiment(studentId);
   if (!exp) throw new Error("Experiment not initialized");
   const day = getCurrentPilotDay(studentId);
@@ -319,7 +334,7 @@ export function getPilotContext() {
 }
 
 export function listTodayTasks(studentId?: number) {
-  const student = studentId ?? STUDENT_ID;
+  const student = studentId ?? getStudentId();
   const exp = getExperiment(student);
   if (!exp) throw new Error("Experiment not found");
   const day = getCurrentPilotDay(student);
@@ -342,9 +357,9 @@ export function createTask(input: {
   initialAttempt: string;
   day?: number;
 }) {
-  const exp = getExperiment(STUDENT_ID);
+  const exp = getExperiment(getStudentId());
   if (!exp) throw new Error("Experiment not found");
-  const day = input.day ?? getCurrentPilotDay(STUDENT_ID);
+  const day = input.day ?? getCurrentPilotDay(getStudentId());
 
   const taskInsert = db.prepare(
     `
@@ -354,7 +369,7 @@ export function createTask(input: {
     `
   );
   const taskRes = taskInsert.run(
-    STUDENT_ID,
+    getStudentId(),
     exp.id,
     day,
     input.subject,
@@ -375,7 +390,7 @@ export function createTask(input: {
   const attemptText = input.initialAttempt.trim();
   let firstAttempt: Attempt | undefined;
   if (attemptText) {
-    firstAttempt = addAttempt(sessionId, attemptText, 0, 0);
+    firstAttempt = addAttempt(sessionId, attemptText, 0, false);
   }
   return {
     taskId,
@@ -397,6 +412,9 @@ export function getTaskById(taskId: number) {
     .get(taskId);
 }
 
+type SessionRow = { id: number; task_id: number; attempt_number: number; hint_count: number;
+  retry_count: number; solved: number; independent: number; final_result: string };
+
 export function getSessionByTask(taskId: number) {
   return db
     .prepare(
@@ -404,7 +422,7 @@ export function getSessionByTask(taskId: number) {
     SELECT * FROM learning_sessions WHERE task_id = ? ORDER BY updated_at DESC LIMIT 1
     `
     )
-    .get(taskId);
+    .get(taskId) as SessionRow | undefined;
 }
 
 export function getSessionSnapshot(sessionId: number) {
@@ -482,14 +500,14 @@ export function getSessionSnapshot(sessionId: number) {
   };
 }
 
-export function getLatestHintLevel(sessionId: number): number {
+export function getLatestHintLevel(sessionId: number): HintLevel {
   const row = db
     .prepare(
       `
       SELECT hint_level FROM hints WHERE session_id = ? ORDER BY id DESC LIMIT 1
       `
     )
-    .get(sessionId) as { hint_level: number } | undefined;
+    .get(sessionId) as { hint_level: HintLevel } | undefined;
   return row ? row.hint_level : 0;
 }
 
@@ -582,7 +600,7 @@ export function getSessionById(sessionId: number) {
   return db
     .prepare("SELECT * FROM learning_sessions WHERE id = ?")
     .get(sessionId) as
-    | { id: number; task_id: number; attempt_number: number; hint_count: number; retry_count: number }
+    | { id: number; task_id: number; attempt_number: number; hint_count: number; retry_count: number; independent: number }
     | undefined;
 }
 
@@ -646,7 +664,7 @@ export function listLearningEvidence() {
 }
 
 export function getDashboardStats() {
-  const studentId = STUDENT_ID;
+  const studentId = getStudentId();
   const exp = getExperiment(studentId);
   if (!exp) return null;
   const day = getCurrentPilotDay(studentId);
@@ -721,9 +739,9 @@ export function upsertPoliticalMap(input: {
   triggerQuestion: string;
   myOwnExplanation: string;
 }) {
-  const exp = getExperiment(STUDENT_ID);
+  const exp = getExperiment(getStudentId());
   if (!exp) throw new Error("Experiment not found");
-  const day = getCurrentPilotDay(STUDENT_ID);
+  const day = getCurrentPilotDay(getStudentId());
   db.prepare(
     `
     INSERT INTO political_knowledge_map
@@ -738,7 +756,7 @@ export function upsertPoliticalMap(input: {
       created_at = CURRENT_TIMESTAMP
     `
   ).run(
-    STUDENT_ID,
+    getStudentId(),
     input.topic,
     input.coreConcept,
     input.keyPoint,
@@ -757,7 +775,7 @@ export function upsertMathMap(input: {
   commonMistake: string;
   example: string;
 }) {
-  const day = getCurrentPilotDay(STUDENT_ID);
+  const day = getCurrentPilotDay(getStudentId());
   db.prepare(
     `
     INSERT INTO math_strategy_map
@@ -772,7 +790,7 @@ export function upsertMathMap(input: {
       created_at = CURRENT_TIMESTAMP
     `
   ).run(
-    STUDENT_ID,
+    getStudentId(),
     input.problemType,
     input.recognitionSignal,
     input.possibleStrategy,
@@ -784,7 +802,7 @@ export function upsertMathMap(input: {
 }
 
 export function upsertDailyReflection(input: { q1: string; q2: string; q3: string }) {
-  const day = getCurrentPilotDay(STUDENT_ID);
+  const day = getCurrentPilotDay(getStudentId());
   db.prepare(
     `
     INSERT INTO daily_reflections(student_id, day, q1, q2, q3)
@@ -795,7 +813,7 @@ export function upsertDailyReflection(input: { q1: string; q2: string; q3: strin
       q3 = excluded.q3,
       created_at = CURRENT_TIMESTAMP
     `
-  ).run(STUDENT_ID, day, input.q1, input.q2, input.q3);
+  ).run(getStudentId(), day, input.q1, input.q2, input.q3);
 }
 
 export function getDailyReflection(day: number) {
@@ -803,11 +821,11 @@ export function getDailyReflection(day: number) {
     .prepare(
       "SELECT * FROM daily_reflections WHERE student_id = ? AND day = ?"
     )
-    .get(STUDENT_ID, day);
+    .get(getStudentId(), day);
 }
 
 export function getTodayTaskHistory() {
-  const day = getCurrentPilotDay(STUDENT_ID);
+  const day = getCurrentPilotDay(getStudentId());
   return db
     .prepare(
       `SELECT t.*, s.solved, s.hint_count, s.retry_count
@@ -816,7 +834,7 @@ export function getTodayTaskHistory() {
        WHERE t.student_id = ? AND t.day = ?
        ORDER BY t.created_at DESC`
     )
-    .all(STUDENT_ID, day);
+    .all(getStudentId(), day);
 }
 
 export function getLatestSessionForTask(taskId: number) {
@@ -851,7 +869,7 @@ export function getLatestAttempt(sessionId: number) {
 }
 
 export function getPoliticalMaps(studentId?: number, day?: number) {
-  const owner = studentId ?? STUDENT_ID;
+  const owner = studentId ?? getStudentId();
   if (day !== undefined) {
     return db
       .prepare(
@@ -865,7 +883,7 @@ export function getPoliticalMaps(studentId?: number, day?: number) {
 }
 
 export function getMathMaps(studentId?: number, day?: number) {
-  const owner = studentId ?? STUDENT_ID;
+  const owner = studentId ?? getStudentId();
   if (day !== undefined) {
     return db
       .prepare(
@@ -879,7 +897,7 @@ export function getMathMaps(studentId?: number, day?: number) {
 }
 
 export function getReflections(studentId?: number, day?: number) {
-  const owner = studentId ?? STUDENT_ID;
+  const owner = studentId ?? getStudentId();
   if (day !== undefined) {
     return db
       .prepare(
@@ -898,4 +916,4 @@ export function getEvidenceForTask(taskId: number) {
     .get(taskId);
 }
 
-export { studentDbReady: true as const };
+export const studentDbReady = true as const;

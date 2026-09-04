@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
-import { createTask } from "@/lib/db";
+import { createTask, getPilotContext } from "@/lib/db";
+import CompanionTaskForm from "@/components/task-flow/companion-task-form";
 import CardShell from "@/components/ui/card-shell";
 import AskwiseButton from "@/components/ui/button";
 import ConfidenceSelector from "@/components/task-flow/confidence-selector";
@@ -11,6 +11,7 @@ export default function StudentTaskPage({
 }: {
   searchParams?: { subject?: string; topic?: string };
 }) {
+  const { studentId } = getPilotContext();
   async function createTaskAction(formData: FormData) {
     "use server";
     const subject = String(formData.get("subject") || "Mathematics");
@@ -29,7 +30,7 @@ export default function StudentTaskPage({
 
     revalidatePath("/");
     revalidatePath("/student-task");
-    redirect(`/task/${result.taskId}`);
+    return { redirectTo: `/task/${result.taskId}` };
   }
 
   return (
@@ -39,7 +40,8 @@ export default function StudentTaskPage({
         title="Create Initial Attempt"
         description="Do not paste full answers. Keep concise and directional."
       >
-        <form action={createTaskAction}>
+        <CompanionTaskForm action={createTaskAction} scopeKey={`askwise:student:${studentId}`}
+          sourceEvent={{ state: "WELCOME", eventId: "student-task:ready" }}>
           <label htmlFor="subject">Subject</label>
           <select id="subject" name="subject">
             <option value="Politics">Politics</option>
@@ -66,7 +68,7 @@ export default function StudentTaskPage({
           <AskwiseButton type="submit" variant="primary">
             Start Task
           </AskwiseButton>
-        </form>
+        </CompanionTaskForm>
       </CardShell>
     </div>
   );

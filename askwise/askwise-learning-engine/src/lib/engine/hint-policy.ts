@@ -31,7 +31,7 @@ export function nextHintLevel(previousLevel: number, lastOutcomeCorrect: boolean
   if (lastOutcomeCorrect) return 0;
   if (previousLevel < 0) return 1;
   if (previousLevel >= 5) return 5;
-  return Math.min(5, (previousLevel + 1) as HintLevel);
+  return Math.min(5, previousLevel + 1) as HintLevel;
 }
 
 function isPolitics(subject: string, topic: string): boolean {

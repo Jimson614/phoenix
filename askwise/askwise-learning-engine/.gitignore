@@ -1,0 +1,3 @@
+# Runtime learning records must never be part of the source/evidence bundle.
+/data/
+/askwise_session_log.json
