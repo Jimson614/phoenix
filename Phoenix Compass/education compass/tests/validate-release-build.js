@@ -59,6 +59,10 @@ try {
   const files = walk(output)
   assertClientModulesResolve(output)
   const relativeFiles = files.map((file) => slash(path.relative(output, file)))
+  for (const file of files.filter((candidate) => /\.(?:js|json|wxml|wxss)$/i.test(candidate))) {
+    assert(!fs.readFileSync(file).includes(Buffer.from('\r\n')),
+      `${slash(path.relative(output, file))} must use deterministic LF line endings`)
+  }
   const releaseBytes = bytes(files)
   assert(releaseBytes <= RELEASE_TOTAL_BUDGET_BYTES,
     `release package exceeds 1.75 MiB (${releaseBytes} > ${RELEASE_TOTAL_BUDGET_BYTES} bytes)`)

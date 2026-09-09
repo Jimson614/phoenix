@@ -6,6 +6,7 @@ const DIST_ROOT = path.join(SOURCE_ROOT, 'dist')
 const RELEASE_VERSION = '0.5.0'
 const ROOT_FILES = ['app.js', 'app.json', 'app.wxss', 'project.config.json', 'sitemap.json']
 const ROOT_DIRECTORIES = ['assets', 'components', 'config', 'models', 'pages', 'services', 'utils']
+const NORMALIZED_TEXT_EXTENSIONS = new Set(['.js', '.json', '.wxml', '.wxss'])
 const EXCLUDED = new Set([
   'models/schema.js',
   'pages/admin-families',
@@ -40,6 +41,13 @@ function copyTree(source, destination, relative) {
     return
   }
   fs.mkdirSync(path.dirname(destination), { recursive: true })
+  if (NORMALIZED_TEXT_EXTENSIONS.has(path.extname(source).toLowerCase())) {
+    // Release size and hashes must be independent of the checkout platform.
+    // Git may materialize CRLF on Windows even when the committed blob is LF.
+    const normalized = fs.readFileSync(source, 'utf8').replace(/\r\n?/g, '\n')
+    fs.writeFileSync(destination, normalized)
+    return
+  }
   fs.copyFileSync(source, destination)
 }
 
