@@ -17,6 +17,7 @@ const runSuffix = String(process.env.FAMILY_CORE_RUN_SUFFIX || `local_${process.
 const primaryDatabase = `family_core_gate_${runSuffix}`
 const restoreDatabase = `family_core_restore_${runSuffix}`
 const baseUrl = process.env.FAMILY_CORE_PG_URL || 'postgresql://postgres@127.0.0.1:5432/postgres'
+const postgresqlBinDirectory = process.env.FAMILY_CORE_PG_BIN
 const keepDatabases = process.env.FAMILY_CORE_KEEP_DATABASES === '1'
 const startedAt = new Date().toISOString()
 const defaultEvidenceDirectory = path.join(
@@ -29,6 +30,11 @@ const dumpPath = path.join(evidenceDirectory, 'family-core-synthetic.backup')
 const results = []
 
 fs.mkdirSync(evidenceDirectory, { recursive: true })
+
+function postgresCommand(name) {
+  if (!postgresqlBinDirectory) return name
+  return path.join(postgresqlBinDirectory, process.platform === 'win32' ? `${name}.exe` : name)
+}
 
 function redact(value) {
   return String(value)
@@ -64,7 +70,7 @@ function psql(databaseName, sql, options = {}) {
   const args = ['-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-d', databaseUrl(databaseName)]
   if (options.file) args.push('-f', options.file)
   else args.push('-c', sql)
-  return run('psql', args, { allowFailure: options.allowFailure })
+  return run(postgresCommand('psql'), args, { allowFailure: options.allowFailure })
 }
 
 function query(databaseName, sql) {
@@ -183,12 +189,12 @@ function rollbackMigrations(databaseName) {
 }
 
 function recreateDatabase(databaseName) {
-  run('dropdb', ['--if-exists', '--force', '--maintenance-db', baseUrl, databaseName])
-  run('createdb', ['--maintenance-db', baseUrl, databaseName])
+  run(postgresCommand('dropdb'), ['--if-exists', '--force', '--maintenance-db', baseUrl, databaseName])
+  run(postgresCommand('createdb'), ['--maintenance-db', baseUrl, databaseName])
 }
 
 function dropDatabase(databaseName) {
-  run('dropdb', ['--if-exists', '--force', '--maintenance-db', baseUrl, databaseName], { allowFailure: true })
+  run(postgresCommand('dropdb'), ['--if-exists', '--force', '--maintenance-db', baseUrl, databaseName], { allowFailure: true })
 }
 
 const snapshotTables = [
@@ -332,7 +338,7 @@ try {
   evidence.repository.sha = run('git', ['rev-parse', 'HEAD']).stdout.trim()
   evidence.repository.branch = run('git', ['branch', '--show-current']).stdout.trim()
   evidence.repository.dirty = Boolean(run('git', ['status', '--porcelain', '--untracked-files=no']).stdout.trim())
-  evidence.postgresql.clientVersion = run('psql', ['--version']).stdout.trim()
+  evidence.postgresql.clientVersion = run(postgresCommand('psql'), ['--version']).stdout.trim()
 
   recreateDatabase(primaryDatabase)
   recreateDatabase(restoreDatabase)
@@ -504,9 +510,9 @@ try {
   )), 1)
 
   evidence.backup.snapshot = snapshot(primaryDatabase)
-  run('pg_dump', ['--format=custom', '--no-owner', '--no-acl', '--file', dumpPath, databaseUrl(primaryDatabase)])
+  run(postgresCommand('pg_dump'), ['--format=custom', '--no-owner', '--no-acl', '--file', dumpPath, databaseUrl(primaryDatabase)])
   evidence.backup.dumpSha256 = sha256(dumpPath)
-  run('pg_restore', ['--exit-on-error', '--no-owner', '--no-acl', '--dbname', databaseUrl(restoreDatabase), dumpPath])
+  run(postgresCommand('pg_restore'), ['--exit-on-error', '--no-owner', '--no-acl', '--dbname', databaseUrl(restoreDatabase), dumpPath])
   const restoredSnapshot = snapshot(restoreDatabase)
   evidence.backup.restoredSnapshotMatch = JSON.stringify(restoredSnapshot) === JSON.stringify(evidence.backup.snapshot)
   record('backup restore row-count and checksum reconciliation', evidence.backup.restoredSnapshotMatch, `${snapshotTables.length} tables compared`)

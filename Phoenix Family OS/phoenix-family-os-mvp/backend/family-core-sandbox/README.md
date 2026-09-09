@@ -33,6 +33,7 @@ The runner requires PostgreSQL client commands (`psql`, `createdb`, `dropdb`, `p
 ```powershell
 $env:FAMILY_CORE_PG_URL = 'postgresql://postgres@127.0.0.1:5432/postgres'
 $env:PGPASSWORD = '<injected-test-password>'
+$env:FAMILY_CORE_PG_BIN = 'C:\path\to\postgresql\bin' # optional
 npm run family-core:gate
 ```
 
