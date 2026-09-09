@@ -1,0 +1,66 @@
+name: Family Core PostgreSQL Sandbox Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "codex/family-core-sandbox-*"
+    paths:
+      - ".github/workflows/family-core-sandbox.yml"
+      - "Phoenix Family OS/phoenix-family-os-mvp/backend/family-core-sandbox/**"
+      - "Phoenix Family OS/phoenix-family-os-mvp/docs/family-core/**"
+      - "Phoenix Family OS/phoenix-family-os-mvp/package.json"
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: family-core-synthetic-ci-only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
+      - name: Run empty-build, RLS, rollback, backup and restore gate
+        working-directory: Phoenix Family OS/phoenix-family-os-mvp
+        env:
+          FAMILY_CORE_PG_URL: postgresql://postgres@127.0.0.1:5432/postgres
+          FAMILY_CORE_RUN_SUFFIX: ci_${{ github.run_id }}_${{ github.run_attempt }}
+          FAMILY_CORE_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/family-core-gate
+          PGPASSWORD: family-core-synthetic-ci-only
+        run: npm run family-core:gate
+
+      - name: Upload synthetic-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: family-core-gate-${{ github.sha }}
+          path: artifacts/family-core-gate/
+          if-no-files-found: error
+          retention-days: 14

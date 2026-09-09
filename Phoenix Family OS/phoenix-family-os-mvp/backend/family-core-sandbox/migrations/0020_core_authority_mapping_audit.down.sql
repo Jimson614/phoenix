@@ -1,0 +1,30 @@
+BEGIN;
+
+DROP FUNCTION IF EXISTS core.withdraw_guardian_authority(uuid, text, text, text, uuid) CASCADE;
+DROP FUNCTION IF EXISTS core.withdraw_consent(uuid, text, text, text, uuid, uuid) CASCADE;
+DROP FUNCTION IF EXISTS core.resolve_active_mapping(text, text, text) CASCADE;
+DROP FUNCTION IF EXISTS core.can_access_subject_record(text, uuid, uuid, text, text) CASCADE;
+DROP FUNCTION IF EXISTS core.has_active_consent(uuid, text, uuid, text) CASCADE;
+DROP FUNCTION IF EXISTS core.has_active_guardian_authority(text, text, uuid) CASCADE;
+DROP FUNCTION IF EXISTS core.actor_has_permission(text, text, text) CASCADE;
+DROP FUNCTION IF EXISTS core.has_active_family_membership(text, text) CASCADE;
+DROP FUNCTION IF EXISTS core.current_family_id() CASCADE;
+DROP FUNCTION IF EXISTS core.current_actor_user_id() CASCADE;
+DROP FUNCTION IF EXISTS core.promote_migration_candidate(uuid, text, text, uuid, text) CASCADE;
+DROP FUNCTION IF EXISTS core.core_id_exists(text, text) CASCADE;
+DROP TRIGGER IF EXISTS audit_logs_append_only ON audit.audit_logs;
+DROP TRIGGER IF EXISTS consent_events_append_only ON core.consent_events;
+DROP FUNCTION IF EXISTS audit.reject_mutation() CASCADE;
+DROP TABLE IF EXISTS audit.audit_logs CASCADE;
+DROP TABLE IF EXISTS entitlement.service_entitlements CASCADE;
+DROP TABLE IF EXISTS core.role_assignments CASCADE;
+DROP TABLE IF EXISTS core.role_permissions CASCADE;
+DROP TABLE IF EXISTS core.permissions CASCADE;
+DROP TABLE IF EXISTS core.roles CASCADE;
+DROP TABLE IF EXISTS core.identity_migration_candidates CASCADE;
+DROP TABLE IF EXISTS core.external_identity_mappings CASCADE;
+DROP TABLE IF EXISTS core.consent_events CASCADE;
+DROP TABLE IF EXISTS core.consents CASCADE;
+DROP TABLE IF EXISTS core.guardian_student_relationships CASCADE;
+
+COMMIT;

@@ -1,0 +1,426 @@
+openapi: 3.1.0
+info:
+  title: Phoenix Family Core API Contract Skeleton
+  version: 0.1.0-synthetic
+  description: >-
+    Review-only boundary for Family, logical Member, Journey, Timeline Event,
+    Compass Result, and Blueprint operations. It does not authorize production
+    deployment or freeze unresolved Guardian, Consent, Retention, or Entitlement policy.
+servers: []
+security:
+  - bearerAuth: []
+tags:
+  - name: Families
+  - name: Members
+  - name: Compass Results
+  - name: Journeys
+  - name: Timeline
+  - name: Blueprints
+paths:
+  /v1/families/{familyId}:
+    get:
+      tags: [Families]
+      operationId: getFamily
+      parameters:
+        - $ref: '#/components/parameters/FamilyId'
+      responses:
+        '200':
+          description: One explicitly authorised family context.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Family'
+        '403':
+          $ref: '#/components/responses/Denied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/families/{familyId}/members/{subjectType}/{subjectId}:
+    get:
+      tags: [Members]
+      operationId: getLogicalMember
+      description: >-
+        Resolves a logical Member without introducing a new public member ID.
+        USER, STUDENT, and GUARDIAN IDs remain Phoenix Core authoritative IDs.
+      parameters:
+        - $ref: '#/components/parameters/FamilyId'
+        - name: subjectType
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/SubjectType'
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Family-scoped logical member.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+        '403':
+          $ref: '#/components/responses/Denied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/families/{familyId}/compass-results:
+    post:
+      tags: [Compass Results]
+      operationId: acceptCompassResult
+      description: >-
+        Accepts a versioned, hashed, minimised handoff after family, subject,
+        Guardian, Consent, RBAC, entitlement, provenance, and idempotency checks.
+      parameters:
+        - $ref: '#/components/parameters/FamilyId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompassResultInput'
+      responses:
+        '201':
+          description: Accepted; this is storage evidence, not a product or policy approval.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoffReceipt'
+        '200':
+          description: Exact idempotent replay.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoffReceipt'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '403':
+          $ref: '#/components/responses/Denied'
+  /v1/families/{familyId}/journeys:
+    post:
+      tags: [Journeys]
+      operationId: createJourney
+      parameters:
+        - $ref: '#/components/parameters/FamilyId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JourneyInput'
+      responses:
+        '201':
+          description: Journey created in one family context.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Journey'
+        '403':
+          $ref: '#/components/responses/Denied'
+  /v1/families/{familyId}/timeline-events:
+    post:
+      tags: [Timeline]
+      operationId: appendTimelineEvent
+      description: Events are append-only; corrections use supersedesEventId.
+      parameters:
+        - $ref: '#/components/parameters/FamilyId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimelineEventInput'
+      responses:
+        '201':
+          description: Event appended.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimelineEvent'
+        '403':
+          $ref: '#/components/responses/Denied'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /v1/families/{familyId}/blueprints:
+    post:
+      tags: [Blueprints]
+      operationId: createBlueprint
+      parameters:
+        - $ref: '#/components/parameters/FamilyId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlueprintInput'
+      responses:
+        '201':
+          description: Versioned blueprint created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Blueprint'
+        '403':
+          $ref: '#/components/responses/Denied'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: A trusted service resolves the token to a Phoenix Core user; token shape is not frozen here.
+  parameters:
+    FamilyId:
+      name: familyId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^fam_[0-9a-f]{32}$'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+  responses:
+    Denied:
+      description: Authentication, family context, Guardian, Consent, RBAC, or entitlement check failed closed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource is absent or intentionally not disclosed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Idempotency, mapping, version, or immutable-evidence conflict.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    SubjectType:
+      type: string
+      enum: [USER, STUDENT, GUARDIAN]
+    SubjectReference:
+      type: object
+      additionalProperties: false
+      required: [subjectType, subjectId]
+      properties:
+        subjectType:
+          $ref: '#/components/schemas/SubjectType'
+        subjectId:
+          type: string
+    Family:
+      type: object
+      additionalProperties: false
+      required: [familyId, status]
+      properties:
+        familyId:
+          type: string
+          pattern: '^fam_[0-9a-f]{32}$'
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED, CLOSED]
+    Member:
+      type: object
+      additionalProperties: false
+      required: [familyId, subject, memberKind, status]
+      properties:
+        familyId:
+          type: string
+        subject:
+          $ref: '#/components/schemas/SubjectReference'
+        memberKind:
+          type: string
+          enum: [ADULT, MINOR]
+        status:
+          type: string
+        guardianAuthorityRequired:
+          type: boolean
+    CompassResultInput:
+      type: object
+      additionalProperties: false
+      required:
+        - contractVersion
+        - compassType
+        - sourceAssessmentId
+        - subject
+        - scoringConsentId
+        - resultPayloadHash
+        - resultSchemaVersion
+      properties:
+        contractVersion:
+          const: COMPASS_FAMILY_OS_HANDOFF_V1
+        compassType:
+          type: string
+          enum: [EDUCATION, IDENTITY, WEALTH]
+        sourceAssessmentId:
+          type: string
+        subject:
+          $ref: '#/components/schemas/SubjectReference'
+        scoringConsentId:
+          type: string
+          format: uuid
+        longitudinalConsentId:
+          type: [string, 'null']
+          format: uuid
+        entitlementId:
+          type: [string, 'null']
+          format: uuid
+        resultPayloadHash:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+        resultSchemaVersion:
+          type: string
+    HandoffReceipt:
+      type: object
+      additionalProperties: false
+      required: [status, resultId]
+      properties:
+        status:
+          type: string
+          enum: [ACCEPTED, DUPLICATE, REJECTED]
+        resultId:
+          type: string
+          format: uuid
+        journeyId:
+          type: [string, 'null']
+          format: uuid
+        timelineEventIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        reasonCodes:
+          type: array
+          items:
+            type: string
+    JourneyInput:
+      type: object
+      additionalProperties: false
+      required: [subject, sourceResultId, longitudinalConsentId, journeyType, currentState]
+      properties:
+        subject:
+          $ref: '#/components/schemas/SubjectReference'
+        sourceResultId:
+          type: string
+          format: uuid
+        longitudinalConsentId:
+          type: string
+          format: uuid
+        journeyType:
+          type: string
+          enum: [EDUCATION, IDENTITY, WEALTH]
+        currentState:
+          type: string
+    Journey:
+      allOf:
+        - $ref: '#/components/schemas/JourneyInput'
+        - type: object
+          required: [journeyId, familyId, status]
+          properties:
+            journeyId:
+              type: string
+              format: uuid
+            familyId:
+              type: string
+            status:
+              type: string
+    TimelineEventInput:
+      type: object
+      additionalProperties: false
+      required: [subject, longitudinalConsentId, eventType, sourceRecordId, sourceVersion, visibility, titleCode, summaryCode]
+      properties:
+        subject:
+          $ref: '#/components/schemas/SubjectReference'
+        longitudinalConsentId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+        sourceRecordId:
+          type: string
+        sourceVersion:
+          type: string
+        visibility:
+          type: string
+          enum: [FAMILY, SUBJECT, ADVISOR_SHARED, INTERNAL_RESTRICTED]
+        titleCode:
+          type: string
+        summaryCode:
+          type: string
+        supersedesEventId:
+          type: [string, 'null']
+          format: uuid
+    TimelineEvent:
+      allOf:
+        - $ref: '#/components/schemas/TimelineEventInput'
+        - type: object
+          required: [eventId, familyId, recordedAt]
+          properties:
+            eventId:
+              type: string
+              format: uuid
+            familyId:
+              type: string
+            recordedAt:
+              type: string
+              format: date-time
+    BlueprintInput:
+      type: object
+      additionalProperties: false
+      required: [subject, journeyId, longitudinalConsentId, blueprintType, schemaVersion, payload]
+      properties:
+        subject:
+          $ref: '#/components/schemas/SubjectReference'
+        journeyId:
+          type: string
+          format: uuid
+        longitudinalConsentId:
+          type: string
+          format: uuid
+        blueprintType:
+          type: string
+          enum: [EDUCATION, IDENTITY, WEALTH]
+        schemaVersion:
+          type: string
+        payload:
+          type: object
+          description: Domain-owned, versioned planning payload; no raw documents or unrestricted free text.
+    Blueprint:
+      allOf:
+        - $ref: '#/components/schemas/BlueprintInput'
+        - type: object
+          required: [blueprintId, familyId, createdAt]
+          properties:
+            blueprintId:
+              type: string
+              format: uuid
+            familyId:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, requestId]
+      properties:
+        code:
+          type: string
+        requestId:
+          type: string
+        message:
+          type: string
+          description: Safe client message that does not disclose identity topology or internal IDs.
