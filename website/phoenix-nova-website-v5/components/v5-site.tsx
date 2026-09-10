@@ -186,7 +186,6 @@ function SiteHeader({ locale, page, inverse = false }: { locale: Locale; page: P
           compact
           inverse={inverse}
           href={`/${locale}`}
-          label={pick(locale, "Phoenix Nova 首页", "Phoenix Nova home")}
         />
         <nav className="desktop-nav" aria-label={pick(locale, "主导航", "Primary navigation")}>
           {primaryNavigation.map((item) => item.kind === "internal" ? (
@@ -200,7 +199,7 @@ function SiteHeader({ locale, page, inverse = false }: { locale: Locale; page: P
           ))}
         </nav>
         <div className="header-actions">
-          <Link className="locale-switch" href={hrefFor(otherLocale, page)} aria-label={pick(locale, "切换至英文", "Switch to Chinese")}>
+          <Link className="locale-switch" href={hrefFor(otherLocale, page)} aria-label={pick(locale, "EN，切换至英文", "中文，switch to Chinese")}>
             {locale === "zh" ? "EN" : "中文"}
           </Link>
           <Link className="portal-link" href={hrefFor(locale, "family-center")}>
@@ -235,7 +234,7 @@ function SiteFooter({ locale }: { locale: Locale }) {
     <footer className="site-footer">
       <div className="shell site-footer__top">
         <div className="site-footer__brand">
-          <BrandMark inverse href={`/${locale}`} label={pick(locale, "Phoenix Nova 首页", "Phoenix Nova home")} />
+          <BrandMark inverse href={`/${locale}`} />
           <p>For Every Beginning.</p>
           <span>{pick(locale, "每一次启程，都值得更好的未来。", "Every beginning deserves a better future.")}</span>
         </div>
@@ -287,7 +286,7 @@ function HomePage({ locale }: { locale: Locale }) {
               <Link className="text-action" href={hrefFor(locale, "about")}>{pick(locale, "认识 Phoenix Nova", "Meet Phoenix Nova")} <Arrow /></Link>
             </div>
           </div>
-          <div className="gateway-hero__visual" aria-label={pick(locale, "Phoenix Nova 官方凤凰罗盘", "Phoenix Nova official phoenix compass")}>
+          <div className="gateway-hero__visual" role="img" aria-label={pick(locale, "Phoenix Nova 官方凤凰罗盘", "Phoenix Nova official phoenix compass")}>
             <span className="gateway-hero__coordinate gateway-hero__coordinate--top">22.3193° N · 114.1694° E</span>
             <PatternMedallion variant="master" size="hero" />
             <div className="gateway-hero__mark"><Image src="/brand/phoenix-nova-mark-official.png" alt="" width={145} height={145} priority unoptimized /></div>
@@ -322,7 +321,7 @@ function HomePage({ locale }: { locale: Locale }) {
 
         <div className="shell portal-directory__grid">
           <Link className="portal-tile portal-tile--compass" href={hrefFor(locale, "compass")}>
-            <Image src="/images/phoenix-compass-hero.png" alt="" fill sizes="(max-width: 980px) 100vw, 58vw" unoptimized />
+            <Image src="/images/phoenix-compass-hero.webp" alt="" fill sizes="(max-width: 980px) 100vw, 58vw" unoptimized />
             <span className="portal-tile__shade" />
             <span className="portal-tile__number">01 / DIRECTION</span>
             <div className="portal-tile__content">
@@ -385,7 +384,7 @@ function HomePage({ locale }: { locale: Locale }) {
 
           <a className="portal-tile portal-tile--digital" href={digitalWorldUrl} rel="noreferrer" target="_blank">
             <Image
-              src="/images/fengqi-digital-immortals.png"
+              src="/images/fengqi-digital-immortals.webp"
               alt={pick(locale, "数字凤启仙兽图：鹤潼引路、凤凰执中、九大仙灵共栖山海", "Phoenix Nova Digital World: the guide, phoenix and nine immortal guardians")}
               fill
               sizes="100vw"
@@ -456,7 +455,7 @@ function PageHero({ locale, page, eyebrow, title, lead, image }: { locale: Local
   return (
     <section className={`page-hero ${inverse ? "page-hero--inverse" : ""} ${image ? `page-hero--${image}` : ""}`}>
       <SiteHeader locale={locale} page={page} inverse={inverse} />
-      {image ? <div className="page-hero__image" aria-hidden="true"><Image src={image === "compass" ? "/images/phoenix-compass-hero.png" : "/images/phoenix-departure-hero.png"} alt="" fill sizes="100vw" priority unoptimized /></div> : null}
+      {image ? <div className="page-hero__image" aria-hidden="true"><Image src={image === "compass" ? "/images/phoenix-compass-hero.webp" : "/images/phoenix-departure-hero.png"} alt="" fill sizes="100vw" priority unoptimized /></div> : null}
       <div className="shell page-hero__content">
         <p className="candidate-tag">V5 CANDIDATE</p>
         <p className="eyebrow">{eyebrow}</p>

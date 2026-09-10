@@ -6,14 +6,12 @@ type BrandMarkProps = {
   compact?: boolean;
   className?: string;
   href?: string;
-  label?: string;
 };
 
-export function BrandMark({ inverse = false, compact = false, className = "", href = "/", label = "Phoenix Nova 首页" }: BrandMarkProps) {
+export function BrandMark({ inverse = false, compact = false, className = "", href = "/" }: BrandMarkProps) {
   return (
     <Link
       href={href}
-      aria-label={label}
       className={`brand-mark ${compact ? "brand-mark--compact" : ""} ${inverse ? "brand-mark--inverse" : ""} ${className}`}
     >
       <span className="brand-asset-wrap">
@@ -27,7 +25,7 @@ export function BrandMark({ inverse = false, compact = false, className = "", hr
           alt=""
         />
       </span>
-      <span className="brand-lockup" aria-hidden="true">
+      <span className="brand-lockup">
         <span className="brand-cn">鳳啟</span>
         <span className="brand-en">PHOENIX NOVA™</span>
       </span>

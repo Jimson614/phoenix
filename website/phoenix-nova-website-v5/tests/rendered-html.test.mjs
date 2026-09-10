@@ -51,7 +51,7 @@ test("connects Digital Phoenix to the approved immortal-guardian world", async (
   const html = await response.text();
   assert.match(html, /数字凤启/);
   assert.match(html, /进入仙兽图/);
-  assert.match(html, /\/images\/fengqi-digital-immortals\.png/);
+  assert.match(html, /\/images\/fengqi-digital-immortals\.webp/);
   assert.match(html, /https:\/\/fengqi-research-institute\.yvettfang\.chatgpt\.site/);
 });
 
