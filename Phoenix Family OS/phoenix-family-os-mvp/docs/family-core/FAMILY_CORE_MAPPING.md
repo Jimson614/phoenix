@@ -33,7 +33,7 @@ erDiagram
 | --- | --- | --- | --- | --- |
 | Family OS browser/WeChat local user | `users.id`, `wechat_id`, mutable contact fields | `core.users` + `core.auth_identities` + adult `core.members` | Preserve verified provider/Auth UUID; create mapping only after verified login/operator review | Demo identities excluded; contact-only matches quarantined |
 | Family OS backend SQLite user | `users(id, auth_provider, provider_subject)` | same as above | Provider subject is a source key, not Core ID | `local_demo` never promoted automatically |
-| Family OS family | local `families` in client and SQLite | `core.families` + `core.family_memberships` | Family is tenant/privacy boundary; no single-owner assumption | Multi-guardian and multi-family authority policy remains HOLD |
+| Family OS family | local `families` in client and SQLite | `core.families` + `core.family_memberships` | Family is tenant/privacy boundary; no single-owner assumption | V1 direction approved; precedence/dispute and invitation UX parameters remain pending and fail closed |
 | Family OS child/student | local `students.id` | minor `core.members` + `core.students` | Resolve through `external_identity_mappings` | Name/phone/school/demographics forbidden as automatic key |
 | Identity Compass browser context | localStorage `usr_*`, `fam_*`, `asm_*` | external mapping to Core User/Family; assessment remains domain record | Browser IDs remain source IDs until verified Core context is issued | No trusted server repository or auth proof in PR #8 |
 | Education Compass student | module-local `student_id` | `core.external_identity_mappings` → Core `student_id` and `member_pk` | Adapter requires one active mapping, same family, consent, entitlement and permission | Synthetic adapter gate PASS |

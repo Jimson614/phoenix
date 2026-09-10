@@ -47,7 +47,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes postgresql-client
 
-      - name: Run empty-build, RLS, rollback, backup and restore gate
+      - name: Run policy, empty-build, RLS, rollback, backup and restore gates
         working-directory: Phoenix Family OS/phoenix-family-os-mvp
         env:
           FAMILY_CORE_PG_URL: postgresql://postgres@127.0.0.1:5432/postgres

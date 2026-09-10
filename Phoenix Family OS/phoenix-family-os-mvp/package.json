@@ -5,7 +5,8 @@
   "description": "Phoenix Family OS WeChat Mini Program MVP V0.1",
   "scripts": {
     "test": "node tests/run-tests.js && node tests/partner-experience.test.js && node tests/sprint1-regression.test.js && node tests/user-entry-flow.test.js && node tests/submission-safety.test.js && node tests/backend-questionnaire.test.js && node tests/backend-api.test.js && node tests/questionnaire-sync.test.js && node tests/questionnaire-page-sync.test.js && node tests/backend-e2e.test.js && node tests/validate-project.js",
-    "family-core:gate": "node backend/family-core-sandbox/scripts/run-gate.cjs",
+    "family-core:policy": "node backend/family-core-sandbox/scripts/verify-policy-v1.cjs",
+    "family-core:gate": "npm run family-core:policy && node backend/family-core-sandbox/scripts/run-gate.cjs",
     "backend:start": "node backend/server.js",
     "backend:test": "node tests/backend-questionnaire.test.js && node tests/backend-api.test.js && node tests/questionnaire-sync.test.js && node tests/questionnaire-page-sync.test.js && node tests/backend-e2e.test.js",
     "typecheck": "tsc --noEmit",

@@ -1,8 +1,8 @@
 # Phoenix Family Core PostgreSQL Sandbox
 
-Status: `SYNTHETIC TEST ONLY / NO PRODUCTION AUTHORITY`
+Status: `FOUNDER POLICY V1 FROZEN / SYNTHETIC TEST ONLY / NO PRODUCTION AUTHORITY`
 
-This package turns the approved Gate 0/1 identity design and the PR #10–#11 Family OS contracts into a reproducible PostgreSQL proof. It does not migrate a production database, accept real customer data, deploy a service, or freeze any unresolved Guardian, Consent, Retention, or Entitlement policy.
+This package turns the approved Gate 0/1 identity design, the PR #10–#11 Family OS contracts, and the Founder-approved Family Core Policy V1 into reproducible denial-first proofs. It does not migrate a production database, accept real customer data, deploy a service, or invent any unresolved Legal/Privacy parameter.
 
 ## Authoritative baseline
 
@@ -26,9 +26,17 @@ NNNN_<bounded_context>_<purpose>.down.sql
 
 The runner orders files lexically, records the SHA-256 of every applied `up` file in `public.family_core_schema_migrations`, and fails on checksum drift. Rollback runs the matching `down` files in reverse order.
 
-## Gate command
+## Gate commands
 
-The runner requires PostgreSQL client commands (`psql`, `createdb`, `dropdb`, `pg_dump`, and `pg_restore`) and a disposable PostgreSQL server. Supply connection values through the process environment; do not commit them.
+The policy gate uses Node.js only and requires no database:
+
+```powershell
+npm run family-core:policy
+```
+
+It validates the frozen machine-readable baseline and executes at least one deny path for every approved policy ID.
+
+The combined gate requires PostgreSQL client commands (`psql`, `createdb`, `dropdb`, `pg_dump`, and `pg_restore`) and a disposable PostgreSQL server. Supply connection values through the process environment; do not commit them.
 
 ```powershell
 $env:FAMILY_CORE_PG_URL = 'postgresql://postgres@127.0.0.1:5432/postgres'
@@ -37,22 +45,23 @@ $env:FAMILY_CORE_PG_BIN = 'C:\path\to\postgresql\bin' # optional
 npm run family-core:gate
 ```
 
-The GitHub workflow starts an isolated PostgreSQL 17 service and runs the same command. Evidence is uploaded as a short-lived artifact.
+The GitHub workflow starts an isolated PostgreSQL 17 service and runs the same combined command. Policy and database evidence are uploaded as short-lived artifacts.
 
 ## What the gate proves
 
-1. A new empty database is built only from ordered migrations.
-2. Exactly two fictional families are loaded, each with an adult account/Guardian and a minor Student member.
-3. An Auth UUID survives an explicit reviewed mapping unchanged.
-4. Test accounts are excluded and ambiguous contact hints cannot auto-merge identities.
-5. Education source IDs map to `family_id + member_pk + student_id`, then atomically create a Compass Result, Journey, Timeline Event, Blueprint, adapter trace, and audit row.
-6. Exact replay is idempotent; changed replay is rejected.
-7. PostgreSQL RLS isolates Family A from Family B.
-8. Tampered `family_id` and Student/member mappings are rejected.
-9. Consent and Guardian withdrawal remove access immediately.
-10. Consent, Timeline, adapter trace, and audit evidence is append-only.
-11. `pg_dump` → clean `pg_restore` reproduces row counts and deterministic per-table checksums.
-12. All migrations roll back, schemas disappear, and the empty database can be rebuilt again.
+1. The frozen V1 baseline is internally consistent and every one of its 14 policy IDs has an executable deny path.
+2. A new empty database is built only from ordered migrations.
+3. Exactly two fictional families are loaded, each with an adult account/Guardian and a minor Student member.
+4. An Auth UUID survives an explicit reviewed mapping unchanged.
+5. Test accounts are excluded and ambiguous contact hints cannot auto-merge identities.
+6. Education source IDs map to `family_id + member_pk + student_id`, then atomically create a Compass Result, Journey, Timeline Event, Blueprint, adapter trace, and audit row.
+7. Exact replay is idempotent; changed replay is rejected.
+8. PostgreSQL RLS isolates Family A from Family B.
+9. Tampered `family_id` and Student/member mappings are rejected.
+10. Consent and Guardian withdrawal remove access immediately.
+11. Consent, Timeline, adapter trace, and audit evidence is append-only.
+12. `pg_dump` → clean `pg_restore` reproduces row counts and deterministic per-table checksums.
+13. All migrations roll back, schemas disappear, and the empty database can be rebuilt again.
 
 ## Data flow
 
@@ -77,8 +86,8 @@ Auth provider UUID
 - The adapter accepts hashes and controlled codes, not raw answers, documents, names, phone numbers, or public report URLs.
 - The package never reads application `.env` files.
 - No command targets the existing Family OS SQLite database, Education PostgreSQL database, production host, RDS instance, D1 database, or WeChat environment.
-- Policy choices that remain unresolved are recorded separately in `docs/family-core/POLICY_GAPS_FOR_FOUNDER.md`.
+- Founder-approved directions are frozen in `docs/family-core/FOUNDER_POLICY_FREEZE_V1.md` and the machine-readable policy file. Legal/Privacy parameters that remain unresolved are tracked in `docs/family-core/POLICY_GAPS_FOR_FOUNDER.md` and continue to fail closed.
 
 ## Known limitation
 
-This is an executable schema and authorization proof, not a production Core service. Production still requires approved policy decisions, threat/privacy review, service authentication, managed-secret injection, connection pooling, observability, RDS operational rehearsal, and an explicitly approved migration plan.
+This is an executable schema and authorization reference proof, not a production Core service. Production still requires the named Legal/Privacy parameters, threat/privacy review, service authentication, managed-secret injection, connection pooling, observability, RDS operational rehearsal, and an explicitly approved release and migration plan.

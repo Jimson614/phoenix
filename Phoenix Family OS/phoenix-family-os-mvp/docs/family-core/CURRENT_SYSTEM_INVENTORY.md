@@ -48,4 +48,4 @@ This inventory records facts that were reproducible on Jimson's Windows host. It
 
 ## Audit conclusion
 
-The sole executable Family Core candidate is the clean local sandbox branch at `fe13955a962284fe6a3a1de11ecb18418f54c875`. It is a synthetic PostgreSQL proof, not a production source of truth. Production authority remains blocked until policy, security, operations, and migration gates are approved and the locally committed branch is pushed for review.
+The executable Family Core candidate is the synthetic sandbox stack rooted at `fe13955a962284fe6a3a1de11ecb18418f54c875`, with later audit and approved-policy commits carried by Draft PR #14. It is not a production source of truth. Founder Policy V1 is frozen, but Legal/Privacy parameters and every production, real-data, public-indexing, security, operations and migration Gate remain blocked.

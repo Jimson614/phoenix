@@ -1,8 +1,10 @@
-# Policy Gaps for Founder
+# Family Core Policy Parameters Still Requiring Named Owners
 
-Status: `POLICY HOLD / NO DEFAULTS INVENTED`
+Status: `FOUNDER POLICY V1 APPROVED / LEGAL PARAMETERS PENDING / NO PRODUCTION GO`
 
-The sandbox implements denial-first mechanics and test-only status values. It does not choose business or legal policy.
+Jimson approved `FOUNDER_POLICY_FREEZE_PROPOSAL_V1` as proposed at `2026-09-10 15:44:44 +08:00`. The frozen directions and failure modes are recorded in `FOUNDER_POLICY_FREEZE_V1.md`; the executable baseline is `backend/family-core-sandbox/policy/family-core-policy-v1.json`.
+
+The table below is retained as the original decision-question inventory. Its “Founder decision required” column now means the named Legal/Privacy/Product/Security/Operations parameter still required under the approved V1 direction. Engineering must not invent those values; an unknown value remains denied or `POLICY_HOLD`.
 
 | Policy question | Technical options | Default risk if Jimson/Codex guesses | Founder decision required | Blocks |
 | --- | --- | --- | --- | --- |
@@ -20,4 +22,12 @@ The sandbox implements denial-first mechanics and test-only status values. It do
 | Cross-domain data sharing | explicit per-domain consent; Core-provided minimal context; central aggregation | purpose creep and excessive exposure | allowed fields and purposes for Education/Identity/Wealth; Health remains reserved | adapter productionization |
 | Data subject access/export | family-level export; subject-level export; controlled operator package | incomplete or cross-family export | eligible requester, scope, identity proof, delivery method and SLA | privacy operations |
 
-Until each row is approved, production code must keep the relevant path denied or `POLICY_HOLD`. The synthetic fixtures and tests are not policy precedent.
+## Frozen release boundary
+
+- Production: `NO-GO`
+- Real data: `NO-GO`
+- Public indexing: `NO-GO`
+- Database migration: `NO-GO`
+- Health and PR #12/#13: `HOLD`
+
+Founder direction is approved for all rows, but the listed owner-specific legal and operational parameters remain incomplete. Production code must keep every incomplete path denied or `POLICY_HOLD`. The Node reference gate proves `14/14` policy-ID deny paths; PostgreSQL proves selected runtime controls. Neither is production authorization. See `POLICY_TRACEABILITY_V1.md` for exact evidence maturity.
