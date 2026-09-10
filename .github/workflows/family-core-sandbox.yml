@@ -45,14 +45,29 @@ jobs:
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
+          sudo apt-get install --yes ca-certificates curl
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail --show-error --silent \
+            --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          printf '%s\n' \
+            'Types: deb' \
+            'URIs: https://apt.postgresql.org/pub/repos/apt' \
+            "Suites: ${VERSION_CODENAME}-pgdg" \
+            'Components: main' \
+            'Signed-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc' \
+            | sudo tee /etc/apt/sources.list.d/pgdg.sources > /dev/null
+          sudo apt-get update
           sudo apt-get install --yes postgresql-client-17
-          psql --version
-          pg_dump --version
+          /usr/lib/postgresql/17/bin/psql --version
+          /usr/lib/postgresql/17/bin/pg_dump --version
 
       - name: Run policy, empty-build, RLS, rollback, backup and restore gates
         working-directory: Phoenix Family OS/phoenix-family-os-mvp
         env:
           FAMILY_CORE_PG_URL: postgresql://postgres@127.0.0.1:5432/postgres
+          FAMILY_CORE_PG_BIN: /usr/lib/postgresql/17/bin
           FAMILY_CORE_RUN_SUFFIX: ci_${{ github.run_id }}_${{ github.run_attempt }}
           FAMILY_CORE_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/family-core-gate
           PGPASSWORD: family-core-synthetic-ci-only
