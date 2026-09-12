@@ -1,0 +1,39 @@
+<view class="exploration page--paper">
+  <view class="exploration__top">
+    <view class="exploration__progress"><view style="width: {{progress}}%;"></view></view>
+    <view class="row row--between exploration__meta"><text>{{result ? 'EXPLORATION STARTING POINT' : 'STEP ' + (stepIndex + 1) + ' / ' + questions.length}}</text><text>{{experience.projectName}}</text></view>
+  </view>
+
+  <view wx:if="{{!result}}" class="exploration__body">
+    <text class="eyebrow">MUSIC EXPLORATION</text>
+    <text class="exploration__kicker">没有标准答案 · 约 2 分钟</text>
+    <text class="h1 exploration__title">{{current.label}}</text>
+    <text class="muted exploration__hint">{{current.hint}}</text>
+    <view class="exploration__options">
+      <view wx:for="{{current.options}}" wx:key="*this" class="exploration-option {{selected === item ? 'exploration-option--selected' : ''}}" data-value="{{item}}" bindtap="choose" hover-class="exploration-option--pressed">
+        <text>{{item}}</text><text>{{selected === item ? '✓' : '○'}}</text>
+      </view>
+    </view>
+    <view class="exploration__actions">
+      <button class="exploration__back" bindtap="previous">{{stepIndex ? '上一步' : '退出'}}</button>
+      <button class="btn btn--primary exploration__next" bindtap="next">{{stepIndex === questions.length - 1 ? '查看探索起点' : '继续'}}</button>
+    </view>
+  </view>
+
+  <view wx:else class="result">
+    <view class="result__halo"><text>♪</text></view>
+    <text class="eyebrow">A PLACE TO BEGIN</text>
+    <text class="h1 result__title">{{result.title}}</text>
+    <text class="result__lead">这张卡记录的是当下可以开始观察的线索。</text>
+    <view class="result-card">
+      <view class="result-row"><text class="result-row__number">01</text><view><text class="result-row__label">当前兴趣信号</text><text class="result-row__copy">{{result.signal}}</text></view></view>
+      <view class="result-row"><text class="result-row__number">02</text><view><text class="result-row__label">建议体验方向</text><text class="result-row__copy">{{result.direction}}</text></view></view>
+      <view class="result-row"><text class="result-row__number">03</text><view><text class="result-row__label">下一步建议</text><text class="result-row__copy">{{result.nextStep}}</text></view></view>
+    </view>
+    <text class="result__disclaimer">{{result.disclaimer}}</text>
+    <button class="btn btn--gold result__button" bindtap="save">{{saved ? '已保存到家庭档案' : '保存到家庭档案'}}</button>
+    <button class="btn btn--outline result__button" bindtap="apply">申请联合体验</button>
+    <button class="result__edit" bindtap="previous">修改回答</button>
+  </view>
+  <view class="safe-bottom"></view>
+</view>

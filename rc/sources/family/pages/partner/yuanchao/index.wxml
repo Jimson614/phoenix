@@ -1,0 +1,111 @@
+<view class="partner-page">
+  <view class="custom-nav" style="padding-top: {{navigation.statusBarHeight}}px; min-height: {{navigation.navigationBarHeight}}px; padding-right: {{navigation.menuButtonSafeWidth}}px;">
+    <view class="custom-nav__back" bindtap="back" hover-class="custom-nav__back--pressed" aria-label="返回">‹</view>
+    <brand-mark light compact />
+  </view>
+
+  <view class="hero">
+    <view class="hero__orbit hero__orbit--large"></view>
+    <view class="hero__orbit hero__orbit--small"></view>
+    <view class="hero__staff"><view wx:for="{{[1,2,3,4,5]}}" wx:key="*this"></view></view>
+    <view class="hero__wave"><view wx:for="{{[1,2,3,4,5,6,7,8,9,10,11]}}" wx:key="*this" class="hero__wave-bar hero__wave-bar--{{index}}"></view></view>
+    <view class="hero__content">
+      <view class="hero__status"><text>{{experience.heroCopy.eyebrow}}</text><text>CONCEPT PREVIEW · V0.1</text></view>
+      <text class="hero__project">{{experience.projectName}}</text>
+      <text class="hero__english">{{experience.englishName}}</text>
+      <text class="hero__collaboration">{{experience.collaborationLabel}}</text>
+      <text class="hero__subtitle">{{experience.subtitle}}</text>
+      <view class="hero__line"></view>
+      <text class="hero__headline">{{experience.heroCopy.headline}}</text>
+      <text class="hero__description">{{experience.heroCopy.description}}</text>
+      <view class="hero__actions">
+        <button class="hero__button hero__button--gold" bindtap="startExploration" hover-class="button--pressed">开启音乐探索</button>
+        <button class="hero__button hero__button--ghost" bindtap="learnJourney" hover-class="button--pressed">了解成长路径</button>
+      </view>
+      <text class="hero__supporting">{{experience.heroCopy.supporting}}</text>
+    </view>
+  </view>
+
+  <view class="partner-content">
+    <view class="section-intro">
+      <text class="section-intro__index">01</text>
+      <text class="eyebrow">THREE GROWTH MODULES</text>
+      <text class="section-title">从声音开始，走向自己的表达</text>
+      <text class="section-copy">音乐不是一次课程消费，而是一种可以被发现、创作并长期记录的成长语言。</text>
+    </view>
+
+    <view class="capabilities">
+      <view wx:for="{{experience.capabilityCards}}" wx:key="number" class="capability-card">
+        <view class="capability-card__head"><text>{{item.number}}</text><text>{{item.english}}</text></view>
+        <text class="capability-card__title">{{item.title}}</text>
+        <text class="capability-card__copy">{{item.description}}</text>
+        <view class="tag-list"><text wx:for="{{item.tags}}" wx:key="*this">{{item}}</text></view>
+      </view>
+    </view>
+
+    <view id="journey" class="journey section-dark">
+      <view class="section-intro section-intro--dark">
+        <text class="section-intro__index">02</text>
+        <text class="eyebrow">THE GROWTH JOURNEY</text>
+        <text class="section-title">探索 → 发现 → 创作 → 呈现 → 成长</text>
+        <text class="section-copy">这是一段从兴趣发现到长期成长记录的过程，不是一次性课程购买路径。</text>
+      </view>
+      <view class="journey__path">
+        <view wx:for="{{experience.journeySteps}}" wx:key="number" class="journey-step">
+          <view class="journey-step__rail"><view class="journey-step__dot"></view><view wx:if="{{index < experience.journeySteps.length - 1}}" class="journey-step__line"></view></view>
+          <view class="journey-step__body">
+            <view><text class="journey-step__english">{{item.english}}</text><text class="journey-step__chinese">{{item.chinese}}</text></view>
+            <text class="journey-step__title">{{item.title}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="collaboration">
+      <view class="section-intro">
+        <text class="section-intro__index">03</text>
+        <text class="eyebrow">CREATING TOGETHER</text>
+        <text class="section-title">共同完成孩子的成长记录</text>
+      </view>
+      <view class="responsibility-grid">
+        <view wx:for="{{experience.responsibilities}}" wx:key="owner" class="responsibility-card {{index === 1 ? 'responsibility-card--navy' : ''}}">
+          <text class="responsibility-card__owner">{{item.owner}}</text>
+          <text class="responsibility-card__role">{{item.role}}</text>
+          <view class="responsibility-card__line"></view>
+          <view wx:for="{{item.items}}" wx:key="*this" class="responsibility-card__item"><text>＋</text><text>{{item}}</text></view>
+        </view>
+      </view>
+      <view class="collaboration__statement"><text>“</text><text>{{experience.collaborationStatement}}</text></view>
+    </view>
+
+    <view class="outcomes">
+      <view class="section-intro">
+        <text class="section-intro__index">04</text>
+        <text class="eyebrow">GROWTH OUTCOMES</text>
+        <text class="section-title">未来，会留下什么</text>
+        <text class="section-copy">以下为静态结构预览，用于展示未来成长档案的形态，不代表任何真实儿童数据或既有合作成果。</text>
+      </view>
+      <view class="outcome-grid">
+        <view wx:for="{{experience.outcomes}}" wx:key="number" class="outcome-card">
+          <view class="outcome-card__head"><text>{{item.number}}</text><text>DEMO</text></view>
+          <text class="outcome-card__title">{{item.title}}</text>
+          <view class="outcome-card__preview">
+            <view wx:for="{{item.items}}" wx:key="*this" class="outcome-card__item"><text></text><text>{{item}}</text></view>
+          </view>
+          <text class="outcome-card__note">{{item.note}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="cta">
+      <view class="cta__glow"></view>
+      <text class="cta__eyebrow">BEGIN WITH A REAL CREATION</text>
+      <text class="cta__title">{{experience.cta.headline}}</text>
+      <text class="cta__copy">{{experience.cta.description}}</text>
+      <button class="hero__button hero__button--gold" bindtap="apply" hover-class="button--pressed">{{experience.cta.primary}}</button>
+      <button class="hero__button hero__button--ghost" bindtap="savePlan" hover-class="button--pressed">{{experience.cta.secondary}}</button>
+      <text class="cta__note">当前为合作构想演示，不含课程价格、购买或支付。</text>
+    </view>
+  </view>
+  <view class="safe-bottom"></view>
+</view>

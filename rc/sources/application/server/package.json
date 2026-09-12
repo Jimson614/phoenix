@@ -1,0 +1,40 @@
+{
+  "name": "phoenix-family-os-server",
+  "version": "0.5.0",
+  "private": true,
+  "description": "Trusted Phoenix Family OS V0.5.0 backend with Education Compass Level 1 and Level 2, WeChat Pay, dual OpenAI analysis, and an opt-in Feishu profile mirror",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test dist/tests/domain.test.js dist/tests/http.test.js dist/tests/wechat-pay.test.js dist/tests/feishu.test.js dist/tests/agent.test.js dist/tests/education-contracts.test.js dist/tests/education-http.test.js dist/tests/education-integrations.test.js dist/tests/masters-domain.test.js dist/tests/masters-files.test.js dist/tests/masters-exports.test.js dist/tests/masters-http.test.js dist/tests/masters-workflow-http.test.js",
+    "test:education-contracts": "npm run build && node --test dist/tests/education-contracts.test.js",
+    "test:education-http": "npm run build && node --test dist/tests/education-http.test.js",
+    "test:education-integrations": "npm run build && node --test dist/tests/education-integrations.test.js",
+    "db:migrate": "node scripts/migrate.js",
+    "start": "node dist/src/index.js",
+    "start:agent-worker": "node dist/src/services/agent-worker-main.js",
+    "agent:worker:once": "node dist/src/services/agent-worker-main.js --once",
+    "test:masters": "npm run build && node --test dist/tests/masters-*.test.js"
+  },
+  "dependencies": {
+    "busboy": "1.6.0",
+    "fflate": "0.8.3",
+    "jpeg-js": "0.4.4",
+    "openai": "6.49.0",
+    "pdfjs-dist": "6.3.289",
+    "pdfkit": "0.20.2",
+    "pg": "^8.16.3",
+    "pngjs": "7.0.0"
+  },
+  "devDependencies": {
+    "@types/busboy": "1.5.4",
+    "@types/node": "^24.3.0",
+    "@types/pdfkit": "0.17.6",
+    "@types/pg": "^8.15.5",
+    "@types/pngjs": "6.0.5",
+    "typescript": "^5.9.2"
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": { "brand-mark": "/components/brand-mark/index" }
+}

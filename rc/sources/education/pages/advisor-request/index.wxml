@@ -1,0 +1,33 @@
+<view class="page page--paper advisor-page">
+  <image class="advisor-page__feather" src="/assets/ui/feather-champagne.png" mode="aspectFit" aria-hidden="true" />
+  <block wx:if="{{!submitted}}">
+    <view class="advisor-hero">
+      <image class="advisor-hero__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+      <text class="eyebrow">HUMAN CONNECTION</text>
+      <text class="h1 advisor-title">{{heroTitle}}</text>
+      <text class="muted advisor-copy">{{heroCopy}}</text>
+    </view>
+    <text wx:if="{{reportId}}" class="status status--warm">{{intent === 'DEEP_ASSESSMENT' ? '已关联可进入深度评估咨询的完整报告' : '已关联当前 Education Compass 报告'}}</text>
+
+    <view class="advisor-profile">
+      <view class="advisor-profile__avatar">P</view>
+      <view><text class="advisor-profile__title">Phoenix Family Advisor</text><text class="advisor-profile__subtitle">报告解读 · 方向梳理 · 下一步规划</text></view>
+    </view>
+
+    <view class="field"><text class="field__label">希望讨论的主题</text><picker mode="selector" range="{{topics}}" value="{{topicIndex}}" bindchange="pickTopic"><view class="picker {{!form.topic ? 'placeholder' : ''}}">{{form.topic || '请选择'}}</view></picker></view>
+    <view class="field"><text class="field__label">方便联系的时间</text><picker mode="selector" range="{{times}}" value="{{timeIndex}}" bindchange="pickTime"><view class="picker {{!form.preferred_time ? 'placeholder' : ''}}">{{form.preferred_time || '请选择'}}</view></picker></view>
+    <view wx:if="{{supportsNote}}" class="field"><text class="field__label">补充说明（选填）</text><textarea class="textarea" value="{{form.note}}" maxlength="300" placeholder="还有什么希望顾问提前了解？" bindinput="input"></textarea></view>
+    <checkbox-group bindchange="toggleConsent">
+      <label class="field consent-copy"><checkbox value="confirmed" checked="{{consentConfirmed}}" color="#b58b3f" /><text>我同意授权的凤启顾问查看必要摘要并就我选择的教育支持联系我。顾问不能修改测评规则，也不能查看未授权的原始作答或学习过程全文。</text></label>
+    </checkbox-group>
+    <view class="form-actions"><button class="btn btn--primary" loading="{{submitting}}" disabled="{{loading || !consentConfirmed}}" bindtap="submit">{{submitLabel}}</button></view>
+  </block>
+
+  <view wx:else class="success">
+    <image class="success__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+    <view class="success__mark">✓</view>
+    <text class="h1 success__title">申请已记录</text>
+    <text class="muted success__copy">{{submittedCopy}}</text>
+    <button class="btn btn--primary success__btn" bindtap="done">完成</button>
+  </view>
+</view>

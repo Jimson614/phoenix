@@ -1,0 +1,60 @@
+{
+  "fixtureId": "LEVEL2_OTHER_FALLBACK_VALID_V1",
+  "questionnaireVersion": "education_growth_discovery_v1.0.0-rc1",
+  "educationSystem": "OTHER",
+  "expectedSystemResultMarker": "SYSTEM_BANK_PENDING",
+  "create": {
+    "method": "POST",
+    "path": "/v1/students/{studentId}/education-assessments",
+    "headers": { "Idempotency-Key": "example-other-create-001" },
+    "body": {
+      "assessmentKind": "STUDENT_GROWTH_DISCOVERY",
+      "sourceAssessmentId": "{completedLevel1AssessmentId}",
+      "sourceEntry": "LEVEL_1_RESULT",
+      "educationSystem": "OTHER",
+      "respondent": "STUDENT",
+      "assent": {
+        "scope": "STUDENT_ASSESSMENT_ASSENT",
+        "copyVersion": "student_assent_growth_discovery_v1.0.0-rc1",
+        "locale": "zh-CN",
+        "studentConfirmed": true
+      }
+    }
+  },
+  "draft": {
+    "method": "PUT",
+    "path": "/v1/assessments/{assessmentId}/draft",
+    "body": {
+      "revision": 1,
+      "educationSystem": "OTHER",
+      "clientSaveToken": "example-other-save-001",
+      "answers": {
+        "EGD01": "CONFIRM_STUDENT_SELF",
+        "EGD02": "UPPER_SECONDARY",
+        "EGD03": "OTHER",
+        "EGD04": "2027",
+        "EGD05": ["HONG_KONG"],
+        "EGD06": ["FOUNDATION"],
+        "EGD07": "CONSISTENT_STRONG",
+        "EGD08": ["CHINESE_LANGUAGE"],
+        "EGD09": ["CHINESE_LANGUAGE"],
+        "EGD10": "DECOMPOSE_CONDITIONS",
+        "EGD11": "RARELY",
+        "EGD12": "PLAN_AND_REVIEW",
+        "EGD13": "ATTRIBUTE_AND_RETRY",
+        "EGD14": ["TEACHER_EXPLANATION"],
+        "EGD15": ["SCIENCE"],
+        "EGD16": "SUSTAINED_OUTPUT",
+        "EGD17": ["FOUNDATION_GAP"],
+        "EGD18": "SUBJECT_DIAGNOSIS",
+        "EGD19": ["MAINLAND_TERTIARY_DIPLOMA"]
+      }
+    }
+  },
+  "submit": {
+    "method": "POST",
+    "path": "/v1/assessments/{assessmentId}/submit",
+    "headers": { "Idempotency-Key": "example-other-submit-001" },
+    "body": { "revision": 2 }
+  }
+}

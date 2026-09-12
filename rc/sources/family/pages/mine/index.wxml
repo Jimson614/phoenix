@@ -1,0 +1,18 @@
+<view class="mine-page">
+  <view class="mine-hero">
+    <view class="mine-hero__avatar">{{user.initial}}</view>
+    <text class="mine-hero__name">{{user.name || '家庭用户'}}</text>
+    <text class="mine-hero__family">{{family ? family.family_name : '尚未建立家庭档案'}}</text>
+    <view class="mine-stats"><view><text>{{studentCount}}</text><text>孩子档案</text></view><view><text>{{reportCount}}</text><text>成长报告</text></view></view>
+  </view>
+
+  <view class="page mine-body">
+    <view class="mine-menu">
+      <view class="mine-menu__item" bindtap="editFamily"><text>家庭资料</text><text class="chevron">›</text></view>
+      <view class="mine-menu__item" bindtap="addStudent"><text>添加孩子档案</text><text class="chevron">›</text></view>
+      <view class="mine-menu__item" bindtap="advisor"><text>联系 Phoenix 顾问</text><text class="chevron">›</text></view>
+    </view>
+    <view class="data-note"><text class="data-note__title">家庭数据原则</text><text class="data-note__copy">家庭档案、成长洞察与关系历史共同组成 Family OS。未来任何专家协作都必须经过家庭授权。</text></view>
+    <button class="btn btn--text mine-logout" bindtap="logout">退出登录</button>
+  </view>
+</view>

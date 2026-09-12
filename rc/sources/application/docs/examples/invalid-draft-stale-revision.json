@@ -1,0 +1,15 @@
+{
+  "fixtureId": "INVALID_DRAFT_STALE_REVISION",
+  "precondition": "The assessment draft was already saved and current revision is 2.",
+  "expectedStatus": 409,
+  "expectedErrorCode": "DRAFT_REVISION_STALE",
+  "request": {
+    "method": "PUT",
+    "path": "/v1/assessments/{assessmentId}/draft",
+    "body": {
+      "revision": 1,
+      "clientSaveToken": "invalid-stale-save-001",
+      "answers": {}
+    }
+  }
+}

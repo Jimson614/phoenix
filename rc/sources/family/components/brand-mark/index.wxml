@@ -1,0 +1,23 @@
+<view class="brand {{light ? 'brand--light' : ''}} {{compact ? 'brand--compact' : ''}}">
+  <image
+    wx:if="{{compact}}"
+    class="brand__logo"
+    src="{{light ? '/assets/brand/phoenix-nova-icon-light.png' : '/assets/brand/phoenix-nova-icon-primary.png'}}"
+    mode="widthFix"
+    aria-label="鳳啟 Phoenix Nova"
+  />
+  <image
+    wx:else
+    class="brand__logo"
+    src="{{light ? '/assets/brand/phoenix-nova-logo-light.png' : '/assets/brand/phoenix-nova-logo-primary.png'}}"
+    mode="widthFix"
+    aria-label="鳳啟 Phoenix Nova"
+  />
+  <view wx:if="{{!compact}}" class="brand__product-lockup">
+    <view class="brand__divider"></view>
+    <view class="brand__product-copy">
+      <text class="brand__product">FAMILY OS™</text>
+      <text class="brand__descriptor">家庭成长系统</text>
+    </view>
+  </view>
+</view>

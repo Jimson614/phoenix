@@ -1,0 +1,5 @@
+{
+  "navigationBarTitleText": "家庭详情",
+  "backgroundColor": "#FAF5EC",
+  "usingComponents": { "brand-mark": "/components/brand-mark/index" }
+}

@@ -1,0 +1,445 @@
+.home {
+  background:
+    radial-gradient(circle at 88% 2%, rgba(221, 189, 125, .18), transparent 27%),
+    linear-gradient(180deg, #fffdf9 0%, #fcf8f4 100%);
+  min-height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.home__feather {
+  height: 620rpx;
+  opacity: .14;
+  pointer-events: none;
+  position: absolute;
+  right: -230rpx;
+  top: -90rpx;
+  transform: rotate(18deg);
+  width: 420rpx;
+  z-index: 0;
+}
+
+.home__header,
+.home-state,
+.onboarding,
+.family-hero,
+.home__body {
+  position: relative;
+  z-index: 1;
+}
+
+.home-state {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: calc(100vh - 180rpx);
+  padding: 48rpx;
+  text-align: center;
+}
+
+.home-state__compass {
+  height: 112rpx;
+  margin-bottom: 28rpx;
+  opacity: .78;
+  pointer-events: none;
+  width: 112rpx;
+}
+
+.home-state .muted {
+  margin: 18rpx 0 28rpx;
+  max-width: 560rpx;
+}
+
+.home-state .btn {
+  min-width: 280rpx;
+}
+
+.home-state--error::before {
+  filter: grayscale(.55);
+  opacity: .48;
+}
+
+.home__header {
+  align-items: center;
+  box-sizing: content-box;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 30rpx 22rpx 36rpx;
+}
+
+.home__hello {
+  background: rgba(255, 253, 249, .86);
+  border: 1rpx solid var(--line);
+  border-radius: 999rpx;
+  color: var(--ink-secondary);
+  flex-shrink: 0;
+  font-size: 21rpx;
+  margin-left: 16rpx;
+  max-width: 176rpx;
+  min-height: 64rpx;
+  overflow: hidden;
+  padding: 17rpx 22rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.onboarding {
+  background:
+    radial-gradient(circle at 84% 18%, rgba(221, 189, 125, .28), transparent 29%),
+    rgba(255, 253, 249, .92);
+  border: 1rpx solid var(--line);
+  border-radius: 44rpx;
+  box-shadow: var(--shadow-card);
+  margin: 26rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));
+  min-height: calc(100vh - 220rpx);
+  overflow: hidden;
+  padding: 88rpx 44rpx 64rpx;
+}
+
+.onboarding::after {
+  background: radial-gradient(circle, rgba(220, 184, 111, .2), transparent 70%);
+  border-radius: 50%;
+  bottom: -210rpx;
+  content: "";
+  height: 580rpx;
+  opacity: .17;
+  pointer-events: none;
+  position: absolute;
+  right: -190rpx;
+  transform: rotate(12deg);
+  width: 400rpx;
+}
+
+.onboarding .eyebrow,
+.onboarding__title,
+.onboarding__copy,
+.onboarding__progress,
+.onboarding .btn {
+  position: relative;
+  z-index: 1;
+}
+
+.onboarding__title {
+  color: var(--navy);
+  display: block;
+  font-family: var(--font-display);
+  font-size: 56rpx;
+  font-weight: 700;
+  line-height: 1.42;
+  margin-top: 26rpx;
+  white-space: pre-line;
+}
+
+.onboarding__copy {
+  color: var(--ink-secondary);
+  display: block;
+  line-height: 1.8;
+  margin: 34rpx 0 76rpx;
+  max-width: 560rpx;
+}
+
+.onboarding__progress {
+  background: #eee4d7;
+  border-radius: 10rpx;
+  height: 8rpx;
+  margin-bottom: 30rpx;
+  overflow: hidden;
+}
+
+.onboarding__progress-fill {
+  background: linear-gradient(90deg, var(--gold-light), var(--gold));
+  border-radius: inherit;
+  height: 100%;
+  transition: width .24s ease;
+}
+
+.family-hero {
+  background:
+    radial-gradient(circle at 88% 18%, rgba(221, 189, 125, .25), transparent 34%),
+    linear-gradient(150deg, #fffdf9, #f8f0e5);
+  border-bottom: 1rpx solid var(--line);
+  min-height: 340rpx;
+  overflow: hidden;
+  padding: 58rpx 40rpx 52rpx;
+}
+
+.family-hero > text,
+.family-hero__meta {
+  max-width: 76%;
+  position: relative;
+  z-index: 1;
+}
+
+.family-hero__compass {
+  height: 260rpx;
+  opacity: .28;
+  pointer-events: none;
+  position: absolute;
+  right: -42rpx;
+  top: 40rpx;
+  width: 260rpx;
+}
+
+.family-hero__label {
+  color: var(--gold-deep);
+  display: block;
+  font-size: 21rpx;
+  font-weight: 650;
+  letter-spacing: 3rpx;
+}
+
+.family-hero__name {
+  color: var(--navy);
+  display: block;
+  font-family: var(--font-display);
+  font-size: 56rpx;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-top: 18rpx;
+}
+
+.family-hero__goal {
+  color: var(--ink-secondary);
+  display: block;
+  font-family: var(--font-display);
+  font-size: 27rpx;
+  line-height: 1.72;
+  margin-top: 18rpx;
+}
+
+.family-hero__meta {
+  color: var(--muted);
+  display: flex;
+  font-size: 22rpx;
+  margin-top: 30rpx;
+}
+
+.family-hero__dot {
+  color: var(--gold);
+  margin: 0 12rpx;
+}
+
+.home__body {
+  padding-top: 32rpx;
+}
+
+.child-line {
+  align-items: center;
+  background: rgba(255, 253, 249, .94);
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  min-height: 132rpx;
+  padding: 26rpx 28rpx;
+}
+
+.child-line:active,
+.insight-block:active,
+.next-block:active,
+.home-link:active {
+  background-color: var(--gold-wash);
+}
+
+.child-line__avatar {
+  align-items: center;
+  background: linear-gradient(145deg, #f7ebd6, #ead4aa);
+  border: 1rpx solid var(--line-strong);
+  border-radius: 50%;
+  color: var(--gold-deep);
+  display: flex;
+  font-family: var(--font-display);
+  font-size: 31rpx;
+  height: 80rpx;
+  justify-content: center;
+  margin-right: 22rpx;
+  width: 80rpx;
+}
+
+.child-line__label,
+.child-line__name,
+.child-line__stage {
+  display: block;
+}
+
+.child-line__label {
+  color: var(--subtle);
+  font-size: 20rpx;
+}
+
+.child-line__name {
+  color: var(--navy);
+  font-size: 30rpx;
+  font-weight: 650;
+  margin-top: 5rpx;
+}
+
+.child-line__stage {
+  color: var(--muted);
+  font-size: 22rpx;
+  margin-top: 4rpx;
+}
+
+.insight-block {
+  background:
+    radial-gradient(circle at 92% 10%, rgba(221, 189, 125, .2), transparent 30%),
+    linear-gradient(155deg, #fffdf9, #f7ebd6);
+  border: 1rpx solid var(--line-strong);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  margin-top: 28rpx;
+  min-height: 220rpx;
+  padding: 34rpx;
+}
+
+.insight-block__title {
+  color: var(--navy);
+  display: block;
+  font-family: var(--font-display);
+  font-size: 36rpx;
+  font-weight: 700;
+  line-height: 1.45;
+  margin-top: 7rpx;
+}
+
+.insight-block__mark {
+  height: 70rpx;
+  opacity: .75;
+  pointer-events: none;
+  width: 70rpx;
+}
+
+.insight-block__copy {
+  color: var(--ink-secondary);
+  display: block;
+  line-height: 1.78;
+}
+
+.insight-block__link {
+  color: var(--gold-deep);
+  display: block;
+  font-size: 24rpx;
+  font-weight: 600;
+  margin-top: 24rpx;
+}
+
+.next-block {
+  background: rgba(255, 253, 249, .72);
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-card);
+  margin-top: 28rpx;
+  min-height: 188rpx;
+  padding: 30rpx 32rpx;
+}
+
+.next-block__label,
+.next-block__title,
+.next-block__note {
+  display: block;
+}
+
+.next-block__label {
+  color: var(--gold-deep);
+  font-size: 21rpx;
+  font-weight: 650;
+  letter-spacing: 3rpx;
+}
+
+.next-block__title {
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-size: 34rpx;
+  font-weight: 700;
+  line-height: 1.5;
+  margin-top: 12rpx;
+}
+
+.next-block__note {
+  color: var(--muted);
+  font-size: 24rpx;
+  line-height: 1.65;
+  margin-top: 8rpx;
+}
+
+.next-block__line {
+  background: #e9e1d5;
+  border-radius: 5rpx;
+  height: 6rpx;
+  margin-top: 22rpx;
+  overflow: hidden;
+}
+
+.next-block__line view {
+  background: linear-gradient(90deg, var(--gold-light), var(--gold));
+  border-radius: inherit;
+  height: 100%;
+}
+
+.home-links {
+  background: rgba(255, 253, 249, .86);
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-card);
+  margin-top: 28rpx;
+  overflow: hidden;
+}
+
+.home-link {
+  align-items: center;
+  display: flex;
+  min-height: 104rpx;
+  padding: 0 28rpx;
+}
+
+.home-link + .home-link {
+  border-top: 1rpx solid var(--line);
+}
+
+.home-link__number {
+  color: var(--gold-deep);
+  font-family: var(--font-display);
+  font-size: 23rpx;
+  margin-right: 22rpx;
+}
+
+.home-link__title {
+  color: var(--navy);
+  flex: 1;
+  font-weight: 650;
+}
+
+@media (max-width: 360px) {
+  .home__header {
+    padding-left: 26rpx;
+  }
+
+  .home__hello {
+    max-width: 142rpx;
+    padding-left: 16rpx;
+    padding-right: 16rpx;
+  }
+
+  .onboarding {
+    margin-left: 24rpx;
+    margin-right: 24rpx;
+    padding-left: 32rpx;
+    padding-right: 32rpx;
+  }
+
+  .onboarding__title {
+    font-size: 48rpx;
+  }
+
+  .family-hero {
+    padding-left: 32rpx;
+    padding-right: 32rpx;
+  }
+
+  .family-hero__name {
+    font-size: 46rpx;
+  }
+
+  .family-hero__compass {
+    opacity: .2;
+  }
+}

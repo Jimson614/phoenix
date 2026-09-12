@@ -1,0 +1,25 @@
+.welcome { background: linear-gradient(165deg, #0b1b2b 0%, #152d43 58%, #0d1b2a 100%); box-sizing: border-box; color: white; min-height: 100vh; overflow-x: hidden; padding: 0 40rpx 30rpx; position: relative; width: 100%; }
+.welcome__glow { border-radius: 50%; filter: blur(20rpx); opacity: .18; position: absolute; }
+.welcome__glow--one { background: #e3bd68; height: 440rpx; right: -220rpx; top: 220rpx; width: 440rpx; }
+.welcome__glow--two { background: #7ca1ae; bottom: 160rpx; height: 360rpx; left: -230rpx; width: 360rpx; }
+.welcome__top, .welcome__hero, .orbit, .welcome__actions, .welcome__footer { position: relative; z-index: 1; }
+.welcome__top { align-items: center; box-sizing: content-box; display: flex; }
+.welcome__hero { margin-top: 76rpx; }
+.welcome__eyebrow { color: #d6bd84; display: block; font-size: 20rpx; letter-spacing: 5rpx; }
+.welcome__title { display: block; font-family: "Songti SC", serif; font-size: 62rpx; font-weight: 700; line-height: 1.28; margin-top: 22rpx; white-space: pre-line; }
+.welcome__subtitle { color: rgba(255,255,255,.68); display: block; font-size: 25rpx; line-height: 1.8; margin-top: 26rpx; white-space: pre-line; }
+.orbit { height: 360rpx; margin: 40rpx auto 24rpx; width: 540rpx; }
+.orbit__ring { border: 1rpx solid rgba(218,190,125,.34); border-radius: 50%; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); }
+.orbit__ring--outer { height: 340rpx; width: 520rpx; }
+.orbit__ring--inner { border-style: dashed; height: 250rpx; width: 380rpx; }
+.orbit__core { align-items: center; background: rgba(255,255,255,.07); border: 1rpx solid rgba(255,255,255,.16); border-radius: 50%; display: flex; flex-direction: column; height: 190rpx; justify-content: center; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); width: 190rpx; }
+.orbit__big { color: #f2dca9; font-family: serif; font-size: 68rpx; line-height: 1; }
+.orbit__small { color: rgba(255,255,255,.6); font-size: 15rpx; letter-spacing: 2rpx; }
+.orbit__label { color: #ead6a6; font-family: serif; font-size: 23rpx; position: absolute; }
+.orbit__label--one { left: 16rpx; top: 164rpx; }
+.orbit__label--two { right: 62rpx; top: 18rpx; }
+.orbit__label--three { bottom: 18rpx; right: 70rpx; }
+.welcome__actions { margin-top: 10rpx; }
+.welcome__login { background: transparent; color: rgba(255,255,255,.72); font-size: 25rpx; margin-top: 16rpx; }
+.welcome__login::after { border: 0; }
+.welcome__footer { color: rgba(255,255,255,.38); font-size: 20rpx; margin-top: 34rpx; text-align: center; }

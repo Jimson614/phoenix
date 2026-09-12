@@ -1,0 +1,40 @@
+{
+  "pages": [
+    "pages/welcome/index",
+    "pages/home/index",
+    "pages/family-edit/index",
+    "pages/student-edit/index",
+    "pages/compass/index",
+    "pages/compass-questionnaire/index",
+    "pages/report/index",
+    "pages/timeline/index",
+    "pages/advisor-request/index",
+    "pages/mine/index",
+    "pages/admin-families/index",
+    "pages/admin-family/index",
+    "pages/partner/yuanchao/index",
+    "pages/partner/music-exploration/index",
+    "pages/partner/apply/index"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#F8F3EA",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "Phoenix Family OS",
+    "backgroundColor": "#F8F3EA",
+    "backgroundTextStyle": "light"
+  },
+  "tabBar": {
+    "color": "#7A8087",
+    "selectedColor": "#B78A37",
+    "backgroundColor": "#FFFDF9",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/home/index", "text": "家庭" },
+      { "pagePath": "pages/timeline/index", "text": "时间线" },
+      { "pagePath": "pages/mine/index", "text": "我的" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

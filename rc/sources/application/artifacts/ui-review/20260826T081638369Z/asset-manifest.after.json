@@ -1,0 +1,60 @@
+{
+  "phase": "after",
+  "generatedAt": "2026-08-26T09:58:30.670Z",
+  "files": [
+    {
+      "path": "assets/brand/phoenix-nova-icon-light.png",
+      "bytes": 27093,
+      "sha256": "7af26e93599057a1b1d8d23a25fc76a3d73cc386ef61eb68280a1433905622b7",
+      "width": 141,
+      "height": 207
+    },
+    {
+      "path": "assets/brand/phoenix-nova-icon-primary.png",
+      "bytes": 35166,
+      "sha256": "76fbd87f8ccfca75dd26ef657b30e9c100c48738fadb5b11dd6a4fb4b0925289",
+      "width": 141,
+      "height": 207
+    },
+    {
+      "path": "assets/brand/phoenix-nova-logo-light.png",
+      "bytes": 95539,
+      "sha256": "aeb1e6dd729143b91f0f5108f3ee88a39d44a1d967d177f6a7f8e167c312f24b",
+      "width": 431,
+      "height": 254
+    },
+    {
+      "path": "assets/brand/phoenix-nova-logo-primary.png",
+      "bytes": 114538,
+      "sha256": "4b3b4d43155916e55590e16764907c04abbf436a0704cd909e30e245c8cd51cf",
+      "width": 431,
+      "height": 254
+    },
+    {
+      "path": "assets/ui/compass-champagne.png",
+      "bytes": 352394,
+      "sha256": "79b211ffb94a4ed911cfe6675a771344724a1d6f80ca69d1beca4c0515c277ac",
+      "width": 640,
+      "height": 640
+    },
+    {
+      "path": "assets/ui/feather-champagne.png",
+      "bytes": 523396,
+      "sha256": "c75bb6061c0e4219917508ea6d39e1cddca2b1b459ce67895d4d1f8f7737e2ca",
+      "width": 640,
+      "height": 960
+    }
+  ],
+  "totals": {
+    "fileCount": 6,
+    "totalBytes": 1148126,
+    "brand": {
+      "fileCount": 4,
+      "totalBytes": 272336
+    },
+    "ui": {
+      "fileCount": 2,
+      "totalBytes": 875790
+    }
+  }
+}

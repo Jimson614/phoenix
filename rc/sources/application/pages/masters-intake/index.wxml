@@ -1,0 +1,37 @@
+<view class="masters-intake page--screen">
+  <image class="ui-feather ui-feather--top-right" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+  <view class="page masters-intake__page">
+    <view class="masters-intake__topbar"><brand-mark /><text class="masters-intake__label">APPLICATION COMPASS</text></view>
+    <view class="masters-intake__hero">
+      <text class="eyebrow">HONG KONG MASTER'S</text>
+      <text class="h1 masters-intake__title">香港硕士，<br />我适合申请哪些学校和专业？</text>
+      <text class="body masters-intake__copy">上传现有简历和成绩单，或通过简短引导补充背景。我们将根据你的资料整理申请建议，经顾问复核后提供。免费咨询，不需要先购买测评或申请服务。</text>
+      <view class="masters-intake__promise"><text>资料由你核对</text><text>缺件也能先咨询</text><text>方案经顾问复核</text></view>
+    </view>
+
+    <view wx:if="{{!enabled}}" class="panel masters-intake__closed">
+      <text class="h3">入口正在准备中</text>
+      <text class="muted">当前版本默认关闭咨询开关。开放后会连接受信服务端，上传结果以服务端附件编号为准。</text>
+    </view>
+
+    <view wx:else class="masters-intake__entries">
+      <view class="panel masters-entry">
+        <view class="masters-entry__head"><text class="masters-entry__number">01</text><view class="grow"><text class="h3">我有简历，直接上传</text><text class="muted">先上传简历，识别后只核对和补充缺失信息。</text></view></view>
+        <button class="btn btn--gold" data-path="RESUME" bindtap="begin">上传简历开始</button>
+      </view>
+      <view class="panel masters-entry">
+        <view class="masters-entry__head"><text class="masters-entry__number">02</text><view class="grow"><text class="h3">我没有简历，帮我整理</text><text class="muted">分段填写教育、成绩与语言、申请目标和经历，可随时跳过未知项。</text></view></view>
+        <button class="btn btn--outline" data-path="GUIDED" bindtap="begin">通过简短引导开始</button>
+      </view>
+    </view>
+
+    <view class="masters-intake__actions">
+      <button class="btn btn--text" bindtap="openList">查看我的申请咨询</button>
+      <button class="btn btn--text" bindtap="shareHint">转发咨询入口</button>
+    </view>
+    <view wx:if="{{!loggedIn && enabled}}" class="ui-privacy-note"><text aria-hidden="true">◇</text><text>登录会在当前页面完成，登录后自动回到你选择的入口。不会要求先建立家庭档案或购买测评。</text></view>
+    <view wx:if="{{loginBusy}}" class="masters-intake__busy" aria-busy="true">正在完成可信登录…</view>
+    <view wx:if="{{error}}" class="masters-intake__error">{{error}}</view>
+    <button class="btn btn--text masters-intake__home" bindtap="home">返回家庭首页</button>
+  </view>
+</view>

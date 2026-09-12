@@ -1,0 +1,57 @@
+<view wx:if="{{report}}" class="report">
+  <view class="report__cover">
+    <text class="eyebrow">PHOENIX GROWTH INSIGHT</text>
+    <text class="report__name">{{student.name}}的
+成长洞察</text>
+    <text class="report__date">Education Compass · {{dateLabel}}</text>
+    <view class="report__seal"><text>AI</text><text>INSIGHT</text></view>
+  </view>
+
+  <view class="page report__body">
+    <view class="report__intro">
+      <text class="report__quote">“</text>
+      <text>{{report.summary.narrative}}</text>
+    </view>
+
+    <view class="report-section">
+      <text class="report-section__number">01</text>
+      <text class="report-section__label">CURRENT STAGE</text>
+      <text class="report-section__title">{{report.summary.currentStage}}</text>
+      <text class="report-section__copy">这是孩子此刻的成长位置，而不是固定标签。每一次新的行动与反馈，都可能更新这份理解。</text>
+    </view>
+
+    <view class="report-section">
+      <text class="report-section__number">02</text>
+      <text class="report-section__label">STRENGTH</text>
+      <text class="report-section__title">{{report.summary.strength}}</text>
+      <view class="report-highlight"><text>潜在挑战</text><text>{{report.summary.potentialChallenge}}</text></view>
+    </view>
+
+    <view class="report-section">
+      <text class="report-section__number">03</text>
+      <text class="report-section__label">SUGGESTED DIRECTION</text>
+      <text class="report-section__title">建议方向</text>
+      <text class="report-section__copy">{{report.recommendation.suggestedDirection}}</text>
+    </view>
+
+    <view class="action-card">
+      <text class="action-card__label">NEXT 30 DAYS</text>
+      <text class="action-card__title">下一步行动</text>
+      <text class="action-card__copy">{{report.recommendation.nextAction}}</text>
+    </view>
+
+    <view class="report-note">这份洞察用于支持家庭讨论，不替代学校、心理或医疗专业意见。</view>
+    <view wx:if="{{userRole === 'family_user'}}" class="form-actions">
+      <button class="btn btn--primary" bindtap="save">已保存至 Family OS</button>
+      <button class="btn btn--outline" bindtap="contact">联系顾问解读报告</button>
+      <button class="btn btn--text" bindtap="home">返回家庭中心</button>
+    </view>
+  </view>
+</view>
+
+<view wx:elif="{{errorMessage}}" class="page page--paper report-error">
+  <view class="empty__mark">!</view>
+  <text class="h2 report-error__title">暂时无法打开这份报告</text>
+  <text class="muted report-error__copy">{{errorMessage}}</text>
+  <button class="btn btn--primary report-error__button" bindtap="leaveError">返回安全页面</button>
+</view>

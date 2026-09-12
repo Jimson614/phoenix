@@ -1,0 +1,21 @@
+.brand { align-items: center; display: flex; min-height: 64rpx; min-width: 0; }
+.brand__logo { display: block; flex-shrink: 0; height: auto; width: 214rpx; }
+.brand__product-lockup { align-items: center; display: flex; margin-left: 16rpx; }
+.brand__divider { background: rgba(20,36,58,.18); height: 50rpx; width: 1rpx; }
+.brand__product-copy { display: flex; flex-direction: column; margin-left: 16rpx; }
+.brand__product, .brand__descriptor { display: block; white-space: nowrap; }
+.brand__product { color: #14243a; font-family: "Songti SC", "STSong", serif; font-size: 19rpx; font-weight: 650; letter-spacing: 2rpx; }
+.brand__descriptor { color: #89580c; font-size: 16rpx; letter-spacing: 1rpx; margin-top: 5rpx; }
+.brand--light .brand__divider { background: rgba(255,249,237,.24); }
+.brand--light .brand__product { color: #fff9ed; }
+.brand--light .brand__descriptor { color: #ddbd7d; }
+.brand--compact { min-height: 48rpx; }
+.brand--compact .brand__logo { width: 48rpx; }
+
+@media (max-width: 360px) {
+  .brand__logo { width: 190rpx; }
+  .brand__product-lockup { margin-left: 12rpx; }
+  .brand__product-copy { margin-left: 12rpx; }
+  .brand__product { font-size: 17rpx; }
+  .brand__descriptor { font-size: 14rpx; }
+}

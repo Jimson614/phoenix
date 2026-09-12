@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "phoenix_http_smoke_redacted_v1",
+  "generatedAt": "2026-08-25T10:25:37.830Z",
+  "status": "PASS",
+  "mode": "LOCAL_HTTP_MOCK",
+  "externalCalls": 0,
+  "checkpoints": [
+    "health",
+    "profile",
+    "level1-ready",
+    "level2-locked-no-leak",
+    "mock-payment-authority",
+    "level2-ready"
+  ],
+  "commandId": "education-http-smoke",
+  "exitCode": 0,
+  "stdoutSha256": "8490FDCC8D2851044A53CB10E6AF91E87301A2FD1B75B6CC2AC15555124A6C09",
+  "stderrSha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+  "bindings": {
+    "freezeSha256": "9884503DA89A61F1DFC78FF97F429FDE210D240B30764D099105DD7C8A100B2D",
+    "migrationAggregateSha256": "DBDCDDA40BB8995BC65CED72A6F7D867F55ED1F270AE5C3F437DB238DDDA703D",
+    "sourceBeforeSha256": "329AF47BDE481D22E4FAD0B4B0CE34A4B671070E0A20775B1E62D448C6B77D8D",
+    "sourceAfterSha256": "329AF47BDE481D22E4FAD0B4B0CE34A4B671070E0A20775B1E62D448C6B77D8D"
+  }
+}

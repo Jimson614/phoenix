@@ -1,0 +1,5 @@
+.profile-title { display: block; margin-top: 18rpx; }
+.profile-intro { display: block; margin-top: 18rpx; }
+.form-grid { display: flex; flex-wrap: wrap; justify-content: space-between; margin-top: 18rpx; }
+.form-grid .field { width: calc(50% - 10rpx); }
+.form-grid .form-grid__wide { width: 100%; }

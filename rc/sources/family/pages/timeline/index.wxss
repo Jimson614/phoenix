@@ -1,0 +1,14 @@
+.timeline-title { display: block; margin-top: 18rpx; white-space: pre-line; }
+.timeline-copy { display: block; margin-top: 16rpx; }
+.timeline { margin-top: 50rpx; }
+.timeline__item { display: flex; min-height: 150rpx; }
+.timeline__rail { align-items: center; display: flex; flex-direction: column; margin-right: 24rpx; width: 56rpx; }
+.timeline__icon { align-items: center; background: #0d1b2a; border: 5rpx solid #eee3cf; border-radius: 50%; color: #e0c681; display: flex; font-family: serif; font-size: 19rpx; height: 56rpx; justify-content: center; width: 56rpx; }
+.timeline__line { background: #ddd2c0; flex: 1; width: 2rpx; }
+.timeline__item:last-child .timeline__line { background: linear-gradient(#ddd2c0, transparent); }
+.timeline__content { border-bottom: 1rpx solid #e7dece; flex: 1; padding: 6rpx 0 34rpx; }
+.timeline__label { color: #9a742f; font-size: 21rpx; letter-spacing: 1rpx; }
+.timeline__date { color: #999189; font-size: 20rpx; }
+.timeline__description { color: #0d1b2a; display: block; font-size: 28rpx; font-weight: 600; line-height: 1.55; margin-top: 12rpx; }
+.empty-copy { display: block; margin-top: 14rpx; }
+.empty-btn { margin-top: 30rpx; }

@@ -1,0 +1,422 @@
+{
+  "package_status": "FROZEN_BY_PRODUCT_MANIFEST",
+  "schema_version": "phoenix_question_bank_schema_v1",
+  "candidate_version": "education_compass_question_banks_v1.0.0-rc1",
+  "language": "zh-CN",
+  "global_rules": {
+    "all_questions_scored": false,
+    "no_numeric_ability_score": true,
+    "no_file_upload": true,
+    "no_exact_score_required": true,
+    "answers_use_option_codes": true,
+    "other_free_text_enabled": false,
+    "sensitive_data_prompt": "请勿填写姓名、电话、证件号、精确地址、医疗资料或其他可识别个人的信息。",
+    "system_switch_rule": "切换教育体系时保留公共题答案；删除原体系分支答案；重新加载新体系分支；写入一次 SYSTEM_ROUTE_CHANGED 审计事件。"
+  },
+  "option_catalogs": {
+    "education_system": [
+      { "code": "GAOKAO", "label": "内地课程／高考" },
+      { "code": "DSE", "label": "香港中学文凭考试 DSE" },
+      { "code": "IGCSE", "label": "IGCSE" },
+      { "code": "A_LEVEL", "label": "A-Level" },
+      { "code": "AP_US", "label": "AP／美国课程" },
+      { "code": "IB", "label": "IB（首版公共题模式）" },
+      { "code": "OTHER", "label": "其他／尚未确定（首版公共题模式）" }
+    ],
+    "grade_stage": [
+      { "code": "PRIMARY", "label": "小学" },
+      { "code": "LOWER_SECONDARY", "label": "初中／Lower Secondary" },
+      { "code": "UPPER_SECONDARY", "label": "高中／Upper Secondary" },
+      { "code": "POST_SECONDARY", "label": "大学或以上" },
+      { "code": "OTHER_STAGE", "label": "其他阶段" }
+    ],
+    "subject_generic": [
+      { "code": "CHINESE_LANGUAGE", "label": "中文／语文" },
+      { "code": "ENGLISH_LANGUAGE", "label": "英文／英语" },
+      { "code": "MATHEMATICS", "label": "数学" },
+      { "code": "PHYSICS", "label": "物理" },
+      { "code": "CHEMISTRY", "label": "化学" },
+      { "code": "BIOLOGY", "label": "生物" },
+      { "code": "COMPUTER_SCIENCE", "label": "计算机／信息科技" },
+      { "code": "ECONOMICS_BUSINESS", "label": "经济／商业" },
+      { "code": "HISTORY_GEOGRAPHY", "label": "历史／地理" },
+      { "code": "SOCIAL_SCIENCE", "label": "社会科学" },
+      { "code": "ARTS_DESIGN", "label": "艺术／设计" },
+      { "code": "OTHER_SUBJECT", "label": "其他学科" },
+      { "code": "UNSURE", "label": "暂不确定" }
+    ],
+    "subject_GAOKAO": [
+      { "code": "CHINESE", "label": "语文" }, { "code": "MATHEMATICS", "label": "数学" },
+      { "code": "ENGLISH", "label": "英语" }, { "code": "PHYSICS", "label": "物理" },
+      { "code": "CHEMISTRY", "label": "化学" }, { "code": "BIOLOGY", "label": "生物" },
+      { "code": "HISTORY", "label": "历史" }, { "code": "GEOGRAPHY", "label": "地理" },
+      { "code": "POLITICS", "label": "思想政治" }, { "code": "INFORMATION_TECHNOLOGY", "label": "信息科技" },
+      { "code": "OTHER_SUBJECT", "label": "其他学科" }, { "code": "UNSURE", "label": "暂不确定" }
+    ],
+    "subject_DSE": [
+      { "code": "CHINESE_LANGUAGE", "label": "中国语文" }, { "code": "ENGLISH_LANGUAGE", "label": "英国语文" },
+      { "code": "MATHEMATICS", "label": "数学" }, { "code": "CITIZENSHIP_SOCIAL_DEVELOPMENT", "label": "公民与社会发展" },
+      { "code": "MATHEMATICS_EXTENDED", "label": "数学延伸单元" }, { "code": "PHYSICS", "label": "物理" },
+      { "code": "CHEMISTRY", "label": "化学" }, { "code": "BIOLOGY", "label": "生物" },
+      { "code": "ECONOMICS", "label": "经济" }, { "code": "BAFS", "label": "企业、会计与财务概论" },
+      { "code": "GEOGRAPHY", "label": "地理" }, { "code": "HISTORY", "label": "历史" },
+      { "code": "ICT", "label": "信息及通讯科技" }, { "code": "VISUAL_ARTS", "label": "视觉艺术" },
+      { "code": "OTHER_SUBJECT", "label": "其他科目" }, { "code": "UNSURE", "label": "暂不确定" }
+    ],
+    "subject_IGCSE": [
+      { "code": "ENGLISH_FIRST_OR_SECOND", "label": "English／ESL" }, { "code": "MATHEMATICS", "label": "Mathematics" },
+      { "code": "ADDITIONAL_MATHEMATICS", "label": "Additional Mathematics" }, { "code": "PHYSICS", "label": "Physics" },
+      { "code": "CHEMISTRY", "label": "Chemistry" }, { "code": "BIOLOGY", "label": "Biology" },
+      { "code": "COMBINED_SCIENCE", "label": "Combined Science" }, { "code": "COMPUTER_SCIENCE", "label": "Computer Science" },
+      { "code": "BUSINESS_ECONOMICS", "label": "Business／Economics" }, { "code": "HISTORY_GEOGRAPHY", "label": "History／Geography" },
+      { "code": "LANGUAGES", "label": "Languages" }, { "code": "ARTS", "label": "Arts" },
+      { "code": "OTHER_SUBJECT", "label": "其他科目" }, { "code": "UNSURE", "label": "暂不确定" }
+    ],
+    "subject_A_LEVEL": [
+      { "code": "MATHEMATICS", "label": "Mathematics" }, { "code": "FURTHER_MATHEMATICS", "label": "Further Mathematics" },
+      { "code": "PHYSICS", "label": "Physics" }, { "code": "CHEMISTRY", "label": "Chemistry" },
+      { "code": "BIOLOGY", "label": "Biology" }, { "code": "ECONOMICS", "label": "Economics" },
+      { "code": "BUSINESS", "label": "Business" }, { "code": "PSYCHOLOGY", "label": "Psychology" },
+      { "code": "COMPUTER_SCIENCE", "label": "Computer Science" }, { "code": "HISTORY", "label": "History" },
+      { "code": "GEOGRAPHY", "label": "Geography" }, { "code": "ENGLISH_LITERATURE", "label": "English Literature" },
+      { "code": "ART_DESIGN", "label": "Art & Design" }, { "code": "OTHER_SUBJECT", "label": "其他科目" },
+      { "code": "UNSURE", "label": "暂不确定" }
+    ],
+    "subject_AP_US": [
+      { "code": "ENGLISH_ELA", "label": "English／ELA" }, { "code": "MATHEMATICS", "label": "Mathematics" },
+      { "code": "BIOLOGY", "label": "Biology" }, { "code": "CHEMISTRY", "label": "Chemistry" },
+      { "code": "PHYSICS", "label": "Physics" }, { "code": "HISTORY_SOCIAL_SCIENCE", "label": "History／Social Science" },
+      { "code": "ECONOMICS", "label": "Economics" }, { "code": "COMPUTER_SCIENCE", "label": "Computer Science" },
+      { "code": "WORLD_LANGUAGE", "label": "World Language" }, { "code": "ARTS", "label": "Arts" },
+      { "code": "OTHER_AP_COURSE", "label": "其他 AP／高级课程" }, { "code": "NONE_CURRENTLY", "label": "目前未修读 AP／高级课程" },
+      { "code": "UNSURE", "label": "暂不确定" }
+    ]
+  },
+  "level_1": {
+    "bank_version": "free_parent_compass_v1.0.0-rc1",
+    "respondent": "PARENT_GUARDIAN",
+    "estimated_minutes": "3-5",
+    "question_ids": ["FP01", "FP02", "FP03", "FP04", "FP05", "FP06", "FP07", "FP08"],
+    "required_question_ids": ["FP01", "FP02", "FP03", "FP04", "FP05", "FP06", "FP07", "FP08"],
+    "optional_question_ids": [],
+    "questions": [
+      {
+        "id": "FP01", "key": "child_stage", "label": "孩子当前处于哪个教育阶段？", "type": "SINGLE_CHOICE", "required": true,
+        "options": [
+          { "code": "EARLY_CHILDHOOD", "label": "幼儿" }, { "code": "PRIMARY", "label": "小学" },
+          { "code": "LOWER_SECONDARY", "label": "初中" }, { "code": "UPPER_SECONDARY", "label": "高中" },
+          { "code": "POST_SECONDARY", "label": "大学或以上" }, { "code": "OTHER_STAGE", "label": "其他" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["CONTEXT"], "signal_codes": ["CHILD_STAGE"], "scored": false
+      },
+      {
+        "id": "FP02", "key": "education_system", "label": "孩子当前主要学习哪一种课程体系？", "type": "SINGLE_CHOICE", "required": true,
+        "options_ref": "option_catalogs.education_system", "validation": { "minSelections": 1, "maxSelections": 1 },
+        "dimensions": ["CONTEXT"], "signal_codes": ["EDUCATION_SYSTEM"], "scored": false
+      },
+      {
+        "id": "FP03", "key": "parent_concerns", "label": "你目前最关注哪些问题？", "type": "MULTI_CHOICE", "required": true,
+        "options": [
+          { "code": "ACADEMIC_SUBJECTS", "label": "成绩与学科" }, { "code": "LEARNING_HABITS", "label": "学习习惯" },
+          { "code": "LEARNING_MOTIVATION", "label": "学习动力" }, { "code": "SUBJECT_SELECTION", "label": "选科" },
+          { "code": "INTEREST_DIRECTION", "label": "专业／兴趣方向" }, { "code": "EDUCATION_PATH", "label": "升学路径" },
+          { "code": "SYSTEM_TRANSITION", "label": "身份与教育衔接" }, { "code": "SCHOOL_CHOICE", "label": "学校选择" },
+          { "code": "FAMILY_STUDENT_ALIGNMENT", "label": "亲子目标不一致" }, { "code": "OTHER_CONCERN", "label": "其他" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 3 }, "dimensions": ["FAMILY_CONCERN"], "signal_codes": ["PARENT_CONCERN"], "scored": false
+      },
+      {
+        "id": "FP04", "key": "observed_strengths", "label": "你观察到孩子目前最明显的优势是什么？", "type": "MULTI_CHOICE", "required": true,
+        "options": [
+          { "code": "QUICK_UNDERSTANDING", "label": "理解较快" }, { "code": "MEMORY", "label": "记忆较好" },
+          { "code": "COMMUNICATION", "label": "表达沟通" }, { "code": "LOGICAL_ANALYSIS", "label": "逻辑分析" },
+          { "code": "HANDS_ON", "label": "动手实践" }, { "code": "CREATIVITY", "label": "创造力" },
+          { "code": "SELF_MANAGEMENT", "label": "自我管理" }, { "code": "INTEREST_CLARITY", "label": "兴趣较明确" },
+          { "code": "NOT_CLEAR", "label": "暂时看不清" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 2, "exclusiveOptions": ["NOT_CLEAR"] },
+        "dimensions": ["PARENT_OBSERVATION"], "signal_codes": ["PARENT_OBSERVED_STRENGTH"], "scored": false
+      },
+      {
+        "id": "FP05", "key": "observed_difficulties", "label": "你观察到孩子目前最大的困难是什么？", "type": "MULTI_CHOICE", "required": true,
+        "options": [
+          { "code": "KNOWS_BUT_CANNOT_APPLY", "label": "知道但不会用" }, { "code": "FOUNDATION_UNSTABLE", "label": "基础知识不稳" },
+          { "code": "SLOW_TASK_SPEED", "label": "做题／完成任务较慢" }, { "code": "CARELESS_ERRORS", "label": "容易粗心" },
+          { "code": "METHOD_GAP", "label": "缺少方法" }, { "code": "LOW_MOTIVATION", "label": "动力不足" },
+          { "code": "TIME_MANAGEMENT", "label": "时间管理困难" }, { "code": "GOAL_UNCLEAR", "label": "目标不清" },
+          { "code": "STRESS_SIGNAL", "label": "情绪或压力影响学习" }, { "code": "UNSURE", "label": "暂不确定" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 2, "exclusiveOptions": ["UNSURE"] },
+        "dimensions": ["PARENT_OBSERVATION"], "signal_codes": ["PARENT_OBSERVED_DIFFICULTY", "SUPPORT_SAFETY_SIGNAL"], "scored": false
+      },
+      {
+        "id": "FP06", "key": "student_willingness", "label": "孩子是否愿意由本人完成下一步学生测评？", "type": "SINGLE_CHOICE", "required": true,
+        "options": [
+          { "code": "WILLING", "label": "愿意" }, { "code": "MAYBE_NEEDS_EXPLANATION", "label": "可能愿意，需要先解释" },
+          { "code": "NOT_WILLING", "label": "目前不愿意" }, { "code": "UNSURE", "label": "不确定" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["READINESS"], "signal_codes": ["STUDENT_ASSESSMENT_READINESS"], "scored": false
+      },
+      {
+        "id": "FP07", "key": "next_1_3_year_focus", "label": "未来 1–3 年，你最希望优先改善哪些方向？", "type": "MULTI_CHOICE", "required": true,
+        "options": [
+          { "code": "LEARNING_CAPABILITY", "label": "提升学习能力" }, { "code": "CURRENT_PERFORMANCE", "label": "改善当前成绩表现" },
+          { "code": "SUBJECT_SELECTION", "label": "完成选科" }, { "code": "INTEREST_EXPLORATION", "label": "探索专业／兴趣方向" },
+          { "code": "SYSTEM_TRANSITION", "label": "准备课程体系衔接" }, { "code": "APPLICATION_PREPARATION", "label": "开始升学准备" },
+          { "code": "FAMILY_STUDENT_ALIGNMENT", "label": "对齐家庭与学生目标" }, { "code": "UNSURE", "label": "暂未确定" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 2, "exclusiveOptions": ["UNSURE"] },
+        "dimensions": ["FAMILY_GOAL"], "signal_codes": ["FAMILY_PRIORITY"], "scored": false
+      },
+      {
+        "id": "FP08", "key": "preferred_next_support", "label": "完成免费结果后，你希望下一步获得什么？", "type": "SINGLE_CHOICE", "required": true,
+        "options": [
+          { "code": "STUDENT_ASSESSMENT", "label": "让学生本人完成成长发现测评" },
+          { "code": "PARENT_EXPLANATION", "label": "先获得家长／顾问解释" },
+          { "code": "LEARNING_SUPPORT", "label": "了解学习支持" },
+          { "code": "DEEP_ASSESSMENT_INFO", "label": "了解深度教育成长评估" },
+          { "code": "FREE_RESULT_ONLY", "label": "先看免费结果即可" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["NEXT_STEP"], "signal_codes": ["PREFERRED_NEXT_SUPPORT"], "scored": false
+      }
+    ]
+  },
+  "level_2": {
+    "bank_version": "education_growth_discovery_v1.0.0-rc1",
+    "respondent_gate": "STUDENT_SELF_CONFIRMATION_REQUIRED",
+    "allowed_respondents": ["STUDENT"],
+    "estimated_minutes": "15-20",
+    "common_question_ids": ["EGD01", "EGD02", "EGD03", "EGD04", "EGD05", "EGD06", "EGD07", "EGD08", "EGD09", "EGD10", "EGD11", "EGD12", "EGD13", "EGD14", "EGD15", "EGD16", "EGD17", "EGD18", "EGD19"],
+    "required_common_question_ids": ["EGD01", "EGD02", "EGD03", "EGD04", "EGD05", "EGD06", "EGD07", "EGD08", "EGD09", "EGD10", "EGD11", "EGD12", "EGD13", "EGD14", "EGD15", "EGD16", "EGD17", "EGD18"],
+    "optional_common_question_ids": ["EGD19"],
+    "formal_system_routes": ["GAOKAO", "DSE", "IGCSE", "A_LEVEL", "AP_US"],
+    "fallback_system_routes": ["IB", "OTHER"],
+    "common_questions": [
+      {
+        "id": "EGD01", "key": "student_self_confirmation", "label": "本测评需要由学生本人作答。请确认当前由学生本人阅读并选择答案。", "type": "SINGLE_CHOICE", "required": true,
+        "options": [{ "code": "CONFIRM_STUDENT_SELF", "label": "确认，由学生本人作答" }, { "code": "EXIT_NOT_STUDENT", "label": "当前不是学生本人，先退出" }],
+        "validation": { "allowedSubmitValues": ["CONFIRM_STUDENT_SELF"] }, "dimensions": ["RESPONDENT"], "signal_codes": ["RESPONDENT_CONFIRMED"], "scored": false,
+        "exit_rule": "EXIT_NOT_STUDENT 立即保存草稿并退出；不生成结果、不形成负面信号；家长可协助操作或解释，但不得代选答案。"
+      },
+      {
+        "id": "EGD02", "key": "grade_stage", "label": "你当前处于哪个年级或阶段？", "type": "SINGLE_CHOICE", "required": true,
+        "options_ref": "option_catalogs.grade_stage", "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["CONTEXT"], "signal_codes": ["GRADE_STAGE"], "scored": false
+      },
+      {
+        "id": "EGD03", "key": "education_system", "label": "你当前主要学习哪一种课程体系？", "type": "SINGLE_CHOICE", "required": true,
+        "options_ref": "option_catalogs.education_system", "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["CONTEXT"], "signal_codes": ["EDUCATION_SYSTEM"], "scored": false
+      },
+      {
+        "id": "EGD04", "key": "major_exam_year", "label": "预计毕业或主要考试年份是？", "type": "YEAR_SELECT", "required": true,
+        "validation": { "min": "CURRENT_YEAR", "max": "CURRENT_YEAR_PLUS_8", "sentinelValues": ["UNSURE", "NOT_APPLICABLE"] }, "dimensions": ["CONTEXT"], "signal_codes": ["MAJOR_EXAM_YEAR"], "scored": false
+      },
+      {
+        "id": "EGD05", "key": "target_regions", "label": "目前考虑的学习或升学地区有哪些？（最多 3 项）", "type": "MULTI_CHOICE", "required": true,
+        "options": [
+          { "code": "HONG_KONG", "label": "香港" }, { "code": "MAINLAND_CHINA", "label": "内地" }, { "code": "MACAU", "label": "澳门" },
+          { "code": "UNITED_KINGDOM", "label": "英国" }, { "code": "UNITED_STATES", "label": "美国" }, { "code": "CANADA", "label": "加拿大" },
+          { "code": "AUSTRALIA", "label": "澳洲" }, { "code": "SINGAPORE", "label": "新加坡" }, { "code": "OTHER_REGION", "label": "其他" },
+          { "code": "UNSURE", "label": "尚未确定" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 3, "exclusiveOptions": ["UNSURE"] },
+        "dimensions": ["CONTEXT"], "signal_codes": ["TARGET_REGION_CONTEXT"], "scored": false
+      },
+      {
+        "id": "EGD06", "key": "top_improvement_goals", "label": "你当前最想改善哪些事情？（最多 3 项）", "type": "MULTI_CHOICE", "required": true,
+        "options": [
+          { "code": "FOUNDATION", "label": "补稳基础知识" }, { "code": "KNOWLEDGE_TRANSFER", "label": "把学会的知识用到新题／新任务" },
+          { "code": "PROBLEM_SOLVING", "label": "知道复杂问题的第一步" }, { "code": "ERROR_REVIEW", "label": "减少重复错误并有效复盘" },
+          { "code": "PLANNING", "label": "建立稳定计划与执行节奏" }, { "code": "SUBJECT_FOCUS", "label": "确定当前最需优先投入的学科" },
+          { "code": "INTEREST_EXPLORATION", "label": "更清楚兴趣与探索方向" }, { "code": "FAMILY_GOAL_ALIGNMENT", "label": "与家长对齐目标" },
+          { "code": "UNSURE", "label": "暂不确定" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 3, "exclusiveOptions": ["UNSURE"] },
+        "dimensions": ["ACADEMIC_PERFORMANCE", "LEARNING_PROCESS", "THINKING_LEARNING_STYLE", "INTEREST_DIRECTION"],
+        "signal_codes": ["SELF_SELECTED_FOCUS"], "scored": false
+      },
+      {
+        "id": "EGD07", "key": "recent_performance_self_view", "label": "你如何看待自己最近的学习表现？", "type": "SINGLE_CHOICE", "required": true,
+        "options": [
+          { "code": "CONSISTENT_STRONG", "label": "整体稳定并有把握" }, { "code": "GOOD_BUT_UNSTABLE", "label": "有些方面较好，但不够稳定" },
+          { "code": "MIXED", "label": "不同学科／任务差异较大" }, { "code": "CURRENTLY_STRUGGLING", "label": "目前明显吃力" },
+          { "code": "UNABLE_TO_JUDGE", "label": "暂时无法判断" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["ACADEMIC_PERFORMANCE"], "signal_codes": ["PERFORMANCE_STABILITY"], "scored": false
+      },
+      {
+        "id": "EGD08", "key": "strength_subjects", "label": "你目前相对更有把握的学科有哪些？（最多 3 项）", "type": "MULTI_CHOICE_DYNAMIC", "required": true,
+        "options_ref_by_system": { "GAOKAO": "option_catalogs.subject_GAOKAO", "DSE": "option_catalogs.subject_DSE", "IGCSE": "option_catalogs.subject_IGCSE", "A_LEVEL": "option_catalogs.subject_A_LEVEL", "AP_US": "option_catalogs.subject_AP_US", "IB": "option_catalogs.subject_generic", "OTHER": "option_catalogs.subject_generic" },
+        "validation": { "minSelections": 1, "maxSelections": 3, "exclusiveOptions": ["UNSURE"] }, "dimensions": ["ACADEMIC_PERFORMANCE"], "signal_codes": ["STRENGTH_SUBJECT"], "scored": false
+      },
+      {
+        "id": "EGD09", "key": "challenge_subjects", "label": "你目前最需要改善的学科有哪些？（最多 3 项）", "type": "MULTI_CHOICE_DYNAMIC", "required": true,
+        "options_ref_by_system": { "GAOKAO": "option_catalogs.subject_GAOKAO", "DSE": "option_catalogs.subject_DSE", "IGCSE": "option_catalogs.subject_IGCSE", "A_LEVEL": "option_catalogs.subject_A_LEVEL", "AP_US": "option_catalogs.subject_AP_US", "IB": "option_catalogs.subject_generic", "OTHER": "option_catalogs.subject_generic" },
+        "validation": { "minSelections": 1, "maxSelections": 3, "exclusiveOptions": ["UNSURE"] }, "dimensions": ["ACADEMIC_PERFORMANCE"], "signal_codes": ["CHALLENGE_SUBJECT", "SUBJECT_FOCUS_CANDIDATE"], "scored": false
+      },
+      {
+        "id": "EGD10", "key": "unfamiliar_problem_reaction", "label": "遇到陌生题或新任务时，你通常先做什么？", "type": "SINGLE_CHOICE", "required": true,
+        "options": [
+          { "code": "DECOMPOSE_CONDITIONS", "label": "拆解条件并判断目标" }, { "code": "SEARCH_FAMILIAR_PATTERN", "label": "先寻找熟悉的题型或方法" },
+          { "code": "TRY_THEN_STUCK", "label": "会尝试，但容易很快卡住" }, { "code": "NO_FIRST_STEP", "label": "通常不知道第一步" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["THINKING_LEARNING_STYLE"], "signal_codes": ["PROBLEM_DECOMPOSITION", "FIRST_STEP_CLARITY"], "scored": false
+      },
+      {
+        "id": "EGD11", "key": "knowledge_retrieval_frequency", "label": "你学过但在做题／任务中调用不出来的情况有多常见？", "type": "SINGLE_CHOICE", "required": true,
+        "options": [
+          { "code": "RARELY", "label": "很少" }, { "code": "SOMETIMES", "label": "偶尔" }, { "code": "OFTEN", "label": "经常" }, { "code": "ALMOST_ALWAYS", "label": "几乎每次" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["LEARNING_PROCESS"], "signal_codes": ["KNOWLEDGE_RETRIEVAL"], "scored": false
+      },
+      {
+        "id": "EGD12", "key": "work_review_method", "label": "你通常怎样完成作业或复习？", "type": "SINGLE_CHOICE", "required": true,
+        "options": [
+          { "code": "PLAN_AND_REVIEW", "label": "有计划，并会复盘调整" }, { "code": "PLAN_CHANGES_OFTEN", "label": "会计划，但经常中途变化" },
+          { "code": "FOLLOW_TEACHER", "label": "主要跟随老师安排" }, { "code": "LAST_MINUTE", "label": "临时完成，缺少稳定方法" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["LEARNING_PROCESS"], "signal_codes": ["PLANNING_AND_REVIEW"], "scored": false
+      },
+      {
+        "id": "EGD13", "key": "error_handling", "label": "做错后，你通常怎样处理？", "type": "SINGLE_CHOICE", "required": true,
+        "options": [
+          { "code": "ATTRIBUTE_AND_RETRY", "label": "判断原因并重新完成" }, { "code": "READ_ANSWER_LITTLE_REVIEW", "label": "会看答案，但较少复盘" },
+          { "code": "CORRECT_RESULT_ONLY", "label": "主要订正结果" }, { "code": "USUALLY_SKIP", "label": "通常跳过或以后再说" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["LEARNING_PROCESS"], "signal_codes": ["ERROR_REVIEW_PATTERN"], "scored": false
+      },
+      {
+        "id": "EGD14", "key": "preferred_learning_modes", "label": "哪些方式更帮助你理解？（最多 2 项）", "type": "MULTI_CHOICE", "required": true,
+        "options": [
+          { "code": "TEACHER_EXPLANATION", "label": "老师讲解" }, { "code": "TEXT_READING", "label": "文字阅读" },
+          { "code": "VISUAL_STRUCTURE", "label": "图像／结构图" }, { "code": "EXAMPLE_IMITATION", "label": "例题模仿" },
+          { "code": "DISCUSSION_EXPRESSION", "label": "讨论与表达" }, { "code": "HANDS_ON", "label": "动手实践" },
+          { "code": "SELF_EXPLORATION", "label": "自主探索" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 2 }, "dimensions": ["THINKING_LEARNING_STYLE"], "signal_codes": ["LEARNING_MODE_PREFERENCE"], "scored": false
+      },
+      {
+        "id": "EGD15", "key": "interest_directions", "label": "你当前愿意继续探索哪些方向？（最多 3 项）", "type": "MULTI_CHOICE", "required": true,
+        "options": [
+          { "code": "SCIENCE", "label": "科学" }, { "code": "ENGINEERING_TECH", "label": "工程与科技" },
+          { "code": "BUSINESS_ECONOMICS", "label": "商业与经济" }, { "code": "SOCIAL_PUBLIC", "label": "社会与公共事务" },
+          { "code": "LANGUAGE_HUMANITIES", "label": "语言与人文" }, { "code": "ARTS_CREATIVE", "label": "艺术与创意" },
+          { "code": "HEALTH_LIFE", "label": "健康与生命" }, { "code": "EDUCATION_CHILDREN", "label": "教育与儿童" },
+          { "code": "OTHER_INTEREST", "label": "其他" }, { "code": "UNSURE", "label": "尚未确定" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 3, "exclusiveOptions": ["UNSURE"] }, "dimensions": ["INTEREST_DIRECTION"], "signal_codes": ["INTEREST_DIRECTION"], "scored": false
+      },
+      {
+        "id": "EGD16", "key": "sustained_activity_evidence", "label": "你是否有持续投入的活动、项目或作品？", "type": "SINGLE_CHOICE", "required": true,
+        "options": [
+          { "code": "SUSTAINED_OUTPUT", "label": "有持续投入并形成阶段成果" }, { "code": "PARTICIPATED_NOT_CONTINUOUS", "label": "有参与，但不连续" },
+          { "code": "JUST_STARTED", "label": "刚开始探索" }, { "code": "NONE_CURRENTLY", "label": "目前没有" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["INTEREST_DIRECTION", "LEARNING_PROCESS"], "signal_codes": ["SUSTAINED_ENGAGEMENT"], "scored": false
+      },
+      {
+        "id": "EGD17", "key": "current_constraints", "label": "目前最影响你学习或下一步行动的因素有哪些？（最多 2 项）", "type": "MULTI_CHOICE", "required": true,
+        "options": [
+          { "code": "FOUNDATION_GAP", "label": "基础知识不稳" }, { "code": "LANGUAGE_BARRIER", "label": "语言要求" },
+          { "code": "TIME_CONSTRAINT", "label": "时间不足或安排冲突" }, { "code": "SYSTEM_RULE_UNCERTAINTY", "label": "课程体系／地区规则不清" },
+          { "code": "FAMILY_GOAL_DIFFERENCE", "label": "家庭意见或目标不一致" }, { "code": "DIRECTION_UNCLEAR", "label": "兴趣／专业方向不清" },
+          { "code": "INFORMATION_GAP", "label": "信息不足" }, { "code": "STRESS_AFFECTS_LEARNING", "label": "压力影响学习" },
+          { "code": "OTHER_CONSTRAINT", "label": "其他" }, { "code": "UNSURE", "label": "暂不确定" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 2, "exclusiveOptions": ["UNSURE"] },
+        "dimensions": ["LEARNING_PROCESS", "CONTEXT"], "signal_codes": ["CURRENT_CONSTRAINT", "SUPPORT_SAFETY_SIGNAL"], "scored": false,
+        "privacy_note": "删除 Founder 草案中的预算金额采集；本题不询问精确预算、收入或资产。"
+      },
+      {
+        "id": "EGD18", "key": "willing_30_day_action", "label": "未来 30 天，你愿意先完成哪一项行动？", "type": "SINGLE_CHOICE", "required": true,
+        "options": [
+          { "code": "SUBJECT_DIAGNOSIS", "label": "完成一次学科任务诊断" }, { "code": "LEARNING_METHOD_PRACTICE", "label": "尝试一套学习方法训练" },
+          { "code": "INTEREST_PROJECT", "label": "完成一个小型兴趣项目" }, { "code": "SYSTEM_COMPARISON", "label": "了解课程体系差异" },
+          { "code": "PATH_CONSULTATION", "label": "进行一次路径咨询" }, { "code": "FAMILY_GOAL_ALIGNMENT", "label": "与家长对齐近期目标" },
+          { "code": "UNSURE", "label": "暂不确定" }
+        ],
+        "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["LEARNING_PROCESS", "INTEREST_DIRECTION"], "signal_codes": ["ACTION_READINESS_30D"], "scored": false
+      },
+      {
+        "id": "EGD19", "key": "education_pathway_target_codes", "label": "你目前正在考虑哪些下一阶段学历路径？（选填，最多 3 项）", "type": "MULTI_CHOICE", "required": false,
+        "options_ref": "taxonomy.education_pathway_target.values",
+        "validation": { "minSelections": 0, "maxSelections": 3, "exclusiveOptions": ["UNSURE"] },
+        "dimensions": ["CONTEXT"], "signal_codes": ["EDUCATION_PATHWAY_CONTEXT"], "scored": false,
+        "context_metadata": { "respondent": "STUDENT", "intent": "CONSIDERING", "status": "USER_STATED_CONTEXT", "taxonomy_version": "education_compass_taxonomy_v1.0.0-rc1" },
+        "pathway_boundary": "不参与教育体系题库路由、评分或 ASKWISE；不自动形成学历认可、等值、证书取得、申请资格或录取结论。"
+      }
+    ],
+    "system_banks": {
+      "GAOKAO": {
+        "bank_version": "education_growth_discovery_gaokao_v1.0.0-rc1",
+        "question_ids": ["GK01", "GK02", "GK03", "GK04", "GK05"],
+        "required_question_ids": ["GK01", "GK02"],
+        "optional_question_ids": ["GK03", "GK04", "GK05"],
+        "questions": [
+          { "id": "GK01", "key": "province_region", "label": "主要参考哪个省级考试地区？", "type": "PROVINCE_REGION_SELECT", "required": true, "options_ref": "CN_PROVINCE_REGION_REGISTRY_V1", "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["CONTEXT"], "signal_codes": ["GAOKAO_REGION_CONTEXT"], "scored": false },
+          { "id": "GK02", "key": "subject_combination", "label": "当前选科组合是？", "type": "MULTI_CHOICE", "required": true, "options_ref": "option_catalogs.subject_GAOKAO", "validation": { "minSelections": 1, "maxSelections": 3, "exclusiveOptions": ["UNSURE"] }, "dimensions": ["CONTEXT"], "signal_codes": ["GAOKAO_SUBJECT_COMBINATION"], "scored": false },
+          { "id": "GK03", "key": "recent_total_score_band", "label": "最近一次有代表性的总分处于满分比例的哪个区间？（选填）", "type": "SINGLE_CHOICE", "required": false, "options_ref": "ACHIEVEMENT_PERCENT_OF_MAX_BANDS_V1", "validation": { "allowNotProvided": true }, "dimensions": ["ACADEMIC_PERFORMANCE"], "signal_codes": ["ACHIEVEMENT_RANGE_CONTEXT"], "scored": false },
+          { "id": "GK04", "key": "recent_rank_band", "label": "最近一次有代表性的相对位次区间是？（选填）", "type": "SINGLE_CHOICE", "required": false, "options_ref": "RELATIVE_POSITION_BANDS_V1", "validation": { "allowNotProvided": true }, "dimensions": ["ACADEMIC_PERFORMANCE"], "signal_codes": ["RELATIVE_POSITION_CONTEXT"], "scored": false },
+          { "id": "GK05", "key": "subject_achievement_bands", "label": "如愿意，可为相关学科选择最近表现区间。（选填）", "type": "SUBJECT_RANGE_MATRIX", "required": false, "options_ref": "option_catalogs.subject_GAOKAO + ACHIEVEMENT_PERCENT_OF_MAX_BANDS_V1", "validation": { "maxRows": 6, "allowEmpty": true }, "dimensions": ["ACADEMIC_PERFORMANCE"], "signal_codes": ["SUBJECT_ACHIEVEMENT_RANGE_CONTEXT"], "scored": false }
+        ]
+      },
+      "DSE": {
+        "bank_version": "education_growth_discovery_dse_v1.0.0-rc1",
+        "question_ids": ["DSE01", "DSE02", "DSE03", "DSE04"],
+        "required_question_ids": ["DSE01"], "optional_question_ids": ["DSE02", "DSE03", "DSE04"],
+        "questions": [
+          { "id": "DSE01", "key": "current_subjects", "label": "当前修读哪些科目？", "type": "MULTI_CHOICE", "required": true, "options_ref": "option_catalogs.subject_DSE", "validation": { "minSelections": 1, "maxSelections": 10, "exclusiveOptions": ["UNSURE"] }, "dimensions": ["CONTEXT"], "signal_codes": ["DSE_SUBJECT_CONTEXT"], "scored": false },
+          { "id": "DSE02", "key": "core_grade_bands", "label": "如愿意，可选择核心科目的预计／最近等级区间。（选填）", "type": "SUBJECT_RANGE_MATRIX", "required": false, "options_ref": "option_catalogs.subject_DSE + DSE_GRADE_BANDS_V1", "validation": { "maxRows": 4, "allowEmpty": true }, "dimensions": ["ACADEMIC_PERFORMANCE"], "signal_codes": ["DSE_CORE_GRADE_CONTEXT"], "scored": false },
+          { "id": "DSE03", "key": "elective_grade_bands", "label": "如愿意，可选择选修科目的预计／最近等级区间。（选填）", "type": "SUBJECT_RANGE_MATRIX", "required": false, "options_ref": "option_catalogs.subject_DSE + DSE_GRADE_BANDS_V1", "validation": { "maxRows": 4, "allowEmpty": true }, "dimensions": ["ACADEMIC_PERFORMANCE"], "signal_codes": ["DSE_ELECTIVE_GRADE_CONTEXT"], "scored": false },
+          { "id": "DSE04", "key": "application_route_category", "label": "如适用，你目前理解自己的申请类别是？（选填）", "type": "SINGLE_CHOICE", "required": false, "options": [{ "code": "JUPAS_LOCAL", "label": "JUPAS／本地申请类别" }, { "code": "NON_JUPAS_OR_NON_LOCAL", "label": "非 JUPAS／非本地类别" }, { "code": "UNSURE", "label": "不确定" }, { "code": "NOT_PROVIDED", "label": "不提供" }], "validation": { "minSelections": 0, "maxSelections": 1 }, "dimensions": ["CONTEXT"], "signal_codes": ["APPLICATION_ROUTE_CONTEXT"], "scored": false, "privacy_note": "只问类别，不收证件号码；不据此自动判定资格。" }
+        ]
+      },
+      "IGCSE": {
+        "bank_version": "education_growth_discovery_igcse_v1.0.0-rc1",
+        "question_ids": ["IG01", "IG02", "IG03"],
+        "required_question_ids": ["IG01", "IG03"], "optional_question_ids": ["IG02"],
+        "questions": [
+          { "id": "IG01", "key": "current_subjects", "label": "当前学习哪些 IGCSE 科目？", "type": "MULTI_CHOICE", "required": true, "options_ref": "option_catalogs.subject_IGCSE", "validation": { "minSelections": 1, "maxSelections": 12, "exclusiveOptions": ["UNSURE"] }, "dimensions": ["CONTEXT"], "signal_codes": ["IGCSE_SUBJECT_CONTEXT"], "scored": false },
+          { "id": "IG02", "key": "subject_grade_bands", "label": "如愿意，可选择预计／最近等级区间。（选填）", "type": "SUBJECT_RANGE_MATRIX", "required": false, "options_ref": "option_catalogs.subject_IGCSE + IGCSE_GRADE_BANDS_V1", "validation": { "maxRows": 8, "allowEmpty": true }, "dimensions": ["ACADEMIC_PERFORMANCE"], "signal_codes": ["IGCSE_GRADE_CONTEXT"], "scored": false },
+          { "id": "IG03", "key": "next_stage", "label": "目前考虑的下一阶段是？", "type": "SINGLE_CHOICE", "required": true, "options": [{ "code": "A_LEVEL", "label": "A-Level" }, { "code": "IB", "label": "IB" }, { "code": "OTHER_STAGE", "label": "其他阶段" }, { "code": "UNSURE", "label": "尚未确定" }], "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["CONTEXT"], "signal_codes": ["NEXT_STAGE_CONTEXT"], "scored": false }
+        ]
+      },
+      "A_LEVEL": {
+        "bank_version": "education_growth_discovery_a_level_v1.0.0-rc1",
+        "question_ids": ["AL01", "AL02", "AL03", "AL04"],
+        "required_question_ids": ["AL01", "AL02", "AL03"], "optional_question_ids": ["AL04"],
+        "questions": [
+          { "id": "AL01", "key": "exam_board", "label": "主要考试局是？", "type": "SINGLE_CHOICE", "required": true, "options": [{ "code": "CAIE", "label": "Cambridge International" }, { "code": "PEARSON_EDEXCEL", "label": "Pearson Edexcel" }, { "code": "OXFORDAQA", "label": "OxfordAQA" }, { "code": "UK_AQA_OCR_WJEC", "label": "AQA／OCR／WJEC 等" }, { "code": "OTHER_BOARD", "label": "其他" }, { "code": "UNSURE", "label": "不确定" }], "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["CONTEXT"], "signal_codes": ["EXAM_BOARD_CONTEXT"], "scored": false },
+          { "id": "AL02", "key": "current_subjects", "label": "当前学习哪些 A-Level 科目？", "type": "MULTI_CHOICE", "required": true, "options_ref": "option_catalogs.subject_A_LEVEL", "validation": { "minSelections": 1, "maxSelections": 6, "exclusiveOptions": ["UNSURE"] }, "dimensions": ["CONTEXT"], "signal_codes": ["A_LEVEL_SUBJECT_CONTEXT"], "scored": false },
+          { "id": "AL03", "key": "stage", "label": "当前处于哪个阶段？", "type": "SINGLE_CHOICE", "required": true, "options": [{ "code": "AS", "label": "AS" }, { "code": "A2", "label": "A2" }, { "code": "LINEAR", "label": "Linear／不分 AS-A2" }, { "code": "UNSURE", "label": "不确定" }], "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["CONTEXT"], "signal_codes": ["A_LEVEL_STAGE_CONTEXT"], "scored": false },
+          { "id": "AL04", "key": "subject_grade_bands", "label": "如愿意，可选择预计／最近等级区间。（选填）", "type": "SUBJECT_RANGE_MATRIX", "required": false, "options_ref": "option_catalogs.subject_A_LEVEL + A_LEVEL_GRADE_BANDS_V1", "validation": { "maxRows": 6, "allowEmpty": true }, "dimensions": ["ACADEMIC_PERFORMANCE"], "signal_codes": ["A_LEVEL_GRADE_CONTEXT"], "scored": false }
+        ]
+      },
+      "AP_US": {
+        "bank_version": "education_growth_discovery_ap_us_v1.0.0-rc1",
+        "question_ids": ["AP01", "AP02", "AP03", "AP04", "AP05"],
+        "required_question_ids": ["AP02", "AP03"], "optional_question_ids": ["AP01", "AP04", "AP05"],
+        "questions": [
+          { "id": "AP01", "key": "gpa_range", "label": "如愿意，可选择当前 GPA 区间。（选填）", "type": "SINGLE_CHOICE", "required": false, "options_ref": "GPA_BANDS_V1", "validation": { "allowNotProvided": true }, "dimensions": ["ACADEMIC_PERFORMANCE"], "signal_codes": ["GPA_RANGE_CONTEXT"], "scored": false },
+          { "id": "AP02", "key": "course_rigor", "label": "你如何描述当前课程难度？", "type": "SINGLE_CHOICE", "required": true, "options": [{ "code": "MOSTLY_STANDARD", "label": "以常规课程为主" }, { "code": "SOME_HONORS_AP", "label": "包含部分 Honors／AP" }, { "code": "MANY_ADVANCED", "label": "包含较多高级课程" }, { "code": "SCHOOL_SPECIFIC", "label": "学校体系不同，难以比较" }, { "code": "UNSURE", "label": "不确定" }], "validation": { "minSelections": 1, "maxSelections": 1 }, "dimensions": ["CONTEXT"], "signal_codes": ["COURSE_RIGOR_CONTEXT"], "scored": false },
+          { "id": "AP03", "key": "ap_advanced_courses", "label": "当前修读哪些 AP／高级课程？", "type": "MULTI_CHOICE", "required": true, "options_ref": "option_catalogs.subject_AP_US", "validation": { "minSelections": 1, "maxSelections": 8, "exclusiveOptions": ["NONE_CURRENTLY", "UNSURE"] }, "dimensions": ["CONTEXT"], "signal_codes": ["AP_COURSE_CONTEXT"], "scored": false },
+          { "id": "AP04", "key": "ap_course_grade_bands", "label": "如愿意，可选择 AP／高级课程的预计／已有等级区间。（选填）", "type": "SUBJECT_RANGE_MATRIX", "required": false, "options_ref": "option_catalogs.subject_AP_US + AP_GRADE_BANDS_V1", "validation": { "maxRows": 8, "allowEmpty": true }, "dimensions": ["ACADEMIC_PERFORMANCE"], "signal_codes": ["AP_GRADE_CONTEXT"], "scored": false },
+          { "id": "AP05", "key": "standardized_test_status", "label": "标准化考试目前处于什么状态？（如适用，选填）", "type": "SINGLE_CHOICE", "required": false, "options": [{ "code": "NOT_APPLICABLE", "label": "不适用" }, { "code": "NOT_STARTED", "label": "尚未开始" }, { "code": "PREPARING", "label": "准备中" }, { "code": "COMPLETED_NO_SCORE", "label": "已参加，不提供成绩" }, { "code": "SCORE_RANGE_AVAILABLE", "label": "已参加，可后续提供区间" }, { "code": "UNSURE", "label": "不确定" }], "validation": { "minSelections": 0, "maxSelections": 1 }, "dimensions": ["CONTEXT"], "signal_codes": ["STANDARDIZED_TEST_STATUS"], "scored": false }
+        ]
+      }
+    },
+    "fallback_policy": {
+      "IB": { "system_question_ids": [], "approved_empty_reason": "首版只运行公共题；不伪装为已审核 IB 分支。", "result_marker": "SYSTEM_BANK_PENDING", "purchase_allowed": true, "askwise_generic_handoff_allowed": true },
+      "OTHER": { "system_question_ids": [], "approved_empty_reason": "首版只运行公共题；不把未知体系映射为五个正式体系。", "result_marker": "SYSTEM_BANK_PENDING", "purchase_allowed": true, "askwise_generic_handoff_allowed": true }
+    }
+  },
+  "external_option_registries": {
+    "CN_PROVINCE_REGION_REGISTRY_V1": ["BEIJING", "TIANJIN", "HEBEI", "SHANXI", "INNER_MONGOLIA", "LIAONING", "JILIN", "HEILONGJIANG", "SHANGHAI", "JIANGSU", "ZHEJIANG", "ANHUI", "FUJIAN", "JIANGXI", "SHANDONG", "HENAN", "HUBEI", "HUNAN", "GUANGDONG", "GUANGXI", "HAINAN", "CHONGQING", "SICHUAN", "GUIZHOU", "YUNNAN", "TIBET", "SHAANXI", "GANSU", "QINGHAI", "NINGXIA", "XINJIANG", "OTHER_OR_UNSURE"],
+    "ACHIEVEMENT_PERCENT_OF_MAX_BANDS_V1": ["LT_40_PERCENT", "P40_TO_59", "P60_TO_74", "P75_TO_84", "GE_85_PERCENT", "UNSURE", "NOT_PROVIDED"],
+    "RELATIVE_POSITION_BANDS_V1": ["TOP_5_PERCENT", "TOP_6_TO_10_PERCENT", "TOP_11_TO_25_PERCENT", "MIDDLE_50_PERCENT", "LOWER_25_PERCENT", "UNSURE", "NOT_PROVIDED"],
+    "DSE_GRADE_BANDS_V1": ["LEVEL_1_OR_BELOW", "LEVEL_2", "LEVEL_3", "LEVEL_4", "LEVEL_5", "LEVEL_5_STAR", "LEVEL_5_DOUBLE_STAR", "UNSURE", "NOT_PROVIDED"],
+    "IGCSE_GRADE_BANDS_V1": ["GRADE_9_TO_8_OR_A_STAR", "GRADE_7_TO_6_OR_A", "GRADE_5_TO_4_OR_B_C", "GRADE_3_TO_1_OR_D_G", "UNGRADED", "UNSURE", "NOT_PROVIDED"],
+    "A_LEVEL_GRADE_BANDS_V1": ["A_STAR", "A_TO_B", "C_TO_D", "E", "UNGRADED", "UNSURE", "NOT_PROVIDED"],
+    "GPA_BANDS_V1": ["LT_2_5", "GPA_2_5_TO_2_99", "GPA_3_0_TO_3_49", "GPA_3_5_TO_3_79", "GPA_3_8_TO_4_0", "WEIGHTED_OR_NOT_COMPARABLE", "UNSURE", "NOT_PROVIDED"],
+    "AP_GRADE_BANDS_V1": ["AP_5", "AP_4", "AP_3", "AP_1_TO_2", "PREDICTED_ONLY", "UNSURE", "NOT_PROVIDED"]
+  }
+}

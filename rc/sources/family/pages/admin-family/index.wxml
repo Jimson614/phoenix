@@ -1,0 +1,45 @@
+<view wx:if="{{overview}}" class="admin-detail">
+  <view class="admin-detail__hero">
+    <text class="eyebrow">FAMILY OVERVIEW</text>
+    <text class="admin-detail__name">{{overview.family.family_name}}</text>
+    <text class="admin-detail__meta">{{overview.family.parent_name}} · {{overview.family.phone}} · {{overview.family.location || '地区待完善'}}</text>
+    <text class="admin-detail__goal">“{{overview.family.goal || '家庭目标待完善'}}”</text>
+  </view>
+
+  <view class="page admin-detail__body">
+    <view class="admin-section">
+      <view class="section-head"><text class="h3">孩子档案</text><text class="muted">{{overview.students.length}} 位</text></view>
+      <view wx:for="{{overview.students}}" wx:key="id" class="student-row"><view class="student-row__avatar">{{item.initial}}</view><view><text class="student-row__name">{{item.name}}</text><text class="student-row__meta">{{item.school}} · {{item.grade}} · {{item.education_system || '课程体系待完善'}}</text></view></view>
+    </view>
+
+    <view class="admin-section">
+      <view class="section-head"><text class="h3">成长报告</text><text class="muted">{{overview.reports.length}} 份</text></view>
+      <view wx:if="{{overview.reports.length}}">
+        <view wx:for="{{overview.reports}}" wx:key="id" class="report-row" data-id="{{item.id}}" bindtap="openReport"><view><text class="report-row__date">{{item.dateLabel}}</text><text class="report-row__title">{{item.summary.currentStage}}</text></view><text class="chevron">›</text></view>
+      </view>
+      <text wx:else class="muted">尚未完成 Education Compass。</text>
+    </view>
+
+    <view wx:if="{{overview.requests.length}}" class="admin-section">
+      <view class="section-head"><text class="h3">联系申请</text><text class="status status--warm">待处理</text></view>
+      <view wx:for="{{overview.requests}}" wx:key="id" class="request-card"><text class="request-card__topic">{{item.topic}}</text><text class="request-card__meta">{{item.preferred_time}} · {{item.dateTimeLabel}}</text><text wx:if="{{item.note}}" class="request-card__note">{{item.note}}</text></view>
+    </view>
+
+    <view class="admin-section note-form">
+      <text class="h3">添加顾问备注</text>
+      <textarea class="textarea note-form__textarea" value="{{note}}" maxlength="500" placeholder="记录本次判断、沟通重点或下一步……" bindinput="inputNote"></textarea>
+      <picker mode="selector" range="{{statuses}}" value="{{statusIndex}}" bindchange="pickStatus"><view class="picker note-form__picker">跟进状态：{{statuses[statusIndex]}}</view></picker>
+      <button class="btn btn--primary" loading="{{saving}}" disabled="{{saving}}" bindtap="addNote">保存跟进记录</button>
+    </view>
+
+    <view wx:if="{{overview.notes.length}}" class="admin-section">
+      <text class="h3">内部跟进记录</text>
+      <view wx:for="{{overview.notes}}" wx:key="id" class="note-row"><view class="row row--between"><text class="status">{{item.follow_up_status}}</text><text class="note-row__date">{{item.dateTimeLabel}}</text></view><text class="note-row__copy">{{item.note}}</text></view>
+    </view>
+
+    <view class="admin-section">
+      <text class="h3">家庭时间线</text>
+      <view wx:for="{{overview.events}}" wx:key="id" class="event-row"><text class="event-row__date">{{item.dateTimeLabel}}</text><text class="event-row__copy">{{item.description}}</text></view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,1161 @@
+{
+  "schemaVersion": "phoenix_source_manifest_v1",
+  "capturedAt": "2026-08-25T10:36:47.462Z",
+  "excluded": [
+    "artifacts",
+    "coverage",
+    "dist",
+    "node_modules",
+    "outputs",
+    "binary files"
+  ],
+  "fileCount": 229,
+  "aggregateSha256": "07E17215A716DCFBDFD7F83474BA96B36DC50EFA2607C14F0CF2201EF91B229F",
+  "files": [
+    {
+      "path": "app.js",
+      "bytes": 1221,
+      "sha256": "4CC2544588DB5BB509BDCF6F4C7952946FA5CD773142E9AFB820CDA6EA610E8E"
+    },
+    {
+      "path": "app.json",
+      "bytes": 1184,
+      "sha256": "D276DD9591A5A50531BE9D1572AF917F49177659146745F1AA556A93126E49BB"
+    },
+    {
+      "path": "app.wxss",
+      "bytes": 3607,
+      "sha256": "763D90DC910E8E4609241EA81EB6767783BCB73D3F73AEEA318BDE61BC37EA3B"
+    },
+    {
+      "path": "components/brand-mark/index.js",
+      "bytes": 124,
+      "sha256": "50D70E1FF0A27E72B1F34A1CFEC7932D06B3CDBB0BE7DB5BBC9ACD4513D8310C"
+    },
+    {
+      "path": "components/brand-mark/index.json",
+      "bytes": 22,
+      "sha256": "E7B657F5A4B032A68E9E084639B3A5564CE552896D269C3F8C4463BF7A7FA3B5"
+    },
+    {
+      "path": "components/brand-mark/index.wxml",
+      "bytes": 832,
+      "sha256": "470939203270FA05CF4CA7AEA82C51B895C4691C0B883F319C2B55777FA4D35C"
+    },
+    {
+      "path": "components/brand-mark/index.wxss",
+      "bytes": 895,
+      "sha256": "48E1F4A240D82F5EE5099AC19D8DB1F55E5DBAC6BFBD21D5242B3888032926B1"
+    },
+    {
+      "path": "config/compass.js",
+      "bytes": 427,
+      "sha256": "AF85E88360AFBD67CC1EA212288977356E6DCBFDCE50585125A4246301C03EBE"
+    },
+    {
+      "path": "config/runtime.js",
+      "bytes": 1487,
+      "sha256": "8CA0609C0DF25F118C11FA1AA9B6621BAC47DD350AE9C6929CFC8E5FBE335780"
+    },
+    {
+      "path": "docs/AGENT_RUNBOOK.md",
+      "bytes": 11805,
+      "sha256": "6BAA3BA8B0AB7A12D9D74257BC5DCE6D4FE9EF1EBF2B6E5B8357A062CC6E2442"
+    },
+    {
+      "path": "docs/API_EXAMPLES_EDUCATION_COMPASS_V0.5.0.md",
+      "bytes": 9632,
+      "sha256": "09B3C3BAF8E08DEE04D5A202250C99D1144B72FCC4B0DB4335119D1B8FF2ABA4"
+    },
+    {
+      "path": "docs/API.md",
+      "bytes": 27248,
+      "sha256": "4EA5146C521756A933D10DC1E08BA6A4F86F921030A2340E0CD9C88366349885"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "bytes": 14486,
+      "sha256": "52594AE4CEF141A5989D8D24A02EAB49C47F94D4AA55EE6E4AD69F90537F84BB"
+    },
+    {
+      "path": "docs/BUILD_PROVENANCE.md",
+      "bytes": 8359,
+      "sha256": "8077AFCB7BD2FD4EFAD3C956FE3236056A29BBF2BF953A09CEFB81016AEA5BD1"
+    },
+    {
+      "path": "docs/CODEX_BACKEND_PROXY_RUNBOOK.md",
+      "bytes": 17620,
+      "sha256": "F20D68DACEE8D28F45D20B2BEEA69B9B5DE0B6DCAD096755DB9535ABAB784494"
+    },
+    {
+      "path": "docs/DATA_SCHEMA.md",
+      "bytes": 17834,
+      "sha256": "7A55869A0C79B6BA1A4478650EAB8312E1814C24B351F30EA5A550693D0DFCF9"
+    },
+    {
+      "path": "docs/decisions/ADR-0001-paid-compass.md",
+      "bytes": 5927,
+      "sha256": "FEB09E296984E8468F75873CBC57D5A191701C177D754628CFA3A621ACE93E90"
+    },
+    {
+      "path": "docs/decisions/ADR-0002-paid-report-agent.md",
+      "bytes": 2636,
+      "sha256": "BA46846F5690FB1624FEE38393A0B9313633E1F55ABFF4F81E08F17201B882BE"
+    },
+    {
+      "path": "docs/examples/free-parent-valid.json",
+      "bytes": 1277,
+      "sha256": "FE315AFAC4F97309AD0670434A16EAD1AEC908562EB3721794C53EB42390922B"
+    },
+    {
+      "path": "docs/examples/invalid-draft-stale-revision.json",
+      "bytes": 414,
+      "sha256": "CEC06AE8158BF6231EB7ADAC31C0A5348CC3EB671E961AF62D448D75BF6057D0"
+    },
+    {
+      "path": "docs/examples/invalid-free-create-unknown-field.json",
+      "bytes": 613,
+      "sha256": "78CADDE360C938FDC84D6822B8FD0EF6A8F82CDE835087D8A78EE5D22D5E9D3E"
+    },
+    {
+      "path": "docs/examples/invalid-level2-parent-respondent.json",
+      "bytes": 755,
+      "sha256": "7F52BDBDC3D04043B073530F1C8157A43FD8E0A7911E7356417285D098A0C88E"
+    },
+    {
+      "path": "docs/examples/invalid-level2-system-route-mismatch.json",
+      "bytes": 485,
+      "sha256": "12A50160E72E066E3994E8224238566D71C3A1142054CA9BC7FD9167B933FB32"
+    },
+    {
+      "path": "docs/examples/level2-a-level-valid.json",
+      "bytes": 1950,
+      "sha256": "FA7B41935760CA5093FFFD4B3AEFAF7BFB302F62CE95D1BB9951712DD582E67D"
+    },
+    {
+      "path": "docs/examples/level2-ap-us-valid.json",
+      "bytes": 1923,
+      "sha256": "B339704D65D299950F4B7423648B2541E37D56A7D0FE680864E31B6022C3E206"
+    },
+    {
+      "path": "docs/examples/level2-dse-valid.json",
+      "bytes": 1888,
+      "sha256": "14F3BF172A411FE0A6B9C058BB36A5DE41B2B0F3326C9D2516E992826304BC64"
+    },
+    {
+      "path": "docs/examples/level2-gaokao-valid.json",
+      "bytes": 1911,
+      "sha256": "D1C001BEE7A49801680075E61107B59651FF1B33C4FB1F71F58E4D59C5D29B6F"
+    },
+    {
+      "path": "docs/examples/level2-ib-valid.json",
+      "bytes": 1905,
+      "sha256": "2859B4FC9682E14A423A15C63A27CF37FB9D420DC31F6240336015AFD9D13B34"
+    },
+    {
+      "path": "docs/examples/level2-igcse-valid.json",
+      "bytes": 1951,
+      "sha256": "E12C8CCF245195B11ABFB7D6365329B7E99BAB8C40B3C272DCD8C7511E579BF7"
+    },
+    {
+      "path": "docs/examples/level2-other-valid.json",
+      "bytes": 1929,
+      "sha256": "8139D0D6C745FEFDA15ED13F1E85E4606571C202B846A879686DA350EB75D649"
+    },
+    {
+      "path": "docs/FEISHU_BITABLE_SETUP.md",
+      "bytes": 21453,
+      "sha256": "B874EA6F4ED87C89687E77F42AF4E0340668BF7ABFE73BD636DC687442D5534F"
+    },
+    {
+      "path": "docs/FEISHU_SYNC_RUNBOOK.md",
+      "bytes": 16288,
+      "sha256": "04C1E99E47776786D4A2D2302F674B87D636BDE89830C61C9542AD1F39CE2546"
+    },
+    {
+      "path": "docs/MANUAL_E2E_CHECKLIST.md",
+      "bytes": 13156,
+      "sha256": "D16E8ADF3D2AF78E195F906BD0FF57F4F345F59A5AEE8DD5A202A6E7A1608DCF"
+    },
+    {
+      "path": "docs/MVP_ACCEPTANCE.md",
+      "bytes": 18320,
+      "sha256": "DAE2D33DB224F022C501396AE33C54080FECC7408FC260E4F13FBD1B9A927106"
+    },
+    {
+      "path": "docs/OPEN_DECISIONS.md",
+      "bytes": 4839,
+      "sha256": "67C1B6A65010B3DF0B492F937DB1850B81220B03D8C896D8C0817B997CCE58AB"
+    },
+    {
+      "path": "docs/openapi/education-compass-v0.5.0.openapi.yaml",
+      "bytes": 41336,
+      "sha256": "AD6E9926CD5083D5938DFBBC008DFF561F79D189076A1960421161BED2FF6425"
+    },
+    {
+      "path": "docs/product/EDUCATION_COMPASS_PRODUCT_FREEZE_V1_RECEIPT.md",
+      "bytes": 2180,
+      "sha256": "AEF546FB1F81CBE4E41773D5ED8706C1E52E5FB8B759083DFF36C51963A3D893"
+    },
+    {
+      "path": "docs/product/EDUCATION_COMPASS_PRODUCT_FREEZE_V1.md",
+      "bytes": 15303,
+      "sha256": "9884503DA89A61F1DFC78FF97F429FDE210D240B30764D099105DD7C8A100B2D"
+    },
+    {
+      "path": "docs/product/EDUCATION_COMPASS_V0.5.0_CURRENT_TO_TARGET_DELTA.md",
+      "bytes": 13644,
+      "sha256": "906729E781F24F6F592808DB6F284C5A4F6442B5269A8318506F04D5C44F999A"
+    },
+    {
+      "path": "docs/product/EDUCATION_COMPASS_V0.5.0_IMPLEMENTATION_PLAN_PENDING_FREEZE.md",
+      "bytes": 7110,
+      "sha256": "195851D29D0DD9B801188A8E3195CEB7AE8BA51FBB4A7819429EC7F5A068FCD8"
+    },
+    {
+      "path": "docs/product/EDUCATION_COMPASS_V0.5.0_TEST_PLAN_PENDING_FREEZE.md",
+      "bytes": 8455,
+      "sha256": "CBB900AA5413D24F87ED848D859700BBA150A2FA695DCA1AC4987E04E3DA8F6D"
+    },
+    {
+      "path": "docs/product/FOUNDER_DECISION_REQUIRED.md",
+      "bytes": 5085,
+      "sha256": "0C552205D83239BB7163017F1952B43FCDD52855A5637EAD7E8B549FA03E14FB"
+    },
+    {
+      "path": "docs/product/freeze/education-compass-v1-rc1/ASKWISE_AOYU_INTEGRATION_CONTRACT_V1_RC1.md",
+      "bytes": 10142,
+      "sha256": "0CDB636F12E1637D2675583304DE3FD8AC8C7BFE84303949CB1FADC4AC776038"
+    },
+    {
+      "path": "docs/product/freeze/education-compass-v1-rc1/COMMERCIAL_POLICY_V1_RC1.md",
+      "bytes": 3051,
+      "sha256": "C6A6A80046E4BCA513938AB4845867148981D20C415E728F5BB516853A482DF1"
+    },
+    {
+      "path": "docs/product/freeze/education-compass-v1-rc1/CONSENT_PRIVACY_AGENT_FEISHU_POLICY_V1_RC1.md",
+      "bytes": 7695,
+      "sha256": "47810BEC41F9803F303AA89A3399F8C09C259CFC2F43F7A9287F0A3BC1A43445"
+    },
+    {
+      "path": "docs/product/freeze/education-compass-v1-rc1/CONTENT_REVIEW_AND_SIGNATURE_RECORD_V1_RC1.md",
+      "bytes": 5172,
+      "sha256": "3F11BBD17BE429FFBB68A3593DE184136FC4D8C5F8117AB07251EC57BF68BBCA"
+    },
+    {
+      "path": "docs/product/freeze/education-compass-v1-rc1/FOUNDER_APPROVAL_EVIDENCE_V1.md",
+      "bytes": 3157,
+      "sha256": "BC92E23E99BA68077A3F2FBF188B35FBFFE036FB38C3EBE305BCD84A73BFE7AF"
+    },
+    {
+      "path": "docs/product/freeze/education-compass-v1-rc1/PERSONA_AND_UAT_FIXTURES_V1_RC1.md",
+      "bytes": 7984,
+      "sha256": "470C8E0A67AD60F196731F1E80325F33929B6AE62DC03C069AB292E9458C1A74"
+    },
+    {
+      "path": "docs/product/freeze/education-compass-v1-rc1/QUESTION_BANKS_V1_RC1.json",
+      "bytes": 41206,
+      "sha256": "EFAE34EE595FC5E4A2FE8B6C5B89B1F182625BF15518620AC475320E4FD978F9"
+    },
+    {
+      "path": "docs/product/freeze/education-compass-v1-rc1/RESULT_SCORING_ACHIEVEMENT_POLICY_V1_RC1.md",
+      "bytes": 6970,
+      "sha256": "A01A07747C6EAEC3D137696E84990F106C6BD7821EC79DEDDA29770CA3341162"
+    },
+    {
+      "path": "docs/product/freeze/education-compass-v1-rc1/ROUTING_PROFILE_SOURCE_LEVEL3_POLICY_V1_RC1.md",
+      "bytes": 7586,
+      "sha256": "E6B16F1BF4947856C535334A05C200A882D440CA894AF14A519F9D1E35F01282"
+    },
+    {
+      "path": "docs/product/freeze/education-compass-v1-rc1/SOURCE_DECISION_AND_CONFLICT_LOG_V1_RC1.md",
+      "bytes": 6703,
+      "sha256": "04ED2A1D10EF42C3E17AB33004A139953E8F6D051467D405E9F75B454E87DAEC"
+    },
+    {
+      "path": "docs/product/freeze/education-compass-v1-rc1/TAXONOMY_REGISTRY_V1_RC1.json",
+      "bytes": 8889,
+      "sha256": "53691402AA191489317E013CFC5BBE121339301EECFD43F7C6430415B11E2231"
+    },
+    {
+      "path": "docs/product/PHOENIX_EDUCATION_COMPASS_V0.5.0_CODEX_EXECUTION_INSTRUCTION.md",
+      "bytes": 35044,
+      "sha256": "9A2CC88552DF2083F8F6FF90E8DF489410E1F2772761A343CF76C10165785ABF"
+    },
+    {
+      "path": "docs/V0.4.0_VERIFICATION.md",
+      "bytes": 2960,
+      "sha256": "B4F5F33780C376701AEA17927A155CF0E7639E36CC6AD0D4FFD9DD4D8C763C55"
+    },
+    {
+      "path": "docs/V0.4.1_VERIFICATION.md",
+      "bytes": 3796,
+      "sha256": "662E41BBAD80BDAEE60622D5C26FD6338F32B4597963A18A3C2231D500F85152"
+    },
+    {
+      "path": "docs/verification/LOCAL_EVIDENCE_PACKAGE.md",
+      "bytes": 1617,
+      "sha256": "AA220DDD330B83330C74A8AA66EB31B6CE0EC600BE0E2CC7FE36385E6890BDAF"
+    },
+    {
+      "path": "docs/WECHAT_PAY_RUNBOOK.md",
+      "bytes": 13267,
+      "sha256": "B3FDF6D53E4FB9018CD772CE5B5E47DF667FF65BA991ECE13DF8F55E5ADC6744"
+    },
+    {
+      "path": "EDUCATION_COMPASS_CURRENT_BUILD_AUDIT.md",
+      "bytes": 61978,
+      "sha256": "21684CAD039EB54F705ED998965912974D21EF9AE9210857AB05B544A9280C64"
+    },
+    {
+      "path": "models/education-compass-questionnaire.js",
+      "bytes": 16687,
+      "sha256": "FC575A05276A0E85D8F1EC46767EAA7323073E6EB53CC5DEA4794FC4088B5447"
+    },
+    {
+      "path": "models/education-compass-report.js",
+      "bytes": 9323,
+      "sha256": "156BA73012DB3245CF8CAB6B7D6C1F54D9A178E83C2BE85B21CFDE41E58F6F65"
+    },
+    {
+      "path": "models/questionnaire-contract.json",
+      "bytes": 1559,
+      "sha256": "F629475B3D75106E95C5C65DD2C61F465875875B97EC7FB3B2066D76ADAAEE85"
+    },
+    {
+      "path": "models/questionnaire-schema.js",
+      "bytes": 7549,
+      "sha256": "DA71DB0272A0B370AE4CD4ED0A10CB2980C43E9E54698572EB88DEF1549D2D36"
+    },
+    {
+      "path": "models/schema.js",
+      "bytes": 1858,
+      "sha256": "2CC5C705EA4C16D0AC306FE0EF6310BABC886646954079699E88EFAB0AFA7B6E"
+    },
+    {
+      "path": "package-lock.json",
+      "bytes": 231,
+      "sha256": "F5FB4CF19BD38B09F746C468B163B60D1278541468DB9918D0062859DBC87200"
+    },
+    {
+      "path": "package.json",
+      "bytes": 1661,
+      "sha256": "FCB26C91ED2FE929A16175244E3D003D8ACBD3F2217EF776F5AC23037E68375E"
+    },
+    {
+      "path": "pages/admin-families/index.js",
+      "bytes": 1835,
+      "sha256": "A9BD87F93B727578D246059BEF91D26A3FD193420F8C922C2201D0A588B64FE8"
+    },
+    {
+      "path": "pages/admin-families/index.json",
+      "bytes": 79,
+      "sha256": "69CE21CF237208067E48E33786D7F10EA8AC1D4D6E75027E58ECCCFA9E6249D8"
+    },
+    {
+      "path": "pages/admin-families/index.wxml",
+      "bytes": 1626,
+      "sha256": "3B5EC8301E12A9FD0BD875EE507F7E70403D9D69987AA827BC4B59E13F2A439B"
+    },
+    {
+      "path": "pages/admin-families/index.wxss",
+      "bytes": 1415,
+      "sha256": "8DD3DE92B1E84BC0AD7449D8D6CE38849F856685EF076255B2582645718449BE"
+    },
+    {
+      "path": "pages/admin-family/index.js",
+      "bytes": 2247,
+      "sha256": "C3EB1BCA222529827DE13996E62A6930ABE66FAA8CB60EA00DDF680F5443F08D"
+    },
+    {
+      "path": "pages/admin-family/index.json",
+      "bytes": 45,
+      "sha256": "8F24DF124D3B80EC1B1A28EE386539B4E592BE54AA9B607329FDDD5B5083463A"
+    },
+    {
+      "path": "pages/admin-family/index.wxml",
+      "bytes": 3443,
+      "sha256": "6A651B6B690FF9F1782C6B0F815F844B641853BCD31FDDC351E90575C291EB6B"
+    },
+    {
+      "path": "pages/admin-family/index.wxss",
+      "bytes": 2422,
+      "sha256": "AA75BA5C2032CF5D4FB03FC7DE67D53B1E8D24EA543CFB39FB208A27F232669F"
+    },
+    {
+      "path": "pages/advisor-request/index.js",
+      "bytes": 2476,
+      "sha256": "281A9AF1921CF9B7C4D99D2F9CE0FB2B4CA13ECFAAFD6E9230E2E69DA5D288FC"
+    },
+    {
+      "path": "pages/advisor-request/index.json",
+      "bytes": 54,
+      "sha256": "E3287AB5988392AC16055ECBF45261F6CEC25D01E04937F88B59CE599A2B8B38"
+    },
+    {
+      "path": "pages/advisor-request/index.wxml",
+      "bytes": 2161,
+      "sha256": "085C4B68720DED2D868EC3011BEF2EC9A81F50A491433A297AD090416DF5E3B9"
+    },
+    {
+      "path": "pages/advisor-request/index.wxss",
+      "bytes": 1156,
+      "sha256": "C8D589D08823816F676FBAFCF9DCDE291111E3C803F640FB5EFC4C5B2FFB0E2C"
+    },
+    {
+      "path": "pages/agent-chat/index.js",
+      "bytes": 13355,
+      "sha256": "B9A82C99AD9D21E789BF26127DF120F3EAB8DCB011374C9781DAF1D6AC427074"
+    },
+    {
+      "path": "pages/agent-chat/index.json",
+      "bytes": 57,
+      "sha256": "C9A01A84BC509AEAEF5DA1F81331BCEE35AB7D76EE95A44189AE532708BE0125"
+    },
+    {
+      "path": "pages/agent-chat/index.wxml",
+      "bytes": 7142,
+      "sha256": "1CD5634C477D43BA8E17E972BE741E1FF2AC0FAF1579AF867B88F3FDC7F112E6"
+    },
+    {
+      "path": "pages/agent-chat/index.wxss",
+      "bytes": 5376,
+      "sha256": "E21E9F39FB91D36B366E74AD1F49E2BDF83B5C2DCD8FC0A24719E3990AD40401"
+    },
+    {
+      "path": "pages/assessment-analysis/index.js",
+      "bytes": 10346,
+      "sha256": "255AD3F652CC0ECA2E76E537A954F454CE1DC4EFA88505C6A20DCEF802D42805"
+    },
+    {
+      "path": "pages/assessment-analysis/index.json",
+      "bytes": 50,
+      "sha256": "1AC32D4D1ED7E48518ADFF583BE6618DA34FFDCFD0D2097609BD512567AA7E9E"
+    },
+    {
+      "path": "pages/assessment-analysis/index.wxml",
+      "bytes": 4504,
+      "sha256": "32F375FCDC57945B7256D9F6F6BC16CDA9FC467E904BBC06702E2A157F0E56C5"
+    },
+    {
+      "path": "pages/assessment-analysis/index.wxss",
+      "bytes": 3038,
+      "sha256": "59CBCC8A72CCC59CA730BD34FF17040EB2EE6F04138C60855DE0B7262E15E6B4"
+    },
+    {
+      "path": "pages/compass-preview/index.js",
+      "bytes": 11932,
+      "sha256": "18DA7195026E1B699856DCAB365A58D89C5FBCDBE3425B3AD91545E6496C3098"
+    },
+    {
+      "path": "pages/compass-preview/index.json",
+      "bytes": 45,
+      "sha256": "B21BC7CF3619281306B0E89662935472E4E30581CCDE87FA9EA542415605EB4A"
+    },
+    {
+      "path": "pages/compass-preview/index.wxml",
+      "bytes": 7751,
+      "sha256": "C63E4E4C216BC70F90E9568CC67898D305932E6701EC08BDEA33204231A76B24"
+    },
+    {
+      "path": "pages/compass-preview/index.wxss",
+      "bytes": 6828,
+      "sha256": "8938B04BAC620DF8F9398CDBFCF8BD2B39921740C9FD4743AC5BE68864FC144C"
+    },
+    {
+      "path": "pages/compass-questionnaire/index.js",
+      "bytes": 22731,
+      "sha256": "842CF9131D002B9ED1977FD2518D034A4377DF0EDD35A4513CF6E97DE4823147"
+    },
+    {
+      "path": "pages/compass-questionnaire/index.json",
+      "bytes": 50,
+      "sha256": "740142399CCDAFC4E0B1CFECFF33E9350D2E8022BEDC7ED4BE8779D4CA82B3CF"
+    },
+    {
+      "path": "pages/compass-questionnaire/index.wxml",
+      "bytes": 7295,
+      "sha256": "DD626BB71918B7C68D36C37C63C7D55CCC3140BD8A0D9E4DC022D4C91D36F783"
+    },
+    {
+      "path": "pages/compass-questionnaire/index.wxss",
+      "bytes": 4365,
+      "sha256": "775C036A8B785B38C69346875D6FAD40D758EEFA9F7987248894A8E88E93FFB6"
+    },
+    {
+      "path": "pages/compass/index.js",
+      "bytes": 10829,
+      "sha256": "42174E137BF8F94F40FD606285011BBF500B1800368A3A9E68B7DEE9FAE8DFE1"
+    },
+    {
+      "path": "pages/compass/index.json",
+      "bytes": 50,
+      "sha256": "740142399CCDAFC4E0B1CFECFF33E9350D2E8022BEDC7ED4BE8779D4CA82B3CF"
+    },
+    {
+      "path": "pages/compass/index.wxml",
+      "bytes": 6413,
+      "sha256": "094071BC390D37C6907E9F23F4006853F7022A1A4B1B7096E7FE8513810001D5"
+    },
+    {
+      "path": "pages/compass/index.wxss",
+      "bytes": 3958,
+      "sha256": "4CE904C967804A6878DF6741E74C60798D70C7D28356C09BD6A2CAEF3844EC0D"
+    },
+    {
+      "path": "pages/family-edit/index.js",
+      "bytes": 2024,
+      "sha256": "BB85A45E1F6F098CBE54F199CDE738E59994FB167EB56090442BF678E456B1AE"
+    },
+    {
+      "path": "pages/family-edit/index.json",
+      "bytes": 45,
+      "sha256": "20446EC116CAB509A6E56BB2D358799FBB9EF3A74445D4BD772A109DE01E5B4B"
+    },
+    {
+      "path": "pages/family-edit/index.wxml",
+      "bytes": 2005,
+      "sha256": "3B7CA6081BC062C31E4D8C6C2A005ECE2338742451630E20C5842A15B38FB347"
+    },
+    {
+      "path": "pages/family-edit/index.wxss",
+      "bytes": 412,
+      "sha256": "8A0A93065EC0ECE07D557B27482CB7AD64D55E524F76DE4295D4C95547185BC9"
+    },
+    {
+      "path": "pages/home/index.js",
+      "bytes": 12412,
+      "sha256": "488A766721B96F1B48C21358824703C4B210D44AC0C73E3015D6EEC25B37F18E"
+    },
+    {
+      "path": "pages/home/index.json",
+      "bytes": 105,
+      "sha256": "991A30EAB1FDE37869E86E4842D13E350D6AD6F397644505D8EE6359DE502B7C"
+    },
+    {
+      "path": "pages/home/index.wxml",
+      "bytes": 3735,
+      "sha256": "C307BE8D4D807B9AD775F37B3C9436AF63E1A0B656710F0327C64058F1D70C53"
+    },
+    {
+      "path": "pages/home/index.wxss",
+      "bytes": 4304,
+      "sha256": "8FA0D075481D7DBE6BBC913F9AA8414F4F8A8AF335821F2FAFAF0AB35956E57F"
+    },
+    {
+      "path": "pages/mine/index.js",
+      "bytes": 2759,
+      "sha256": "FBF26FEFD11B5113EF434C44D266F3D47295D7B7C24A69FAEF12818604A0B1B1"
+    },
+    {
+      "path": "pages/mine/index.json",
+      "bytes": 49,
+      "sha256": "B63F58BFEA42107962D333B3E9D0093F061776B94DEDE6B1F9E2E43029D5570F"
+    },
+    {
+      "path": "pages/mine/index.wxml",
+      "bytes": 2061,
+      "sha256": "5E05220EA68D28833D5C9B99E8CCA6DA52B986DF189A3930060CD32D68B352F4"
+    },
+    {
+      "path": "pages/mine/index.wxss",
+      "bytes": 2063,
+      "sha256": "1B242CF4B93EF388C730F8E0407778BD0A07DC2120C7640F7450432BEE003A27"
+    },
+    {
+      "path": "pages/payment-result/index.js",
+      "bytes": 2922,
+      "sha256": "D05542A691900B674A4DE48082BF07A1E6A54284EBD3FC3AC3F4D1840568B9B3"
+    },
+    {
+      "path": "pages/payment-result/index.json",
+      "bytes": 45,
+      "sha256": "9C90F5CC778C8A1A98321926A9EAD270B813F0C9FD196A31B07A91F622FC11DC"
+    },
+    {
+      "path": "pages/payment-result/index.wxml",
+      "bytes": 1550,
+      "sha256": "F0CC37106D164767C403461A3C273EDAA1412AC1BEA0BB44DBFCF8E56A45B66C"
+    },
+    {
+      "path": "pages/payment-result/index.wxss",
+      "bytes": 1243,
+      "sha256": "50CD7E05B2989176FCC9BD3505EB3122833AA1FE96CC1883C25CA711676A3E32"
+    },
+    {
+      "path": "pages/report/index.js",
+      "bytes": 14204,
+      "sha256": "3D3A9B26FD5488550256F82F70FDDC999E388BE76F83D96A08EB19B5114F2862"
+    },
+    {
+      "path": "pages/report/index.json",
+      "bytes": 51,
+      "sha256": "76B64637682F9951D7CB9F363DFC574F1CE4B382BE5C4736475277F92BF8175E"
+    },
+    {
+      "path": "pages/report/index.wxml",
+      "bytes": 13543,
+      "sha256": "1E8BA2F947C73EB46E105AA643D7A533E06CFDD4584B9A273D7889139C73B1EA"
+    },
+    {
+      "path": "pages/report/index.wxss",
+      "bytes": 7280,
+      "sha256": "B39F3C0A6B7293A5AAF661B0681C2C504F56C4ADDAF60DF43E58E247F463D739"
+    },
+    {
+      "path": "pages/student-edit/index.js",
+      "bytes": 3209,
+      "sha256": "8C63E938BC3785A98F72C7D4F2217C24A9E821C6211ED80052D889488861CF5E"
+    },
+    {
+      "path": "pages/student-edit/index.json",
+      "bytes": 45,
+      "sha256": "AD827FFCCD1D2B67AE69355EB3E68137D53A1B761FCA7221DF0D716074C4D32C"
+    },
+    {
+      "path": "pages/student-edit/index.wxml",
+      "bytes": 2575,
+      "sha256": "2EA28F1C8913A54B0C276D526C879B6030A84214C109C0FADF73BFD633244F6D"
+    },
+    {
+      "path": "pages/student-edit/index.wxss",
+      "bytes": 299,
+      "sha256": "278FF1CAECD769FC879BD700AA48D5E691DE06B9BBD5F8D3F00A443D97BA304D"
+    },
+    {
+      "path": "pages/timeline/index.js",
+      "bytes": 1659,
+      "sha256": "52195A6394E19F6D48C94A01B7F657BF1A0BBEF75B5A81A629190BBB4FC06D09"
+    },
+    {
+      "path": "pages/timeline/index.json",
+      "bytes": 79,
+      "sha256": "A48C7C008FBA53A3DCFA579204C1F9C48F9D34CF6D4D750DDC31658B1FD2481D"
+    },
+    {
+      "path": "pages/timeline/index.wxml",
+      "bytes": 1388,
+      "sha256": "48ADFA93E5067CC1F464F103D36A5DADB531BDBA2778898627DDB4358E536D7C"
+    },
+    {
+      "path": "pages/timeline/index.wxss",
+      "bytes": 1168,
+      "sha256": "48FEAB678CEE9C97D63B87823625A0A45EF508A851ABF6A64F7DD14C54014D28"
+    },
+    {
+      "path": "pages/welcome/index.js",
+      "bytes": 1237,
+      "sha256": "F3C3AA89E3ADD0E9A21F41253280C5BB28F7A446A7CC451F151046A89C650EC5"
+    },
+    {
+      "path": "pages/welcome/index.json",
+      "bytes": 105,
+      "sha256": "991A30EAB1FDE37869E86E4842D13E350D6AD6F397644505D8EE6359DE502B7C"
+    },
+    {
+      "path": "pages/welcome/index.wxml",
+      "bytes": 1672,
+      "sha256": "087C53637FF34D95059B2C69F2314CACB4FA693F8A60D38406702F032B415AB4"
+    },
+    {
+      "path": "pages/welcome/index.wxss",
+      "bytes": 2524,
+      "sha256": "899B76938E8F2D27269596B498690410C86EA3AF050219F50D736FDCCE502A4D"
+    },
+    {
+      "path": "project.config.json",
+      "bytes": 1163,
+      "sha256": "8CC3A7CF9F5BB979D475B661591046DFA5982F23E6F944DBE819FAE3836EF208"
+    },
+    {
+      "path": "README.md",
+      "bytes": 18654,
+      "sha256": "77FC5C0B65C6A378C98C7D77322D03097B365EECD7E3B72C9BB721CF441378D5"
+    },
+    {
+      "path": "scripts/build-release.js",
+      "bytes": 6533,
+      "sha256": "43D2617BFA55B1FBA8CF3B426CE064BB4CB5634EFE12C3209908DE31933161F0"
+    },
+    {
+      "path": "scripts/generate-education-evidence.js",
+      "bytes": 27321,
+      "sha256": "6A4D54A35355047BD79EB0534712F950077C76732D2095B5F52376B68286F2B0"
+    },
+    {
+      "path": "scripts/scan-release-secrets.js",
+      "bytes": 3069,
+      "sha256": "FC68C9B7CDFC41DD9A39D8409976143A3FFF3D1CC1979C0895DE5116EDA1EF57"
+    },
+    {
+      "path": "scripts/smoke-education-compass-mock.js",
+      "bytes": 11314,
+      "sha256": "FFD061470ECDBCA124552BAEEB31C2111EA3FAB47641F34E18DC14711640BE0A"
+    },
+    {
+      "path": "scripts/test-education-postgres.js",
+      "bytes": 1909,
+      "sha256": "BE88CEB0B14DB6E75DFE1092C73114109FFF81B3F395E50C8E6F3CE384C13F74"
+    },
+    {
+      "path": "scripts/verify-education-docs.js",
+      "bytes": 4223,
+      "sha256": "BBAB28E0D8E5BDA82E2C660C3770680BB92BF97C182EF7B074D3EE30EF009C5E"
+    },
+    {
+      "path": "scripts/verify-education-postgres-schema.js",
+      "bytes": 3471,
+      "sha256": "E7361A25D73E25E4ADB483A4912243011542733CFB1BDB3ABF7980206E797181"
+    },
+    {
+      "path": "server/migrations/001_initial_schema.sql",
+      "bytes": 11141,
+      "sha256": "502AB6BED513978922FAD8FD424D1C11281B07771E37CE056CF001A2674B35C9"
+    },
+    {
+      "path": "server/migrations/002_feishu_bitable_integration.sql",
+      "bytes": 1080,
+      "sha256": "5A9FC3092BDF46025834A1211E8458CBFF9D3B1DD39ECBF3C2BD02A72CA2D34D"
+    },
+    {
+      "path": "server/migrations/003_openai_agent.sql",
+      "bytes": 6472,
+      "sha256": "1E8B64E1FE38D48BEFD11AD3D69AF73423D77AF17A294ECF8E809A83C3D197E6"
+    },
+    {
+      "path": "server/migrations/004_dual_agent_analysis.sql",
+      "bytes": 626,
+      "sha256": "62F9B9213B768C2C2C694632AC30C791E5CAE77F75F0760CE0FB95C308D3E097"
+    },
+    {
+      "path": "server/migrations/005_education_compass_levels.sql",
+      "bytes": 19774,
+      "sha256": "12B341EA87F9F5560016C5929DCD6695E8391B2AC82C05F5482C2D20169FEE5F"
+    },
+    {
+      "path": "server/package-lock.json",
+      "bytes": 8338,
+      "sha256": "01FCB57A290F01F9E71BB952CCBFDF210877CDE240BB0B9232D574E7F85E38A2"
+    },
+    {
+      "path": "server/package.json",
+      "bytes": 1415,
+      "sha256": "652F9467F0A280399F2DF29B9C2D0D4EF6E68C4C11870CAAE72D5496921416EF"
+    },
+    {
+      "path": "server/scripts/migrate.js",
+      "bytes": 2531,
+      "sha256": "BF95DB6C44C7E7B84436FFC499BEAC135CB82310F0DDD5119FDAA301B4083262"
+    },
+    {
+      "path": "server/src/ai/context/assessment-context.ts",
+      "bytes": 14144,
+      "sha256": "D3F92C83FC8AB82AF6CF5DFA0D3CBC13BD766FD596E7D86149E4F282BC8D1229"
+    },
+    {
+      "path": "server/src/ai/context/report-context.ts",
+      "bytes": 3686,
+      "sha256": "E805667D3035B962AAE22FD4826B4DDDE65A85E40E4E8B42BD3297DF924F05AA"
+    },
+    {
+      "path": "server/src/ai/crypto.ts",
+      "bytes": 8472,
+      "sha256": "F548A97104CAA9DB82876A58BE08DC3FD7228C6F900AFEC9468B656964107238"
+    },
+    {
+      "path": "server/src/ai/prompt/report-followup-v1.ts",
+      "bytes": 3339,
+      "sha256": "C500E8089174EBC850B922FDC6261A0975C4E738551E5A3843183D6FEA83AF3B"
+    },
+    {
+      "path": "server/src/ai/provider/agent-provider.ts",
+      "bytes": 2227,
+      "sha256": "9FEE6CA9330F0C3ECE82D4DA38B11D345747058F9CC1E136EE93A87451C251B4"
+    },
+    {
+      "path": "server/src/ai/provider/mock-agent-provider.ts",
+      "bytes": 2354,
+      "sha256": "CA817AA6ECD817DFB92B158DAEFA2421E7112A08C1A0883E4B07B17974BE17E8"
+    },
+    {
+      "path": "server/src/ai/provider/openai-responses-provider.ts",
+      "bytes": 10785,
+      "sha256": "A5D9AD2ACE7C1EFE19258F3718C6AC8C50007415184A366A9E4D1A11174E4CF0"
+    },
+    {
+      "path": "server/src/ai/safety/local-safety.ts",
+      "bytes": 11329,
+      "sha256": "9DFC24594CB5F914B2D2FFC24CB8E3C5F8A9B7F41D435D5674458E823C7D217D"
+    },
+    {
+      "path": "server/src/auth/wechat-auth-provider.ts",
+      "bytes": 1895,
+      "sha256": "392B02F1E213AFEDEDDAC46FB383CF3F35CF9106D26337848517FF050F7504DC"
+    },
+    {
+      "path": "server/src/config.ts",
+      "bytes": 15081,
+      "sha256": "E134AA58BDB2782567DBD08C87F3FF6A22D343859B53B4988751C23A3702294B"
+    },
+    {
+      "path": "server/src/domain/education-compass/contracts.ts",
+      "bytes": 7574,
+      "sha256": "FE37D4B82775962BF6A21A0ACD05FF1D0FBBA7878FEF3DB5511CC63F9B7E0578"
+    },
+    {
+      "path": "server/src/domain/education-compass/level3-reservation.ts",
+      "bytes": 3592,
+      "sha256": "94A2264A04F190AFB4243A42588C51F1940F19655BBFE54D37C298EB3564EF91"
+    },
+    {
+      "path": "server/src/domain/education-compass/registry.ts",
+      "bytes": 21691,
+      "sha256": "26A2009D48355054E1DD39E2C95E0EC0A71CBFB467ECF15457536FE7CC47E67E"
+    },
+    {
+      "path": "server/src/domain/education-compass/result-builder.ts",
+      "bytes": 16543,
+      "sha256": "3BDE5B6483A62F4D1CEFB7EE0824FB7F262E7179FEF534402796A777BE069029"
+    },
+    {
+      "path": "server/src/domain/education-compass/validator.ts",
+      "bytes": 13400,
+      "sha256": "5E6698011D0741761ED80A895B3AC4927DE2C0F144EB697A1785A78BF86676DD"
+    },
+    {
+      "path": "server/src/domain/errors.ts",
+      "bytes": 1105,
+      "sha256": "601026AFF1D6FFD9D6ABA7A5844A472D7EC553077BE55FD090308924DC703351"
+    },
+    {
+      "path": "server/src/domain/model.ts",
+      "bytes": 14761,
+      "sha256": "0621DA1CA28CAFAAC60D0B360C3376AC6592B34E47557D23A221922729981664"
+    },
+    {
+      "path": "server/src/domain/products.ts",
+      "bytes": 1869,
+      "sha256": "3F607EF6CB352A916FF641D198965ECB671B252BFDC5CAF06DCC72D44D42BD14"
+    },
+    {
+      "path": "server/src/domain/questionnaire.ts",
+      "bytes": 5960,
+      "sha256": "BF23DE90A65BF911982F26056D07A48885CF07492CD7DB2F1BB21F9EA8D68FEF"
+    },
+    {
+      "path": "server/src/domain/report-builder.ts",
+      "bytes": 7883,
+      "sha256": "741B3395C06C9E2B6E19F314D48AF44383D48959AD1F2F421558D8D75A9703A0"
+    },
+    {
+      "path": "server/src/domain/source-catalog.ts",
+      "bytes": 3609,
+      "sha256": "A01709314E76E7F793FE217E0A3DBC3BD8E5FA37CA77C89CB798E3EC91A9B439"
+    },
+    {
+      "path": "server/src/http/agent-routes.ts",
+      "bytes": 8088,
+      "sha256": "A56F0424984DBEC329B3BCE42B49B43096526792890B48D7409F6A7C898AF435"
+    },
+    {
+      "path": "server/src/http/app.ts",
+      "bytes": 23322,
+      "sha256": "47095D9BAFEB6E85A82166B6CE525113617CEE4C4F67131183395F18C8A01EAE"
+    },
+    {
+      "path": "server/src/http/rate-limiter.ts",
+      "bytes": 713,
+      "sha256": "EEFC1B3BD65CF895926D799242314204C971E91203A9BFB17F70A90730C3F17C"
+    },
+    {
+      "path": "server/src/index.ts",
+      "bytes": 7840,
+      "sha256": "BD82A9CB37B1192A163432333063CA9D6AB839A7A5243FC299C193675325636E"
+    },
+    {
+      "path": "server/src/integrations/askwise/handoff-contract.ts",
+      "bytes": 14098,
+      "sha256": "19072B82D4D617A29792F7F5B604039E8A14BD8D69D2093572D20FB37686BB0F"
+    },
+    {
+      "path": "server/src/integrations/feishu/bitable-client.ts",
+      "bytes": 10919,
+      "sha256": "CEA589A00F4DD955F4001BC7E1D9D16C6333A52ECFAE71BA671B8F7C91986DD6"
+    },
+    {
+      "path": "server/src/integrations/feishu/schema-contract.ts",
+      "bytes": 9296,
+      "sha256": "B06869632321D78F56ABE88D36F6FA687D57E43B49BD9046CBBCF9BCC4AC22BB"
+    },
+    {
+      "path": "server/src/integrations/feishu/sync-service.ts",
+      "bytes": 26191,
+      "sha256": "5042FB3E311A5B3FAE019CE2EBF6C534BFDBBEF65AAD10ABDD133DF862B6D3F2"
+    },
+    {
+      "path": "server/src/payments/mock-payment-provider.ts",
+      "bytes": 7485,
+      "sha256": "75DF366322B83BFAB6CD3F1B801B8CF574A3166BCB8FA169FACEDE882461AEF4"
+    },
+    {
+      "path": "server/src/payments/payment-provider.ts",
+      "bytes": 1801,
+      "sha256": "AF54ECE502B29A0815ED0F970BCFC13DC248DB9C467E589DDFA034378B7B4DCA"
+    },
+    {
+      "path": "server/src/payments/wechat-pay-provider.ts",
+      "bytes": 15493,
+      "sha256": "55993B8D241B636DDB054B24FBAF21FC55792FF0A2942C99DE340E7B81167725"
+    },
+    {
+      "path": "server/src/pdf/simple-pdf.ts",
+      "bytes": 1870,
+      "sha256": "37429B9065A053C37102FEED5E8C636AEC934DBEDD54D2C8A816EAB1133AA634"
+    },
+    {
+      "path": "server/src/services/agent-service.ts",
+      "bytes": 40941,
+      "sha256": "6FA8EA91D069B4BCA785A48AFA3D09122FD5DE75C07A8AB58161D16367E25F96"
+    },
+    {
+      "path": "server/src/services/agent-worker-main.ts",
+      "bytes": 4660,
+      "sha256": "2D69A0C3E4406E49167966B6E3F9AC465EAD63C6CA42BDB807885AB37B95C18A"
+    },
+    {
+      "path": "server/src/services/assessment-service.ts",
+      "bytes": 9118,
+      "sha256": "58B8B84590550DEF5F763D7D53B2B529A1F8EE5BD6F33D8747DC7E56D2D26C54"
+    },
+    {
+      "path": "server/src/services/auth-service.ts",
+      "bytes": 3576,
+      "sha256": "5354EC49CD63D75311C012ACE78BB6B3D69F88133ADB9BC32BEF2A6CAD5F3B0F"
+    },
+    {
+      "path": "server/src/services/education-compass-service.ts",
+      "bytes": 41688,
+      "sha256": "B61AE76D34A42DD39A59C7086A51C09424D6F9A0763906B37D4DEA505C64736A"
+    },
+    {
+      "path": "server/src/services/order-service.ts",
+      "bytes": 36006,
+      "sha256": "5912AFEF16DE1776337E9D6D70453345E98DC0DBCC7AC6A1410E184F5ACD5862"
+    },
+    {
+      "path": "server/src/services/profile-service.ts",
+      "bytes": 10067,
+      "sha256": "C7CABA9A3FC523FEBD629091B5D0A4A3AEE59F2CB48810D3993003AA0B04D154"
+    },
+    {
+      "path": "server/src/services/report-service.ts",
+      "bytes": 6210,
+      "sha256": "6FA93A8E53BD9A691C82E1C7EFE16324B4BD74B6B260B664AA776EE510B67F92"
+    },
+    {
+      "path": "server/src/store/agent-repository.ts",
+      "bytes": 51897,
+      "sha256": "D11FC0666B01CD11F5C2455CE0408238345BE8ACCE46A509BB5E556D862069E3"
+    },
+    {
+      "path": "server/src/store/file-store.ts",
+      "bytes": 1126,
+      "sha256": "A48D20AF2392F55D352232E993AF5CA8D6AF1BCC987A0B879A28D85678421B65"
+    },
+    {
+      "path": "server/src/store/memory-store.ts",
+      "bytes": 10805,
+      "sha256": "8F96AD29F1A8F103AACD26C8D719274EB7ACBF3097E95F79EFE16439DEF5A39B"
+    },
+    {
+      "path": "server/src/store/postgres-store.ts",
+      "bytes": 8211,
+      "sha256": "27F3B333E16A153DCA94CC4884BEC5CCD42E48357A3EE2107815E561F5B065AD"
+    },
+    {
+      "path": "server/src/store/store.ts",
+      "bytes": 960,
+      "sha256": "89655B3BA571F1C3E0304E82282D8825FFDF14A6D19C4F4F6B189393182171F1"
+    },
+    {
+      "path": "server/src/utils/runtime.ts",
+      "bytes": 882,
+      "sha256": "3BC40438402808EE06E0388BD3F31FBB27699E163328F2A28891552F10FD5C9B"
+    },
+    {
+      "path": "server/src/worker/agent-worker.ts",
+      "bytes": 9294,
+      "sha256": "D437A0CCD872EE763EC0132F8A520B2DF0A6FD8FCD6BFB9E0DFD2D17AFA3214C"
+    },
+    {
+      "path": "server/tests/agent.test.ts",
+      "bytes": 51862,
+      "sha256": "EF596657091D89635773192834D5A5D6D0870FC93B075A787715512740C8A83C"
+    },
+    {
+      "path": "server/tests/domain.test.ts",
+      "bytes": 31900,
+      "sha256": "1DBD5F06C4A5883FA5BCA242833BD6E65B9E0E711AA5444C17F6DD2BCF425DCE"
+    },
+    {
+      "path": "server/tests/education-contracts.test.ts",
+      "bytes": 18800,
+      "sha256": "52A846D8406B193376C62410471ACC156FD6F79E8E94B1CF0FDFC453CC75C8F9"
+    },
+    {
+      "path": "server/tests/education-http.test.ts",
+      "bytes": 28062,
+      "sha256": "819347841794C75019951C5961B6944A733EAFA98B2F87F1922AF295FC68FA04"
+    },
+    {
+      "path": "server/tests/education-integrations.test.ts",
+      "bytes": 24498,
+      "sha256": "C12A66067DDB8467B83DC194CD2092903BCE33CD04948D3E383FB6227BCC064C"
+    },
+    {
+      "path": "server/tests/feishu.test.ts",
+      "bytes": 49135,
+      "sha256": "647EAC0F2EA0F3C045905853DA3CF5E0B33A892A8E446165DF79C8A124AC134C"
+    },
+    {
+      "path": "server/tests/http.test.ts",
+      "bytes": 9763,
+      "sha256": "EB53FB7E2032C4ABF57E53BBC69D557A2995C2950F8DB0284A070BD1D183C727"
+    },
+    {
+      "path": "server/tests/wechat-pay.test.ts",
+      "bytes": 11913,
+      "sha256": "393282452A5052C0884C2065B1759EFC310A8F50BF8CC8EB55B982C789311D09"
+    },
+    {
+      "path": "server/tsconfig.json",
+      "bytes": 517,
+      "sha256": "C47A0814EABEB34A11D8DDEF399831FE1C24E010F79DB01E5C93BC4CA112D869"
+    },
+    {
+      "path": "services/agent-analysis.js",
+      "bytes": 2565,
+      "sha256": "FD680554746225B8169EA056EF338B92E70BC7222755A26C1E6F48E95125D89F"
+    },
+    {
+      "path": "services/agent.js",
+      "bytes": 7638,
+      "sha256": "F8D0EEA2900A6D4DABFBD27DA165D47A860CDE2927176804E7F916068CFCF914"
+    },
+    {
+      "path": "services/ai-provider.js",
+      "bytes": 566,
+      "sha256": "21E997CED6110D949ECFC967D1F651FA720B0E8D1B93D5030099D047983BC73E"
+    },
+    {
+      "path": "services/analytics.js",
+      "bytes": 1530,
+      "sha256": "DB09131E588560562E4550DA2A0C8A6CF207D73B148BF09F830D6F180E2DFCDA"
+    },
+    {
+      "path": "services/api.js",
+      "bytes": 1933,
+      "sha256": "4A36A4BE16AB1AB7A93311D8B4AFFD14EE8CC8C76ED2E0AF6617B3A25B4BFCEC"
+    },
+    {
+      "path": "services/assessment.js",
+      "bytes": 10009,
+      "sha256": "1B05EA9ABFED0F123A371BFE3BF84FC0C66395B02691C558B06372D60609AAD4"
+    },
+    {
+      "path": "services/auth.js",
+      "bytes": 2999,
+      "sha256": "745395DF0A085206AECC2D0064CB2824FDD072173D55D96462D20A644ED6A148"
+    },
+    {
+      "path": "services/demo-runtime.js",
+      "bytes": 370,
+      "sha256": "E36C30607CD11EF70F5160B5B523E035B3CAC427F606F818BD165FF9DD7A77E2"
+    },
+    {
+      "path": "services/education-compass.js",
+      "bytes": 12681,
+      "sha256": "250B2917263758D93D8D9D824FFCFC455E194B57420A4EEFA9449D738041CFC8"
+    },
+    {
+      "path": "services/family-data.js",
+      "bytes": 7661,
+      "sha256": "61AA486FF04907D288C0ED339B0CEE47E3071C7D91D9580003C70B0543BABC9B"
+    },
+    {
+      "path": "services/insight.js",
+      "bytes": 6569,
+      "sha256": "3825315A84BABBD8D83C4EC83D1F18D5CBE706449EE1790A75E9C0F48C45031E"
+    },
+    {
+      "path": "services/payment.js",
+      "bytes": 8802,
+      "sha256": "6D9FEEA6A207651C22F147AE4043A363229D082426047E03F5AA98BA95B3E013"
+    },
+    {
+      "path": "services/report.js",
+      "bytes": 6163,
+      "sha256": "DE5CF80DCCC4B6B04BFF51A7BAE14B8026170EB4E82AEA14E9EA9808B7CB47EA"
+    },
+    {
+      "path": "services/repository.js",
+      "bytes": 5359,
+      "sha256": "B7BEA0FA2E8AC51F621C969F2B508BC35CF98DBAE01DE2F7A19F0EA78A1B1BC9"
+    },
+    {
+      "path": "services/session.js",
+      "bytes": 317,
+      "sha256": "9F2C92A0F4F6567E87A0F7E4FE86DC13745A7A17FBF3E0CBEFFA05BBCCD6E43C"
+    },
+    {
+      "path": "services/store.js",
+      "bytes": 889,
+      "sha256": "1AD77B633A91268D2C4D236B3D602BCA1DD9EAAE0E449ED0641D9BDCCE57010C"
+    },
+    {
+      "path": "sitemap.json",
+      "bytes": 96,
+      "sha256": "9E3B635020736622003ECD71C1E79B39A9B4F8D7A7B225DCE18A3E94FA8F73C5"
+    },
+    {
+      "path": "tests/education-compass-client.test.js",
+      "bytes": 15859,
+      "sha256": "1D1A7E6540CC38C122F629A2BE2F58288AE8407DEF24FC102C524D8ECA7E1FF1"
+    },
+    {
+      "path": "tests/run-tests.js",
+      "bytes": 24463,
+      "sha256": "DF6DC679416F6CF5F44E82012D70998527DAD1003A79FF1F3879481660590527"
+    },
+    {
+      "path": "tests/validate-project.js",
+      "bytes": 13807,
+      "sha256": "E8976FB3C882BAEC67A2B06CAC7F69FCC382B5515383CB410F2072ABF7E66DA3"
+    },
+    {
+      "path": "tests/validate-release-build.js",
+      "bytes": 6946,
+      "sha256": "A6BAD08EE14D923A6A27F58968E5B0762943E023A98C7DC5A8A98AD2352BFE39"
+    },
+    {
+      "path": "utils/date.js",
+      "bytes": 616,
+      "sha256": "F99D00499A7312D5C31E6A937DDD68A208C22242C0138BFBE23C41B8078800B8"
+    },
+    {
+      "path": "utils/education-compass-navigation.js",
+      "bytes": 6233,
+      "sha256": "DFD6C11CB78546323E7C3333780C4BD74A6CC7D10C941E081859551D8BCA18CA"
+    },
+    {
+      "path": "utils/id.js",
+      "bytes": 175,
+      "sha256": "2DD78422A2D67098B8C8C234371BB7E740F7C3C6269B45A7FFE8C63FD4C36C43"
+    },
+    {
+      "path": "utils/navigation.js",
+      "bytes": 2018,
+      "sha256": "319DDE5BE6CFAAA15E32867FC852EF6ED509D1A17543534B3BFA81069175FBBE"
+    }
+  ]
+}

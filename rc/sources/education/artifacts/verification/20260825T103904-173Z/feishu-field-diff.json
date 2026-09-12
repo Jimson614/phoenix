@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "phoenix_feishu_field_diff_v1",
+  "generatedAt": "2026-08-25T10:39:20.280Z",
+  "status": "PASS",
+  "verificationCommandId": "server-tests",
+  "verifiedTestCase": {
+    "status": "PASS",
+    "name": "V0.5 Feishu mirror requires both gates, uses only profile allowlists, and fences withdrawal retries"
+  },
+  "requiredGates": [
+    "FEISHU_SYNC_ENABLED deployment flag",
+    "active FEISHU_PROFILE_MIRROR per-child consent"
+  ],
+  "allowedFields": {
+    "family_profile": [
+      "family_id",
+      "status",
+      "created_at",
+      "schema_version",
+      "source_updated_at",
+      "family_name",
+      "parent_name",
+      "phone",
+      "location",
+      "goal"
+    ],
+    "student_profile": [
+      "student_id",
+      "family_id",
+      "student_version",
+      "created_at",
+      "schema_version",
+      "source_updated_at",
+      "student_name",
+      "age",
+      "gender",
+      "school",
+      "education_system",
+      "grade",
+      "interest",
+      "goal"
+    ]
+  },
+  "removedOperationalAndSensitiveFields": [
+    "session_id",
+    "assessment_id",
+    "report_id",
+    "order_id",
+    "answers",
+    "answer_payload",
+    "result_payload",
+    "family_concerns",
+    "strength_signals",
+    "learning_bottlenecks",
+    "amount_fen",
+    "product_code",
+    "out_trade_no",
+    "provider_transaction_id",
+    "payment_params"
+  ],
+  "withdrawalFence": {
+    "status": "BLOCKED",
+    "errorCode": "FEISHU_CONSENT_WITHDRAWN",
+    "clearedRetryMaterial": [
+      "leaseToken",
+      "operationToken",
+      "operationDigest",
+      "operationBody",
+      "nextAttemptAt"
+    ]
+  },
+  "sourceHashes": {
+    "server/src/integrations/feishu/schema-contract.ts": "B06869632321D78F56ABE88D36F6FA687D57E43B49BD9046CBBCF9BCC4AC22BB",
+    "server/src/integrations/feishu/sync-service.ts": "5042FB3E311A5B3FAE019CE2EBF6C534BFDBBEF65AAD10ABDD133DF862B6D3F2",
+    "server/tests/education-integrations.test.ts": "C12A66067DDB8467B83DC194CD2092903BCE33CD04948D3E383FB6227BCC064C"
+  },
+  "externalCallPerformed": false,
+  "bindings": {
+    "freezeSha256": "9884503DA89A61F1DFC78FF97F429FDE210D240B30764D099105DD7C8A100B2D",
+    "migrationAggregateSha256": "DBDCDDA40BB8995BC65CED72A6F7D867F55ED1F270AE5C3F437DB238DDDA703D",
+    "sourceBeforeSha256": "13D8DC6272A11134529CD61F311BA70301799FF5FE99C472A9930C3CFB5826B8",
+    "sourceAfterSha256": "13D8DC6272A11134529CD61F311BA70301799FF5FE99C472A9930C3CFB5826B8"
+  }
+}

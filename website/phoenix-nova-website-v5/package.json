@@ -13,7 +13,10 @@
     "test": "npm run build && node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"
+    "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
+    "rc:dev": "next dev --webpack --hostname 127.0.0.1 --port 4310",
+    "rc:build": "next build --webpack",
+    "rc:start": "next start --hostname 127.0.0.1 --port 4310"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

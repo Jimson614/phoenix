@@ -1,0 +1,36 @@
+<view class="welcome">
+  <view class="welcome__glow welcome__glow--one"></view>
+  <view class="welcome__glow welcome__glow--two"></view>
+  <image class="welcome__feather welcome__feather--top" src="/assets/ui/feather-champagne.png" mode="aspectFit" aria-hidden="true" />
+  <image class="welcome__feather welcome__feather--bottom" src="/assets/ui/feather-champagne.png" mode="aspectFit" aria-hidden="true" />
+  <view
+    class="welcome__top"
+    style="padding-top: {{navigation.statusBarHeight}}px; padding-right: {{navigation.menuButtonSafeWidth}}px; min-height: {{navigation.navigationBarHeight}}px;"
+  ><brand-mark /></view>
+
+  <view class="welcome__hero">
+    <text class="welcome__eyebrow">FOR EVERY BEGINNING.</text>
+    <text class="welcome__title">陪伴家庭成长的
+智能系统</text>
+    <text class="welcome__subtitle">从一次教育罗盘开始，记录每一个重要选择，
+让成长有方向，也有被理解的温度。</text>
+  </view>
+
+  <view class="orbit" aria-label="家庭成长关系罗盘">
+    <view class="orbit__ring orbit__ring--outer"></view>
+    <view class="orbit__ring orbit__ring--inner"></view>
+    <image class="orbit__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+    <text class="orbit__label orbit__label--one">理解</text>
+    <text class="orbit__label orbit__label--two">规划</text>
+    <text class="orbit__label orbit__label--three">陪伴</text>
+  </view>
+
+  <view class="welcome__actions">
+    <button class="btn btn--gold" loading="{{loading}}" bindtap="start">开始家庭成长规划</button>
+    <button class="welcome__login" bindtap="start">已有档案，登录</button>
+    <text class="welcome__privacy">资料仅用于已授权的家庭成长服务</text>
+  </view>
+
+  <view wx:if="{{showAdvisorDemo}}" class="welcome__footer" bindtap="advisorLogin">Phoenix Advisor 内部演示入口</view>
+  <view class="safe-bottom"></view>
+</view>

@@ -1,0 +1,80 @@
+{
+  "status": "PASS",
+  "artifactClass": "LOCAL_UI_AND_ENTRY_FLOW_VERIFICATION",
+  "runId": "20260826T030012894Z",
+  "protectedFiles": {
+    "beforeCount": 3478,
+    "afterCount": 3478,
+    "changed": [
+      {
+        "path": "pages/compass/index.js",
+        "authorization": "user-requested Education Compass entry gating"
+      },
+      {
+        "path": "utils/education-compass-navigation.js",
+        "authorization": "user-requested server-authoritative entry gating"
+      }
+    ],
+    "unchangedCount": 3476,
+    "missing": [],
+    "added": []
+  },
+  "routeContract": {
+    "registeredPages": 16,
+    "pagesOrderPreserved": true,
+    "tabBarPathsPreserved": true,
+    "lazyCodeLoadingPreserved": true,
+    "allowedAppearanceChange": {
+      "navigationBarBackgroundColor": {
+        "before": "#F8F3EA",
+        "after": "#FFFDF9"
+      }
+    }
+  },
+  "interactionContract": {
+    "handlerOccurrencesBefore": 131,
+    "handlerOccurrencesAfter": 131,
+    "dataAttributeOccurrencesBefore": 32,
+    "dataAttributeOccurrencesAfter": 32,
+    "missing": []
+  },
+  "educationCompassEntryGate": {
+    "level1DisplaysPaidProduct": false,
+    "level2RequiresServerStartLevel2": true,
+    "directLevel2BypassBlocked": true,
+    "studentStateIsolated": true,
+    "urlSourceAssessmentIdTrusted": false
+  },
+  "staticReview": {
+    "wxmlPagesPassed": 16,
+    "jsonFilesPassed": 18,
+    "wxssFilesPassed": 18,
+    "jsHandlersResolved": 92,
+    "jsDatasetFieldsResolved": 16,
+    "staticImageReferencesResolved": 61,
+    "remoteUiResources": 0,
+    "cssUrlReferences": 0,
+    "wxssUniversalSelectors": 0,
+    "webViews": 0,
+    "missingCssVariables": 0
+  },
+  "assets": {
+    "count": 2,
+    "totalBytes": 875790,
+    "budgetBytes": 1572864,
+    "passed": true
+  },
+  "releaseBoundary": {
+    "sourcePages": 16,
+    "releasePages": 14,
+    "adminDemoExcluded": true,
+    "buildClass": "OFFLINE_TEST_ONLY"
+  },
+  "manualVisualVerification": {
+    "wechatDevToolsIos": "BLOCKED_MANUAL",
+    "wechatDevToolsAndroid": "BLOCKED_MANUAL",
+    "iosDevice": "BLOCKED_MANUAL",
+    "androidDevice": "BLOCKED_MANUAL",
+    "screenshotsCaptured": 0
+  }
+}

@@ -1,0 +1,54 @@
+.masters-confirm { min-height: 100vh; }
+.masters-confirm__page { padding-bottom: calc(72rpx + env(safe-area-inset-bottom)); }
+.masters-confirm__topbar { align-items: center; display: flex; justify-content: space-between; }
+.masters-confirm__topbar .btn { font-size: 24rpx; margin-left: -14rpx; }
+.masters-confirm__heading { margin: 50rpx 0 28rpx; }
+.masters-confirm__heading .h1 { display: block; margin-top: 12rpx; }
+.masters-confirm__heading .muted { margin-top: 12rpx; }
+.summary-panel { padding: 24rpx 28rpx; }
+.summary-row { align-items: flex-start; border-bottom: 1rpx solid var(--line); display: flex; gap: 18rpx; justify-content: space-between; padding: 18rpx 0; }
+.summary-row:last-child { border-bottom: 0; }
+.summary-row text:first-child { color: var(--muted); flex-shrink: 0; font-size: 23rpx; width: 190rpx; }
+.summary-row text:last-child { color: var(--navy); flex: 1; font-size: 24rpx; line-height: 1.5; text-align: right; word-break: break-all; }
+.resume-draft { margin-top: 20rpx; }
+.resume-draft .muted { display: block; line-height: 1.55; margin-top: 8rpx; }
+.resume-draft__line { border-top: 1rpx solid var(--line); color: var(--navy); font-size: 23rpx; line-height: 1.55; margin-top: 14rpx; padding-top: 14rpx; word-break: break-all; }
+.document-group + .document-group { border-top: 1rpx solid var(--line); margin-top: 18rpx; padding-top: 18rpx; }
+.document-group__title { color: var(--gold-deep); display: block; font-size: 23rpx; font-weight: 650; }
+.document-group__file { display: flex; justify-content: space-between; margin-top: 10rpx; }
+.document-group__file text:first-child { color: var(--navy); font-size: 22rpx; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.document-group__file text:last-child { color: var(--muted); font-size: 19rpx; }
+.missing-panel { margin-top: 20rpx; }
+.missing-panel .muted { margin-top: 8rpx; }
+.extraction-review, .conflict-review { margin-top: 20rpx; }
+.extraction-review .section-head, .conflict-review .section-head { align-items: center; margin-bottom: 8rpx; }
+.extraction-item, .conflict-item { border-top: 1rpx solid var(--line); display: flex; gap: 16rpx; justify-content: space-between; margin-top: 17rpx; padding-top: 17rpx; }
+.extraction-item__copy { flex: 1; min-width: 0; }
+.extraction-item__field, .extraction-item__value, .extraction-item__source, .extraction-item__decision, .conflict-item__field, .conflict-item__status { display: block; }
+.extraction-item__field, .conflict-item__field { color: var(--gold-deep); font-size: 21rpx; font-weight: 650; }
+.extraction-item__value { color: var(--navy); font-size: 25rpx; margin-top: 6rpx; word-break: break-all; }
+.extraction-item__source { color: var(--muted); font-size: 19rpx; line-height: 1.5; margin-top: 6rpx; }
+.extraction-item__decision, .conflict-item__status { color: var(--success); font-size: 20rpx; margin-top: 7rpx; }
+.extraction-item__actions { display: flex; flex-shrink: 0; flex-direction: column; }
+.extraction-item__actions .btn { font-size: 21rpx; height: 58rpx; padding: 0 10rpx; }
+.extraction-item__reject { color: var(--danger); }
+.conflict-item { display: block; }
+.conflict-item__values { display: flex; flex-wrap: wrap; margin-top: 10rpx; }
+.conflict-item__values .btn { font-size: 21rpx; height: auto; margin: 0 10rpx 10rpx 0; min-height: 58rpx; padding: 10rpx 14rpx; }
+.conflict-item__status { color: var(--muted); }
+.masters-confirm__consent { margin-top: 20rpx; }
+.check-line { align-items: center; display: flex; gap: 10rpx; line-height: 1.55; margin-top: 12rpx; }
+.check-line:first-child { margin-top: 0; }
+.check-line checkbox { transform: scale(.86); }
+.masters-confirm__submit, .masters-confirm__edit { margin-top: 28rpx; width: 100%; }
+.masters-confirm__edit { margin-top: 14rpx; }
+.masters-confirm__error { background: #fff1ee; border-radius: var(--radius-md); color: var(--danger); font-size: 22rpx; line-height: 1.55; margin-top: 18rpx; padding: 18rpx 20rpx; }
+
+@media (max-width: 360px) {
+  .masters-confirm__page { padding-left: 28rpx; padding-right: 28rpx; }
+  .summary-row text:first-child { width: 150rpx; }
+  .summary-row text:last-child { font-size: 22rpx; }
+  .document-group__file { display: block; }
+  .document-group__file text { display: block; max-width: 100%; }
+  .document-group__file text:last-child { margin-top: 5rpx; }
+}

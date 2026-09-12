@@ -1,0 +1,1679 @@
+openapi: 3.1.0
+info:
+  title: Phoenix Education Compass API
+  version: 0.5.0
+  description: |
+    冻结版 Education Compass Level 1 / Level 2 原生微信小程序接口。
+
+    关键边界：Level 1 免费；Level 2 固定 3990 分，提交后付款、付款后解锁；
+    客户端支付成功回调不授予权益，只有后端验证的支付通知可以授予权益。
+    GAOKAO、DSE、IGCSE、A_LEVEL、AP_US 使用正式分支；IB、OTHER 使用公共题 fallback。
+    本合同不开放 Askwise、Level 3、原始问卷答案飞书同步或客户端直连 OpenAI。
+servers:
+  - url: http://127.0.0.1:3000
+    description: 本地开发（端口可由 PORT 覆盖）
+tags:
+  - name: Bootstrap
+  - name: Education Compass
+  - name: Payment
+  - name: Report
+  - name: Consent
+  - name: AI Analysis
+  - name: Advisor
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      tags: [Bootstrap]
+      operationId: health
+      security: []
+      responses:
+        '200':
+          description: 服务可用
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [ok]
+                properties:
+                  ok: { const: true }
+  /v1/auth/wechat/session:
+    post:
+      tags: [Bootstrap]
+      operationId: createWechatSession
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  minLength: 1
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSession'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /v1/me/family:
+    put:
+      tags: [Bootstrap]
+      operationId: upsertFamily
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FamilyInput'
+      responses:
+        '200':
+          description: 家庭档案
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [family]
+                properties:
+                  family: { $ref: '#/components/schemas/Family' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/me/students:
+    post:
+      tags: [Bootstrap]
+      operationId: createStudent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentInput'
+      responses:
+        '201':
+          description: 学生档案
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [student]
+                properties:
+                  student: { $ref: '#/components/schemas/Student' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/me/education-compass/state:
+    get:
+      tags: [Education Compass]
+      operationId: getEducationCompassState
+      responses:
+        '200':
+          description: 当前家庭的 Education Compass 恢复状态与下一步动作
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EducationCompassState'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/education-compass/questionnaires/{version}:
+    get:
+      tags: [Education Compass]
+      operationId: getQuestionnaireByVersion
+      parameters:
+        - $ref: '#/components/parameters/QuestionnaireVersion'
+        - name: educationSystem
+          in: query
+          required: false
+          description: Level 2 必填；Level 1 不得传。正式分支或 IB/OTHER fallback。
+          schema:
+            $ref: '#/components/schemas/EducationSystem'
+      responses:
+        '200':
+          description: 由冻结题库生成的可渲染问卷
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [questionnaire]
+                properties:
+                  questionnaire: { $ref: '#/components/schemas/QuestionnaireBank' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/education-compass/products/growth-discovery:
+    get:
+      tags: [Payment]
+      operationId: getGrowthDiscoveryProduct
+      responses:
+        '200':
+          description: Level 2 商品事实；是否允许支付由后端功能开关决定
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [product]
+                properties:
+                  product: { $ref: '#/components/schemas/GrowthDiscoveryProduct' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/education-compass/free-parent-assessments:
+    post:
+      tags: [Education Compass]
+      operationId: createFreeParentAssessment
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FreeParentCreate'
+      responses:
+        '201':
+          description: 创建或按相同幂等键重放 Level 1 草稿
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentCreated'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/students/{studentId}/education-assessments:
+    post:
+      tags: [Education Compass]
+      operationId: createGrowthDiscoveryAssessment
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrowthDiscoveryCreate'
+      responses:
+        '201':
+          description: 创建或按相同幂等键重放 Level 2 草稿
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentCreated'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/assessments/{assessmentId}/questionnaire:
+    get:
+      tags: [Education Compass]
+      operationId: getAssessmentQuestionnaire
+      parameters:
+        - $ref: '#/components/parameters/AssessmentId'
+      responses:
+        '200':
+          description: 与测评锁定版本和体系一致的问卷
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [questionnaire]
+                properties:
+                  questionnaire: { $ref: '#/components/schemas/QuestionnaireBank' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/assessments/{assessmentId}/draft:
+    get:
+      tags: [Education Compass]
+      operationId: getEducationCompassDraft
+      parameters:
+        - $ref: '#/components/parameters/AssessmentId'
+      responses:
+        '200':
+          description: 服务端权威草稿
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftState'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Education Compass]
+      operationId: saveEducationCompassDraft
+      parameters:
+        - $ref: '#/components/parameters/AssessmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftSave'
+      responses:
+        '200':
+          description: 已保存；revision 自增。体系切换时删除旧体系题答案并审计。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftSaved'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/assessments/{assessmentId}/submit:
+    post:
+      tags: [Education Compass]
+      operationId: submitEducationCompass
+      parameters:
+        - $ref: '#/components/parameters/AssessmentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [revision]
+              properties:
+                revision:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          description: Level 1 返回完整免费快照；Level 2 仅返回零泄漏锁定元数据
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/FamilyResultReady'
+                  - $ref: '#/components/schemas/GrowthResultLocked'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /v1/assessments/{assessmentId}/result:
+    get:
+      tags: [Education Compass]
+      operationId: getEducationCompassResult
+      parameters:
+        - $ref: '#/components/parameters/AssessmentId'
+      responses:
+        '200':
+          description: Level 1 完整快照，或 Level 2 锁定/已解锁结果
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/FamilyResultReady'
+                  - $ref: '#/components/schemas/GrowthResultLocked'
+                  - $ref: '#/components/schemas/GrowthResultReady'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/assessments/{assessmentId}/orders:
+    post:
+      tags: [Payment]
+      operationId: createGrowthDiscoveryOrder
+      parameters:
+        - $ref: '#/components/parameters/AssessmentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [productCode]
+              properties:
+                productCode:
+                  const: EDUCATION_GROWTH_DISCOVERY_SINGLE_V1
+      responses:
+        '201':
+          description: 3990 分单次报告订单
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/orders/{orderId}/wechat-prepay:
+    post:
+      tags: [Payment]
+      operationId: createGrowthDiscoveryWechatPrepay
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        '200':
+          description: 传给 wx.requestPayment 的参数；该响应和客户端回调都不代表权益已授予
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WechatPrepay'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/orders/{orderId}:
+    get:
+      tags: [Payment]
+      operationId: getOrder
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: 后端权威订单状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/reports/{reportId}:
+    get:
+      tags: [Report]
+      operationId: getReport
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+      responses:
+        '200':
+          description: 未获授权仅 preview；正确商品权益且交付完成后返回 full
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/assessments/{assessmentId}/agent-analyses:
+    post:
+      tags: [AI Analysis]
+      operationId: createEducationCompassAssessmentAnalysis
+      description: |
+        创建一次性免费快照 AI 解读。V0.5 必须同时取得学生本人和监护人的当前冻结版
+        `AI_ANALYSIS` 独立同意。该接口不得用于绕过 Level 2 付款；学生成长发现报告只能在
+        正确商品权益已生效后通过报告分析接口解读。
+      parameters:
+        - $ref: '#/components/parameters/AgentAssessmentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiAnalysisConsentInput' }
+      responses:
+        '202':
+          description: 分析已排队；结果必须从服务端任务状态恢复
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentRun' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/assessments/{assessmentId}/agent-analyses/latest:
+    get:
+      tags: [AI Analysis]
+      operationId: getLatestEducationCompassAssessmentAnalysis
+      parameters:
+        - $ref: '#/components/parameters/AgentAssessmentId'
+      responses:
+        '200':
+          description: 最近一次可访问的测评分析；没有记录时 analysis 为 null
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LatestAgentAnalysis' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/reports/{reportId}/agent-analyses:
+    post:
+      tags: [AI Analysis]
+      operationId: createEducationCompassReportAnalysis
+      description: |
+        创建一次性已购报告 AI 解读。V0.5 要求当前冻结版 `AI_ANALYSIS` 独立同意、有效核心同意、
+        学生本人 assent，以及 `EDUCATION_GROWTH_DISCOVERY_SINGLE_V1` 的有效权益和已交付报告。
+      parameters:
+        - $ref: '#/components/parameters/AgentReportId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiAnalysisConsentInput' }
+      responses:
+        '202':
+          description: 分析已排队；该响应不包含模型内部请求或原始问卷答案
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentRun' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/reports/{reportId}/agent-analyses/latest:
+    get:
+      tags: [AI Analysis]
+      operationId: getLatestEducationCompassReportAnalysis
+      parameters:
+        - $ref: '#/components/parameters/AgentReportId'
+      responses:
+        '200':
+          description: 最近一次可访问的已购报告分析；没有记录时 analysis 为 null
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LatestAgentAnalysis' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/agent-analyses/{runId}:
+    get:
+      tags: [AI Analysis]
+      operationId: getEducationCompassAgentAnalysis
+      parameters:
+        - $ref: '#/components/parameters/AgentRunId'
+      responses:
+        '200':
+          description: 后端权威任务状态；每次读取都会重新检查资源、权益和同意
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentRun' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/reports/{reportId}/agent-conversations:
+    post:
+      tags: [AI Analysis]
+      operationId: createEducationCompassReportConversation
+      description: |
+        为已购报告创建有限追问会话。V0.5 使用与一次性分析相同的当前冻结版
+        `AI_ANALYSIS` 独立同意；旧版 Agent 同意只保留在 legacy 合同中。
+      parameters:
+        - $ref: '#/components/parameters/AgentReportId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiAnalysisConsentInput' }
+      responses:
+        '201':
+          description: 会话已创建或按相同幂等输入复用
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentConversationCreated' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/me/ai-analysis-consents/{studentId}:
+    delete:
+      tags: [Consent, AI Analysis]
+      operationId: withdrawEducationCompassAiAnalysisConsent
+      description: |
+        幂等撤回该学生的 `AI_ANALYSIS` 独立同意，并关闭该学生仍处于活动状态的 Agent 会话；
+        撤回不会撤销核心测评同意、学生 assent、飞书资料镜像或顾问联系同意。
+      parameters:
+        - $ref: '#/components/parameters/AgentStudentId'
+      responses:
+        '200':
+          description: AI 分析同意已处于关闭状态
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiAnalysisConsentState' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/me/education-compass/consents/{studentId}/{scope}:
+    delete:
+      tags: [Consent, Education Compass]
+      operationId: withdrawEducationCompassAssessmentConsent
+      description: |
+        独立撤回指定学生的核心测评同意或学生本人 assent。撤回后，所有依赖该授权的 V0.5
+        问卷草稿、提交、结果/报告读取和未完成 Agent 工作均必须失败关闭。该接口不撤回飞书资料镜像、
+        顾问联系或其他独立授权；重复撤回时 `withdrawnGrantCount` 可为 0。
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+        - $ref: '#/components/parameters/AssessmentConsentScope'
+      responses:
+        '200':
+          description: 指定测评同意已处于关闭状态
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssessmentConsentWithdrawalState' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/me/integration-consents/feishu-profile:
+    put:
+      tags: [Consent]
+      operationId: setFeishuProfileConsent
+      description: |
+        可撤回、可审计的飞书客户资料镜像 opt-in。该同意不授权同步原始答案、学习过程全文、
+        报告全文、支付资料或证件资料。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeishuProfileConsentInput'
+      responses:
+        '200':
+          description: 当前同意状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeishuProfileConsentState'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/me/integration-consents/advisor-contact:
+    put:
+      tags: [Consent, Advisor]
+      operationId: setAdvisorContactConsent
+      description: |
+        单独启用或撤回家庭/学生范围的顾问联系同意。该同意不授权查看原始作答或学习过程全文，
+        也不替代创建顾问请求时的显式确认。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdvisorContactConsentInput' }
+      responses:
+        '200':
+          description: 当前顾问联系同意状态
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdvisorContactConsentState' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/advisor-requests:
+    post:
+      tags: [Advisor]
+      operationId: createAdvisorRequest
+      description: 创建顾问联系请求，并按家庭或所选学生记录当前冻结版专项同意。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdvisorRequestInput' }
+      responses:
+        '201':
+          description: 顾问联系请求已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [request]
+                properties:
+                  request: { $ref: '#/components/schemas/AdvisorRequest' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/me/advisor-requests:
+    get:
+      tags: [Advisor]
+      operationId: listMyAdvisorRequests
+      responses:
+        '200':
+          description: 当前用户的顾问联系请求，按创建时间倒序
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [requests]
+                properties:
+                  requests:
+                    type: array
+                    items: { $ref: '#/components/schemas/AdvisorRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-session-token
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^[A-Za-z0-9._:-]{8,128}$'
+      description: 同一用户、同一动作的稳定键；相同键配不同输入返回 409。
+    StudentId:
+      name: studentId
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+    AssessmentId:
+      name: assessmentId
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+    ReportId:
+      name: reportId
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+    AgentRunId:
+      name: runId
+      in: path
+      required: true
+      schema: { type: string, minLength: 3, maxLength: 128, pattern: '^[A-Za-z0-9_-]+$' }
+    AgentAssessmentId:
+      name: assessmentId
+      in: path
+      required: true
+      schema: { type: string, minLength: 3, maxLength: 128, pattern: '^[A-Za-z0-9_-]+$' }
+    AgentReportId:
+      name: reportId
+      in: path
+      required: true
+      schema: { type: string, minLength: 3, maxLength: 128, pattern: '^[A-Za-z0-9_-]+$' }
+    AgentStudentId:
+      name: studentId
+      in: path
+      required: true
+      schema: { type: string, minLength: 3, maxLength: 128, pattern: '^[A-Za-z0-9_-]+$' }
+    AssessmentConsentScope:
+      name: scope
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [CORE_ASSESSMENT, STUDENT_ASSESSMENT_ASSENT]
+    QuestionnaireVersion:
+      name: version
+      in: path
+      required: true
+      schema:
+        type: string
+        enum:
+          - free_parent_compass_v1.1.0
+          - education_growth_discovery_v1.1.0
+          - free_parent_compass_v1.0.0-rc1
+          - education_growth_discovery_v1.0.0-rc1
+  responses:
+    BadRequest:
+      description: 请求结构、题号、canonical code、同意版本或幂等键无效
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unauthorized:
+      description: 缺少或无效会话
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Forbidden:
+      description: 资源不属于当前用户
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Conflict:
+      description: revision、体系路由、幂等输入、支付或资源状态冲突
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unprocessable:
+      description: 必答题缺失或未确认学生本人作答
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    RateLimited:
+      description: 触发限流
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unavailable:
+      description: 功能未配置或未获上线开关授权
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  schemas:
+    EducationSystem:
+      type: string
+      enum: [GAOKAO, DSE, IGCSE, A_LEVEL, AP_US, IB, OTHER]
+    AssessmentKind:
+      type: string
+      enum: [FREE_PARENT_COMPASS, STUDENT_GROWTH_DISCOVERY]
+    NullableString:
+      type: [string, 'null']
+    AuthSession:
+      type: object
+      additionalProperties: false
+      required: [accessToken, expiresAt, user]
+      properties:
+        accessToken: { type: string }
+        expiresAt: { type: string, format: date-time }
+        user:
+          type: object
+          additionalProperties: false
+          required: [id, role]
+          properties:
+            id: { type: string }
+            role: { type: string, enum: [family_user, admin] }
+    FamilyInput:
+      type: object
+      additionalProperties: false
+      required: [familyName, parentName, phone, location, goal]
+      properties:
+        familyName: { type: string, minLength: 1, maxLength: 80 }
+        parentName: { type: string, minLength: 1, maxLength: 80 }
+        phone: { type: string, minLength: 1, maxLength: 30 }
+        location: { type: string, maxLength: 120 }
+        goal: { type: string, maxLength: 500 }
+    Family:
+      type: object
+      required: [id, userId, familyName, parentName, phone, location, goal, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        familyName: { type: string }
+        parentName: { type: string }
+        phone: { type: string }
+        location: { type: string }
+        goal: { type: string }
+        profileStatus: { type: string }
+        profileSchemaVersion: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    StudentInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        age: { type: [integer, 'null'], minimum: 3, maximum: 100 }
+        gender: { type: [string, 'null'] }
+        school: { type: [string, 'null'] }
+        educationSystem: { type: [string, 'null'] }
+        grade: { type: [string, 'null'] }
+        interest: { type: [string, 'null'] }
+        goal: { type: [string, 'null'] }
+    Student:
+      type: object
+      required: [id, familyId, name, studentVersion, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        familyId: { type: string }
+        name: { type: string }
+        age: { type: [integer, 'null'] }
+        educationSystem: { type: [string, 'null'] }
+        grade: { type: [string, 'null'] }
+        gradeStage: { type: [string, 'null'] }
+        profileStatus: { type: string }
+        studentVersion: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    EducationCompassStudentState:
+      type: object
+      additionalProperties: false
+      required:
+        - studentId
+        - profileStatus
+        - assessmentId
+        - assessmentKind
+        - status
+        - reportId
+        - orderId
+        - revision
+        - nextAction
+      properties:
+        studentId: { type: string }
+        profileStatus: { type: string }
+        assessmentId: { type: [string, 'null'] }
+        assessmentKind:
+          oneOf:
+            - $ref: '#/components/schemas/AssessmentKind'
+            - { type: 'null' }
+        status: { type: [string, 'null'], enum: [DRAFT, SUBMITTED, null] }
+        reportId: { type: [string, 'null'] }
+        orderId: { type: [string, 'null'] }
+        revision: { type: [integer, 'null'] }
+        nextAction:
+          type: string
+          enum:
+            - START_FREE_PARENT_COMPASS
+            - CONTINUE_FREE_PARENT_COMPASS
+            - START_LEVEL_2
+            - VIEW_FAMILY_EDUCATION_SNAPSHOT
+            - CONTINUE_STUDENT_GROWTH_DISCOVERY
+            - VIEW_STUDENT_GROWTH_LOCKED_RESULT
+            - CHECK_ORDER_STATUS
+            - VIEW_FULL_REPORT
+    EducationCompassState:
+      type: object
+      required: [familyId, students, nextAction]
+      properties:
+        familyId: { type: [string, 'null'] }
+        students:
+          type: array
+          items: { $ref: '#/components/schemas/EducationCompassStudentState' }
+        nextAction:
+          type: string
+          description: 没有档案时还可为 CREATE_FAMILY_PROFILE 或 CREATE_STUDENT_PROFILE。
+        studentId: { type: string }
+        assessmentId: { type: [string, 'null'] }
+        assessmentKind: { type: [string, 'null'] }
+        status: { type: [string, 'null'] }
+        reportId: { type: [string, 'null'] }
+        orderId: { type: [string, 'null'] }
+        revision: { type: [integer, 'null'] }
+    FrozenOption:
+      type: object
+      additionalProperties: false
+      required: [code, label]
+      properties:
+        code: { type: string }
+        label: { type: string }
+    FrozenQuestion:
+      type: object
+      required: [id, key, label, type, required, options, dimensions, signalCodes, scored]
+      properties:
+        id: { type: string }
+        key: { type: string }
+        label: { type: string }
+        type:
+          type: string
+          enum:
+            - SINGLE_CHOICE
+            - MULTI_CHOICE
+            - MULTI_CHOICE_DYNAMIC
+            - YEAR_SELECT
+            - PROVINCE_REGION_SELECT
+            - SUBJECT_RANGE_MATRIX
+        required: { type: boolean }
+        options:
+          type: array
+          items: { $ref: '#/components/schemas/FrozenOption' }
+        matrixSubjectOptions:
+          type: array
+          items: { $ref: '#/components/schemas/FrozenOption' }
+        matrixRangeOptions:
+          type: array
+          items: { $ref: '#/components/schemas/FrozenOption' }
+        validation: { type: object }
+        dimensions: { type: array, items: { type: string } }
+        signalCodes: { type: array, items: { type: string } }
+        scored: { const: false }
+        exitRule: { type: string }
+        privacyNote: { type: string }
+    QuestionnaireBank:
+      type: object
+      additionalProperties: false
+      required:
+        - schemaVersion
+        - assessmentKind
+        - assessmentLevel
+        - questionnaireVersion
+        - commonBankVersion
+        - systemBankVersion
+        - educationSystem
+        - systemResultMarker
+        - questions
+        - commonQuestionIds
+        - systemQuestionIds
+        - requiredQuestionIds
+        - optionalQuestionIds
+        - schemaDigest
+        - scoringMode
+      properties:
+        schemaVersion: { const: phoenix_question_bank_schema_v1 }
+        assessmentKind: { $ref: '#/components/schemas/AssessmentKind' }
+        assessmentLevel: { type: string, enum: [LEVEL_1, LEVEL_2] }
+        questionnaireVersion: { type: string }
+        commonBankVersion: { type: string }
+        systemBankVersion: { type: [string, 'null'] }
+        educationSystem:
+          oneOf:
+            - $ref: '#/components/schemas/EducationSystem'
+            - { type: 'null' }
+        systemResultMarker: { type: [string, 'null'], enum: [FULL_SYSTEM_BANK, SYSTEM_BANK_PENDING, null] }
+        questions: { type: array, items: { $ref: '#/components/schemas/FrozenQuestion' } }
+        commonQuestionIds: { type: array, items: { type: string } }
+        systemQuestionIds: { type: array, items: { type: string } }
+        requiredQuestionIds: { type: array, items: { type: string } }
+        optionalQuestionIds: { type: array, items: { type: string } }
+        schemaDigest: { type: string, pattern: '^[a-f0-9]{64}$' }
+        scoringMode: { const: NONE }
+        presentation:
+          type: object
+          additionalProperties: false
+          description: 仅用于客户端展示和进度计算的 additive 元数据；不参与 schemaDigest。
+          required:
+            - version
+            - estimatedMinutesMin
+            - estimatedMinutesMax
+            - totalQuestions
+            - requiredQuestions
+            - progressMode
+            - scoringMode
+          properties:
+            version: { const: education_compass_presentation_v1 }
+            estimatedMinutesMin: { type: integer, minimum: 1 }
+            estimatedMinutesMax: { type: integer, minimum: 1 }
+            totalQuestions: { type: integer, minimum: 0 }
+            requiredQuestions: { type: integer, minimum: 0 }
+            progressMode: { const: QUESTION_COUNT }
+            scoringMode: { const: NONE }
+    CoreConsent:
+      type: object
+      additionalProperties: false
+      required: [scope, copyVersion, locale, guardianAuthorityConfirmed]
+      properties:
+        scope: { const: CORE_ASSESSMENT }
+        copyVersion: { const: guardian_core_assessment_v1.0.0-rc1 }
+        locale: { const: zh-CN }
+        guardianAuthorityConfirmed: { const: true }
+    StudentAssent:
+      type: object
+      additionalProperties: false
+      required: [scope, copyVersion, locale, studentConfirmed]
+      properties:
+        scope: { const: STUDENT_ASSESSMENT_ASSENT }
+        copyVersion: { const: student_assent_growth_discovery_v1.0.0-rc1 }
+        locale: { const: zh-CN }
+        studentConfirmed: { const: true }
+    AssessmentConsentWithdrawalState:
+      type: object
+      additionalProperties: false
+      required: [scope, studentId, enabled, withdrawnAt, withdrawnGrantCount]
+      properties:
+        scope:
+          type: string
+          enum: [CORE_ASSESSMENT, STUDENT_ASSESSMENT_ASSENT]
+        studentId: { type: string }
+        enabled: { const: false }
+        withdrawnAt: { type: string, format: date-time }
+        withdrawnGrantCount: { type: integer, minimum: 0 }
+    FreeParentCreate:
+      type: object
+      additionalProperties: false
+      required: [studentId, sourceEntry, consent]
+      properties:
+        studentId: { type: string, minLength: 1 }
+        sourceEntry:
+          type: string
+          enum:
+            - MINIPROGRAM_HOME
+            - LEVEL_1_RESULT
+            - DIRECT_LEVEL_2
+            - XIAOHONGSHU_CONTENT
+            - ADVISOR_REFERRAL
+            - INTERNAL_UAT
+        consent: { $ref: '#/components/schemas/CoreConsent' }
+    GrowthDiscoveryCreate:
+      type: object
+      additionalProperties: false
+      required:
+        - assessmentKind
+        - sourceAssessmentId
+        - sourceEntry
+        - educationSystem
+        - respondent
+        - assent
+      properties:
+        assessmentKind: { const: STUDENT_GROWTH_DISCOVERY }
+        sourceAssessmentId: { type: string, minLength: 1 }
+        sourceEntry: { type: string, enum: [LEVEL_1_RESULT, INTERNAL_UAT] }
+        educationSystem: { $ref: '#/components/schemas/EducationSystem' }
+        respondent: { const: STUDENT }
+        assent: { $ref: '#/components/schemas/StudentAssent' }
+    AssessmentCreated:
+      type: object
+      additionalProperties: false
+      required: [assessmentId, assessmentKind, status, questionnaireVersion, schemaDigest, revision]
+      properties:
+        assessmentId: { type: string }
+        assessmentKind: { $ref: '#/components/schemas/AssessmentKind' }
+        status: { const: DRAFT }
+        questionnaireVersion: { type: string }
+        schemaDigest: { type: string, pattern: '^[a-f0-9]{64}$' }
+        revision: { type: integer, minimum: 1 }
+    SubjectRangeAnswerRow:
+      type: object
+      additionalProperties: false
+      required: [subject_code, range_code]
+      properties:
+        subject_code: { type: string }
+        range_code: { type: string }
+    AnswerMap:
+      type: object
+      description: key 必须是当前冻结问卷题号；答案必须是 canonical code，不接受显示文案或自由文本。
+      additionalProperties:
+        oneOf:
+          - { type: string }
+          - type: array
+            items: { type: string }
+          - type: array
+            items: { $ref: '#/components/schemas/SubjectRangeAnswerRow' }
+    DraftSave:
+      type: object
+      additionalProperties: false
+      required: [revision, answers]
+      properties:
+        revision: { type: integer, minimum: 1 }
+        answers: { $ref: '#/components/schemas/AnswerMap' }
+        educationSystem: { $ref: '#/components/schemas/EducationSystem' }
+        clientSaveToken:
+          type: string
+          pattern: '^[A-Za-z0-9._:-]{8,128}$'
+    DraftState:
+      type: object
+      additionalProperties: false
+      required:
+        - assessmentId
+        - assessmentKind
+        - status
+        - questionnaireVersion
+        - schemaDigest
+        - educationSystem
+        - revision
+        - answers
+        - completenessCoverage
+        - missingRequiredQuestionIds
+      properties:
+        assessmentId: { type: string }
+        assessmentKind: { $ref: '#/components/schemas/AssessmentKind' }
+        status: { type: string, enum: [DRAFT, SUBMITTED] }
+        questionnaireVersion: { type: string }
+        schemaDigest: { type: string }
+        educationSystem:
+          oneOf:
+            - $ref: '#/components/schemas/EducationSystem'
+            - { type: 'null' }
+        revision: { type: integer, minimum: 1 }
+        answers: { $ref: '#/components/schemas/AnswerMap' }
+        completenessCoverage: { type: integer, minimum: 0, maximum: 100 }
+        missingRequiredQuestionIds: { type: array, items: { type: string } }
+    DraftSaved:
+      type: object
+      additionalProperties: false
+      required:
+        - assessmentId
+        - revision
+        - status
+        - educationSystem
+        - completenessCoverage
+        - missingRequiredQuestionIds
+        - canSubmit
+        - respondentExitRequested
+      properties:
+        assessmentId: { type: string }
+        revision: { type: integer, minimum: 2 }
+        status: { const: DRAFT }
+        educationSystem:
+          oneOf:
+            - $ref: '#/components/schemas/EducationSystem'
+            - { type: 'null' }
+        completenessCoverage: { type: integer, minimum: 0, maximum: 100 }
+        missingRequiredQuestionIds: { type: array, items: { type: string } }
+        canSubmit: { type: boolean }
+        respondentExitRequested: { type: boolean }
+        clientSaveToken: { type: string }
+    FamilyEducationSnapshot:
+      type: object
+      additionalProperties: false
+      required:
+        - result_kind
+        - result_version
+        - family_id
+        - student_id
+        - assessment_id
+        - education_system
+        - grade_stage
+        - family_concerns
+        - observed_strength_signals
+        - observed_difficulty_signals
+        - student_readiness
+        - family_priorities
+        - preferred_next_support
+        - next_step_status
+        - next_step_reason_codes
+        - questionnaire_version
+        - disclaimer_version
+        - disclaimer
+      properties:
+        result_kind: { const: FAMILY_EDUCATION_SNAPSHOT }
+        result_version: { const: family_education_snapshot_v1.0.0 }
+        family_id: { type: string }
+        student_id: { type: string }
+        assessment_id: { type: string }
+        education_system: { $ref: '#/components/schemas/EducationSystem' }
+        grade_stage: { type: string }
+        family_concerns: { type: array, items: { type: string } }
+        observed_strength_signals: { type: array, items: { type: string } }
+        observed_difficulty_signals: { type: array, items: { type: string } }
+        student_readiness: { type: string }
+        family_priorities: { type: array, items: { type: string } }
+        preferred_next_support: { type: string }
+        next_step_status: { type: string, enum: [AVAILABLE, CONSIDER, NOT_RECOMMENDED, DEFERRED] }
+        next_step_reason_codes: { type: array, items: { type: string } }
+        questionnaire_version:
+          type: string
+          enum: [free_parent_compass_v1.0.0-rc1, free_parent_compass_v1.1.0]
+        disclaimer_version: { type: string }
+        disclaimer: { type: string }
+    EvidenceSignal:
+      type: object
+      additionalProperties: false
+      required: [code, dimension, status, evidence_refs, source]
+      properties:
+        code: { type: string }
+        dimension:
+          type: string
+          enum: [ACADEMIC_PERFORMANCE, LEARNING_PROCESS, THINKING_LEARNING_STYLE, INTEREST_DIRECTION]
+        status: { type: string, enum: [SUPPORTED, NEEDS_VALIDATION, UNKNOWN] }
+        evidence_refs: { type: array, items: { type: string } }
+        source: { type: string, enum: [STUDENT_SELF_REPORT, OPTIONAL_RANGE_CONTEXT] }
+    StudentGrowthDiscoveryReport:
+      type: object
+      required:
+        - result_kind
+        - result_version
+        - education_pathway_context
+        - student_snapshot
+        - strength_signals
+        - learning_bottlenecks
+        - subject_focus
+        - growth_direction
+        - action_plan_30d
+        - learning_signals
+        - interest_signals
+        - recommended_focus
+        - system_result_marker
+        - evidence_refs
+        - questionnaire_versions
+        - disclaimer_version
+        - disclaimer
+        - scoring_mode
+      properties:
+        result_kind: { const: STUDENT_GROWTH_DISCOVERY }
+        result_version: { const: student_growth_discovery_report_v1.0.0 }
+        education_pathway_context: { type: object }
+        student_snapshot:
+          type: object
+          required: [education_system, grade_stage, major_exam_year, target_regions, performance_self_view, evidence_refs]
+          properties:
+            education_system: { $ref: '#/components/schemas/EducationSystem' }
+            grade_stage: { type: string }
+            major_exam_year: { type: string }
+            target_regions: { type: array, items: { type: string } }
+            performance_self_view: { type: string }
+            evidence_refs: { type: array, items: { type: string } }
+        strength_signals: { type: array, items: { $ref: '#/components/schemas/EvidenceSignal' } }
+        learning_bottlenecks: { type: array, items: { $ref: '#/components/schemas/EvidenceSignal' } }
+        subject_focus: { type: array, items: { $ref: '#/components/schemas/EvidenceSignal' } }
+        growth_direction: { type: array, items: { $ref: '#/components/schemas/EvidenceSignal' } }
+        action_plan_30d: { type: object }
+        learning_signals: { type: array, items: { $ref: '#/components/schemas/EvidenceSignal' } }
+        interest_signals: { type: array, items: { $ref: '#/components/schemas/EvidenceSignal' } }
+        recommended_focus: { type: array, items: { type: string } }
+        system_result_marker: { type: string, enum: [FULL_SYSTEM_BANK, SYSTEM_BANK_PENDING] }
+        evidence_refs: { type: array, items: { type: string } }
+        questionnaire_versions: { type: array, items: { type: string } }
+        disclaimer_version: { type: string }
+        disclaimer: { type: string }
+        scoring_mode: { const: NONE }
+    FamilyResultReady:
+      type: object
+      additionalProperties: false
+      required: [assessmentId, resultState, reportId, result]
+      properties:
+        assessmentId: { type: string }
+        status: { const: SUBMITTED }
+        resultState: { const: READY }
+        reportId: { type: string }
+        result: { $ref: '#/components/schemas/FamilyEducationSnapshot' }
+    GrowthResultLocked:
+      type: object
+      additionalProperties: false
+      required:
+        - assessmentId
+        - reportId
+        - resultState
+        - productCode
+        - amountFen
+        - currency
+        - nextAction
+        - systemResultMarker
+      properties:
+        assessmentId: { type: string }
+        reportId: { type: string }
+        resultState: { const: LOCKED }
+        productCode: { const: EDUCATION_GROWTH_DISCOVERY_SINGLE_V1 }
+        amountFen: { const: 3990 }
+        currency: { const: CNY }
+        nextAction: { const: PURCHASE_TO_UNLOCK_REPORT }
+        systemResultMarker: { type: string, enum: [FULL_SYSTEM_BANK, SYSTEM_BANK_PENDING] }
+    GrowthResultReady:
+      type: object
+      additionalProperties: false
+      required: [assessmentId, resultState, reportId, resultKind, resultVersion, result]
+      properties:
+        assessmentId: { type: string }
+        resultState: { const: READY }
+        reportId: { type: string }
+        resultKind: { const: STUDENT_GROWTH_DISCOVERY }
+        resultVersion: { const: student_growth_discovery_report_v1.0.0 }
+        result: { $ref: '#/components/schemas/StudentGrowthDiscoveryReport' }
+    GrowthDiscoveryProduct:
+      type: object
+      additionalProperties: false
+      required: [productCode, productName, amountFen, currency, displayPrice, paymentTiming, paymentEnabled]
+      properties:
+        productCode: { const: EDUCATION_GROWTH_DISCOVERY_SINGLE_V1 }
+        productName: { type: string }
+        amountFen: { const: 3990 }
+        currency: { const: CNY }
+        displayPrice: { const: '¥39.90' }
+        paymentTiming: { const: AFTER_SUBMIT_BEFORE_REPORT }
+        paymentEnabled: { type: boolean }
+    Order:
+      type: object
+      required:
+        - orderId
+        - outTradeNo
+        - productCode
+        - amountFen
+        - currency
+        - status
+        - reportId
+        - expiresAt
+      properties:
+        orderId: { type: string }
+        outTradeNo: { type: string }
+        productCode: { type: string }
+        amountFen: { type: integer }
+        currency: { const: CNY }
+        status: { type: string, enum: [CREATED, PENDING, PAID, FAILED, CANCELLED, REFUNDING, REFUNDED] }
+        expiresAt: { type: string, format: date-time }
+        reportId: { type: string }
+        paidAt: { type: string, format: date-time }
+        refundedAt: { type: string, format: date-time }
+    WechatPrepay:
+      type: object
+      additionalProperties: false
+      required: [orderId, status, paymentParams]
+      properties:
+        orderId: { type: string }
+        status: { const: PENDING }
+        paymentParams:
+          type: object
+          required: [timeStamp, nonceStr, package, signType, paySign]
+          properties:
+            timeStamp: { type: string }
+            nonceStr: { type: string }
+            package: { type: string }
+            signType: { type: string }
+            paySign: { type: string }
+    ReportResponse:
+      oneOf:
+        - type: object
+          required: [access, reportId, status, deliveryStatus, qaPassed, preview, entitled, capabilities]
+          properties:
+            access: { const: preview }
+            reportId: { type: string }
+            status: { type: string }
+            deliveryStatus: { type: string }
+            qaPassed: { type: boolean }
+            entitled: { type: boolean }
+            preview: { type: object }
+            reportKind: { type: string }
+            resultVersion: { type: [string, 'null'] }
+            capabilities: { $ref: '#/components/schemas/ReportCapabilities' }
+        - type: object
+          required: [access, reportId, status, deliveryStatus, qaPassed, preview, entitled, capabilities, full]
+          properties:
+            access: { const: full }
+            reportId: { type: string }
+            status: { const: READY }
+            deliveryStatus: { const: DELIVERED }
+            qaPassed: { const: true }
+            entitled: { const: true }
+            preview: { type: object }
+            reportKind: { type: string }
+            resultVersion: { type: [string, 'null'] }
+            capabilities: { $ref: '#/components/schemas/ReportCapabilities' }
+            full:
+              type: object
+              required: [modules, sources, dataAsOf, versions, confidence, disclaimer]
+              properties:
+                modules: { type: array, items: { type: object } }
+                sources: { type: array, items: { type: object } }
+                dataAsOf: { type: string }
+                versions: { type: object }
+                confidence: { type: string }
+                disclaimer: { type: string }
+                result: { $ref: '#/components/schemas/StudentGrowthDiscoveryReport' }
+    ReportCapabilities:
+      type: object
+      additionalProperties: false
+      required: [agentFollowup, nextSupport]
+      properties:
+        agentFollowup: { $ref: '#/components/schemas/AgentFollowupCapability' }
+        nextSupport: { $ref: '#/components/schemas/NextSupportCapability' }
+    AgentFollowupCapability:
+      type: object
+      additionalProperties: false
+      required:
+        - available
+        - reasonCode
+        - maxRepliesPerReport
+        - remainingReplies
+        - activeConversationId
+        - consentStatus
+        - hasConversations
+        - conversationCount
+        - managementAvailable
+      properties:
+        available: { type: boolean }
+        reasonCode: { type: [string, 'null'] }
+        maxRepliesPerReport: { type: integer, minimum: 0 }
+        remainingReplies: { type: integer, minimum: 0 }
+        activeConversationId: { type: [string, 'null'] }
+        consentStatus: { type: string, enum: [ACTIVE, REVOKED, NOT_GRANTED] }
+        hasConversations: { type: boolean }
+        conversationCount: { type: integer, minimum: 0 }
+        managementAvailable: { type: boolean }
+    NextSupportCapability:
+      type: object
+      additionalProperties: false
+      required: [askwise, deepAssessment, advisor]
+      properties:
+        askwise:
+          type: object
+          additionalProperties: false
+          description: 当前版本仅保留 Askwise 能力位；不开放 AVAILABLE 行为或网络调用。
+          required: [status, enabled, reasonCode, requiresExplicitConsent]
+          properties:
+            status:
+              const: RESERVED
+              description: 当前运行时固定为 RESERVED；未来启用须发布新合同并取得独立授权。
+            enabled: { const: false }
+            reasonCode: { const: ASKWISE_CAPABILITY_UNAVAILABLE }
+            requiresExplicitConsent: { const: true }
+        deepAssessment:
+          type: object
+          additionalProperties: false
+          required: [state, reasonCodes, ctaMode, advisorIntent, displayPrice]
+          properties:
+            state:
+              type: string
+              enum: [AVAILABLE, CONSIDER, NOT_RECOMMENDED, DEFERRED]
+            reasonCodes:
+              type: array
+              minItems: 1
+              uniqueItems: true
+              items:
+                type: string
+                enum:
+                  - USER_REQUESTED_DEEP_ASSESSMENT
+                  - COMPLEX_MULTI_FACTOR_NEEDS_REVIEW
+                  - FAMILY_STUDENT_GOAL_MISALIGNMENT
+                  - MULTI_EDUCATION_SYSTEM_COMPARISON_REQUESTED
+                  - MULTI_PATHWAY_COMPARISON_REQUESTED
+                  - STUDENT_DECLINED
+                  - ONLY_STRESS_OR_EMOTIONAL_SIGNAL
+                  - INSUFFICIENT_EVIDENCE
+                  - NO_LEVEL_3_TRIGGER
+            ctaMode:
+              type: string
+              enum: [ADVISOR_INFORMATION_OR_APPOINTMENT_ONLY, NONE]
+            advisorIntent:
+              type: [string, 'null']
+              enum: [DEEP_ASSESSMENT, null]
+            displayPrice:
+              const: null
+              description: 当前未冻结 Level 3 SKU 或价格，禁止返回展示价格。
+        advisor:
+          type: object
+          additionalProperties: false
+          required: [available, requiresExplicitConsent]
+          properties:
+            available: { type: boolean }
+            requiresExplicitConsent: { const: true }
+    AiAnalysisConsentInput:
+      type: object
+      additionalProperties: false
+      required: [consentVersion, scope, guardianConfirmed, studentConfirmed, locale]
+      properties:
+        consentVersion: { const: agent_analysis_opt_in_v1.0.0-rc1 }
+        scope: { const: AI_ANALYSIS }
+        guardianConfirmed: { const: true }
+        studentConfirmed: { const: true }
+        locale: { const: zh-CN }
+    AiAnalysisConsentState:
+      type: object
+      additionalProperties: false
+      required: [scope, studentId, enabled, consentVersion, updatedAt]
+      properties:
+        scope: { const: AI_ANALYSIS }
+        studentId: { type: string }
+        enabled: { const: false }
+        consentVersion: { const: agent_analysis_opt_in_v1.0.0-rc1 }
+        updatedAt: { type: string, format: date-time }
+    AgentSource:
+      type: object
+      additionalProperties: false
+      required: [alias, name, applicableYear, verifiedAt, dataVersion]
+      properties:
+        alias: { type: string }
+        name: { type: string }
+        applicableYear: { type: string }
+        verifiedAt: { type: string }
+        dataVersion: { type: string }
+    AgentReply:
+      type: object
+      additionalProperties: false
+      required: [answer, keyPoints, nextSteps, limitations, sources, safety]
+      properties:
+        answer: { type: string }
+        keyPoints: { type: array, items: { type: string } }
+        nextSteps: { type: array, items: { type: string } }
+        limitations: { type: array, items: { type: string } }
+        sources: { type: array, items: { $ref: '#/components/schemas/AgentSource' } }
+        safety:
+          type: object
+          additionalProperties: false
+          required: [level, requiresGuardianAttention]
+          properties:
+            level: { const: STANDARD }
+            requiresGuardianAttention: { type: boolean }
+    AgentPublicError:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+    AgentRun:
+      type: object
+      additionalProperties: false
+      required: [runId, conversationId, status, remainingReplies]
+      properties:
+        runId: { type: string }
+        conversationId: { type: string }
+        status: { type: string, enum: [QUEUED, RUNNING, SUCCEEDED, FAILED, BLOCKED, CANCELLED] }
+        analysisType: { type: string, enum: [ASSESSMENT_ANALYSIS, REPORT_ANALYSIS] }
+        remainingReplies: { type: integer, minimum: 0 }
+        retryAfterMs: { type: integer, minimum: 0 }
+        reply: { $ref: '#/components/schemas/AgentReply' }
+        error: { $ref: '#/components/schemas/AgentPublicError' }
+    LatestAgentAnalysis:
+      type: object
+      additionalProperties: false
+      required: [analysis]
+      properties:
+        analysis:
+          oneOf:
+            - $ref: '#/components/schemas/AgentRun'
+            - { type: 'null' }
+    AgentConversationCreated:
+      type: object
+      additionalProperties: false
+      required: [conversationId, purpose, status, expiresAt, created, limits]
+      properties:
+        conversationId: { type: string }
+        purpose: { const: REPORT_FOLLOWUP }
+        status: { const: ACTIVE }
+        expiresAt: { type: string, format: date-time }
+        created: { type: boolean }
+        limits:
+          type: object
+          additionalProperties: false
+          required: [maxMessageChars, maxRepliesPerReport, remainingReplies]
+          properties:
+            maxMessageChars: { type: integer, minimum: 1 }
+            maxRepliesPerReport: { type: integer, minimum: 1 }
+            remainingReplies: { type: integer, minimum: 0 }
+    AdvisorContactConsentInput:
+      type: object
+      additionalProperties: false
+      required: [enabled, copyVersion, locale, guardianAuthorityConfirmed]
+      properties:
+        studentId: { type: string, minLength: 1 }
+        enabled: { type: boolean }
+        copyVersion: { const: advisor_contact_opt_in_v1.0.0-rc1 }
+        locale: { const: zh-CN }
+        guardianAuthorityConfirmed: { const: true }
+    AdvisorContactConsentState:
+      type: object
+      additionalProperties: false
+      required: [scope, enabled, consentVersion, updatedAt]
+      properties:
+        scope: { const: ADVISOR_CONTACT }
+        enabled: { type: boolean }
+        consentVersion: { const: advisor_contact_opt_in_v1.0.0-rc1 }
+        updatedAt: { type: string, format: date-time }
+    AdvisorContactConsentConfirmation:
+      type: object
+      additionalProperties: false
+      required: [scope, copyVersion, locale, guardianAuthorityConfirmed]
+      properties:
+        scope: { const: ADVISOR_CONTACT }
+        copyVersion: { const: advisor_contact_opt_in_v1.0.0-rc1 }
+        locale: { const: zh-CN }
+        guardianAuthorityConfirmed: { const: true }
+    AdvisorRequestInput:
+      type: object
+      additionalProperties: false
+      description: 未列入合同的字段不会成为授权依据；客户端应只发送下列字段。
+      required: [preferredTime, topic, consent]
+      properties:
+        preferredTime: { type: string, minLength: 1, maxLength: 120 }
+        topic: { type: string, minLength: 1, maxLength: 300 }
+        note: { type: string, maxLength: 1000 }
+        reportId: { type: string, minLength: 1 }
+        studentId: { type: string, minLength: 1 }
+        intent:
+          type: string
+          enum: [GENERAL_ADVISOR, DEEP_ASSESSMENT]
+          default: GENERAL_ADVISOR
+        consent: { $ref: '#/components/schemas/AdvisorContactConsentConfirmation' }
+    AdvisorRequest:
+      type: object
+      required: [id, userId, familyId, preferredTime, topic, status, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        familyId: { type: string }
+        preferredTime: { type: string }
+        topic: { type: string }
+        note: { type: [string, 'null'] }
+        reportId: { type: [string, 'null'] }
+        studentId: { type: [string, 'null'] }
+        status: { type: string, enum: [PENDING, CONTACTED, CLOSED, CANCELLED_BY_CONSENT_WITHDRAWAL] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        assessmentId: { type: [string, 'null'] }
+        intent:
+          type: [string, 'null']
+          enum: [GENERAL_ADVISOR, ASKWISE_LEARNING_SUPPORT, DEEP_ASSESSMENT, null]
+    FeishuProfileConsentInput:
+      type: object
+      additionalProperties: false
+      required: [studentId, enabled, copyVersion, locale, guardianAuthorityConfirmed]
+      properties:
+        studentId: { type: string, minLength: 1 }
+        enabled: { type: boolean }
+        copyVersion: { const: feishu_profile_mirror_opt_in_v1.0.0-rc1 }
+        locale: { const: zh-CN }
+        guardianAuthorityConfirmed: { const: true }
+    FeishuProfileConsentState:
+      type: object
+      additionalProperties: false
+      required: [scope, enabled, updatedAt]
+      properties:
+        scope: { const: FEISHU_PROFILE_MIRROR }
+        enabled: { type: boolean }
+        consentVersion: { type: string }
+        updatedAt: { type: string, format: date-time }
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object }

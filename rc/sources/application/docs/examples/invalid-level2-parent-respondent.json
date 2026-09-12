@@ -1,0 +1,23 @@
+{
+  "fixtureId": "INVALID_LEVEL2_PARENT_RESPONDENT",
+  "expectedStatus": 400,
+  "expectedErrorCode": "GROWTH_DISCOVERY_CREATE_INVALID",
+  "request": {
+    "method": "POST",
+    "path": "/v1/students/{studentId}/education-assessments",
+    "headers": { "Idempotency-Key": "invalid-level2-create-001" },
+    "body": {
+      "assessmentKind": "STUDENT_GROWTH_DISCOVERY",
+      "sourceAssessmentId": "{completedLevel1AssessmentId}",
+      "sourceEntry": "LEVEL_1_RESULT",
+      "educationSystem": "GAOKAO",
+      "respondent": "PARENT_GUARDIAN",
+      "assent": {
+        "scope": "STUDENT_ASSESSMENT_ASSENT",
+        "copyVersion": "student_assent_growth_discovery_v1.0.0-rc1",
+        "locale": "zh-CN",
+        "studentConfirmed": true
+      }
+    }
+  }
+}

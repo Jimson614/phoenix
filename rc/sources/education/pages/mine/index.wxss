@@ -1,0 +1,103 @@
+.mine-page {
+  background:
+    radial-gradient(circle at 8% 1%, rgba(226, 193, 128, .18), transparent 26%),
+    linear-gradient(180deg, #fffdf9 0%, #faf5ec 52%, #f7efe3 100%);
+  min-height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.mine-feather { opacity: .18; pointer-events: none; position: absolute; right: -150rpx; top: 5rpx; transform: rotate(22deg); width: 470rpx; }
+.mine-topbar,
+.mine-hero-wrap,
+.mine-body { min-height: 0; }
+.mine-topbar { align-items: center; display: flex; justify-content: space-between; padding-bottom: 12rpx; position: relative; z-index: 2; }
+.mine-topbar__label { color: #9a7130; font-size: 18rpx; font-weight: 600; letter-spacing: 2rpx; }
+
+.mine-loading { align-items: center; display: flex; flex-direction: column; padding-top: 100rpx; }
+.mine-loading__avatar { background: linear-gradient(110deg, #ede5d7, #fffaf1, #ede5d7); border-radius: 50%; height: 108rpx; width: 108rpx; }
+.mine-loading__line { background: #eee5d7; border-radius: 999rpx; height: 18rpx; margin-top: 16rpx; width: 260rpx; }
+.mine-loading__line--title { height: 26rpx; margin-top: 28rpx; width: 190rpx; }
+.mine-loading__card { background: rgba(255,253,249,.9); border: 1rpx solid #eadfce; border-radius: 28rpx; display: flex; margin-top: 54rpx; padding: 36rpx; width: 100%; }
+.mine-loading__card view { background: #eee5d7; border-radius: 10rpx; flex: 1; height: 90rpx; margin: 0 9rpx; }
+.mine-loading text { color: #887f73; font-size: 23rpx; margin-top: 28rpx; }
+
+.mine-hero-wrap { padding-bottom: 0; padding-top: 18rpx; position: relative; z-index: 1; }
+.mine-hero {
+  align-items: center;
+  background:
+    radial-gradient(circle at 50% 0, rgba(237, 209, 151, .2), transparent 42%),
+    linear-gradient(145deg, rgba(255,253,249,.98), rgba(248,239,224,.96));
+  border: 1rpx solid rgba(183, 132, 39, .2);
+  border-radius: 38rpx;
+  box-shadow: 0 24rpx 64rpx rgba(28, 38, 50, .08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 48rpx 28rpx 34rpx;
+  position: relative;
+}
+.mine-hero::before { background: linear-gradient(90deg, transparent, #cc9d46, transparent); content: ""; height: 2rpx; left: 14%; position: absolute; right: 14%; top: 0; }
+.mine-hero__halo { border: 1rpx solid rgba(188, 136, 45, .12); border-radius: 50%; height: 238rpx; left: 50%; position: absolute; top: -54rpx; transform: translateX(-50%); width: 238rpx; }
+.mine-hero__avatar { align-items: center; background: linear-gradient(145deg, #ead09a, #c69032); border: 7rpx solid rgba(255,255,255,.8); border-radius: 50%; box-shadow: 0 10rpx 30rpx rgba(142, 95, 22, .18); color: #11243a; display: flex; font-family: "Songti SC", serif; font-size: 41rpx; height: 106rpx; justify-content: center; position: relative; width: 106rpx; z-index: 1; }
+.mine-hero__eyebrow { color: #a5772b; font-size: 18rpx; font-weight: 600; letter-spacing: 2.8rpx; margin-top: 22rpx; }
+.mine-hero__name { color: #13263a; font-family: "Songti SC", serif; font-size: 38rpx; font-weight: 700; margin-top: 10rpx; }
+.mine-hero__family { color: #746f67; font-size: 22rpx; margin-top: 8rpx; }
+.mine-stats { background: rgba(255,255,255,.58); border: 1rpx solid rgba(192, 145, 61, .14); border-radius: 24rpx; display: flex; margin-top: 32rpx; padding: 24rpx 8rpx; width: 100%; }
+.mine-stats view { display: flex; flex: 1; flex-direction: column; min-width: 0; text-align: center; }
+.mine-stats view + view { border-left: 1rpx solid rgba(176, 131, 52, .16); }
+.mine-stats text:first-child { color: #a36f1e; font-family: "Songti SC", serif; font-size: 34rpx; font-weight: 700; }
+.mine-stats text:last-child { color: #6e6a64; font-size: 20rpx; margin-top: 6rpx; }
+
+.mine-body { padding-bottom: calc(70rpx + env(safe-area-inset-bottom)); padding-top: 34rpx; }
+.mine-section-head { align-items: flex-end; display: flex; justify-content: space-between; }
+.mine-section-title { display: block; margin-top: 8rpx; }
+.mine-section-head__mark { color: #bd8630; font-size: 24rpx; padding-bottom: 6rpx; }
+.mine-menu { margin-top: 22rpx; }
+.mine-menu__item { align-items: center; background: rgba(255,253,249,.94); border: 1rpx solid rgba(183,132,39,.14); border-radius: 24rpx; box-shadow: 0 10rpx 30rpx rgba(31,40,51,.045); display: flex; margin-top: 15rpx; min-height: 112rpx; padding: 20rpx 24rpx; }
+.mine-menu__icon { align-items: center; border: 1rpx solid rgba(181,126,31,.28); border-radius: 50%; color: #a36e1c; display: flex; flex-shrink: 0; font-family: "Songti SC", serif; font-size: 21rpx; height: 58rpx; justify-content: center; margin-right: 20rpx; width: 58rpx; }
+.mine-menu__copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.mine-menu__copy text:first-child { color: #15283b; font-size: 27rpx; font-weight: 650; }
+.mine-menu__copy text:last-child { color: #837c73; font-size: 20rpx; line-height: 1.5; margin-top: 6rpx; }
+.mine-menu__item .chevron { margin-left: 14rpx; }
+
+.mine-orders, .consent-panel { background: rgba(255,253,249,.94); border: 1rpx solid rgba(183,132,39,.15); border-radius: 28rpx; box-shadow: 0 14rpx 38rpx rgba(31,40,51,.05); margin-top: 34rpx; padding: 30rpx; }
+.mine-orders .section-head { align-items: center; margin-bottom: 10rpx; }
+.mine-orders__title { display: block; margin-top: 7rpx; }
+.mine-count, .consent-panel__independent { background: #f6ecd9; border-radius: 999rpx; color: #8d672a; font-size: 19rpx; padding: 9rpx 15rpx; }
+.mine-order { align-items: center; border-top: 1rpx solid #eee4d4; display: flex; min-height: 102rpx; padding: 20rpx 0; }
+.mine-order__mark { align-items: center; background: #faf2e4; border-radius: 50%; color: #a97525; display: flex; flex-shrink: 0; height: 52rpx; justify-content: center; margin-right: 16rpx; width: 52rpx; }
+.mine-order__copy { flex: 1; min-width: 0; }
+.mine-order__title, .mine-order__meta { display: block; }
+.mine-order__title { color: #172a3d; font-size: 25rpx; font-weight: 600; }
+.mine-order__meta { color: #887f74; font-size: 20rpx; margin-top: 7rpx; }
+.mine-empty-row { align-items: center; border-top: 1rpx solid #eee4d4; display: flex; min-height: 128rpx; padding-top: 20rpx; }
+.mine-empty-row__mark { color: #b68231; font-size: 34rpx; margin-right: 20rpx; }
+.mine-empty-row view { display: flex; flex-direction: column; }
+.mine-empty-row view text:first-child { color: #27394a; font-size: 24rpx; font-weight: 600; }
+.mine-empty-row view text:last-child { color: #817a72; font-size: 20rpx; line-height: 1.55; margin-top: 7rpx; }
+
+.consent-panel { border-color: rgba(172,118,30,.2); }
+.consent-panel__header { align-items: center; display: flex; }
+.consent-panel__shield { align-items: center; border: 1rpx solid rgba(172,118,30,.28); border-radius: 50%; color: #a16d1e; display: flex; flex-shrink: 0; font-size: 27rpx; height: 58rpx; justify-content: center; margin-right: 17rpx; width: 58rpx; }
+.consent-panel__title { display: block; margin-top: 5rpx; }
+.consent-panel__note { color: #726d66; display: block; font-size: 22rpx; line-height: 1.7; margin: 20rpx 0 4rpx; }
+.consent-panel__busy { background: #f6ecd9; border-radius: 14rpx; color: #72551f; font-size: 21rpx; margin-top: 16rpx; padding: 17rpx 20rpx; }
+.consent-action { align-items: center; background: #fffdf9; border: 1rpx solid #ded2c1; border-radius: 18rpx; color: #2d4052; display: flex; font-size: 23rpx; justify-content: space-between; margin-top: 14rpx; min-height: 88rpx; padding: 0 23rpx; text-align: left; }
+.consent-action::after { border: 0; }
+.consent-action text:last-child { color: #a8792d; font-size: 27rpx; }
+.consent-action--critical { background: #fffaf7; border-color: rgba(145,67,57,.22); color: #873f37; }
+.consent-action[disabled] { background: #f4f0e9; color: #8b867e; opacity: .72; }
+
+.data-note { align-items: flex-start; background: linear-gradient(145deg, #f7ecda, #fffaf1); border: 1rpx solid rgba(181,128,38,.16); border-radius: 24rpx; display: flex; margin-top: 32rpx; padding: 27rpx; }
+.data-note__mark { color: #a97424; font-size: 22rpx; margin-right: 17rpx; padding-top: 2rpx; }
+.data-note__title, .data-note__copy { display: block; }
+.data-note__title { color: #8b6223; font-size: 22rpx; font-weight: 650; }
+.data-note__copy { color: #69655f; font-size: 22rpx; line-height: 1.75; margin-top: 9rpx; }
+.mine-logout { color: #786f64; margin-top: 30rpx; width: 100%; }
+
+@media (max-width: 340px) {
+  .mine-topbar__label { display: none; }
+  .mine-menu__copy text:last-child { display: none; }
+  .consent-panel__independent { display: none; }
+}

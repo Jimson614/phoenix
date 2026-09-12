@@ -1,0 +1,49 @@
+{
+  "fixtureId": "FREE_PARENT_VALID_V1",
+  "questionnaireVersion": "free_parent_compass_v1.0.0-rc1",
+  "create": {
+    "method": "POST",
+    "path": "/v1/education-compass/free-parent-assessments",
+    "headers": {
+      "Idempotency-Key": "example-free-create-001"
+    },
+    "body": {
+      "studentId": "{studentId}",
+      "sourceEntry": "MINIPROGRAM_HOME",
+      "consent": {
+        "scope": "CORE_ASSESSMENT",
+        "copyVersion": "guardian_core_assessment_v1.0.0-rc1",
+        "locale": "zh-CN",
+        "guardianAuthorityConfirmed": true
+      }
+    }
+  },
+  "draft": {
+    "method": "PUT",
+    "path": "/v1/assessments/{assessmentId}/draft",
+    "body": {
+      "revision": 1,
+      "clientSaveToken": "example-free-save-001",
+      "answers": {
+        "FP01": "UPPER_SECONDARY",
+        "FP02": "GAOKAO",
+        "FP03": ["ACADEMIC_SUBJECTS"],
+        "FP04": ["QUICK_UNDERSTANDING"],
+        "FP05": ["KNOWS_BUT_CANNOT_APPLY"],
+        "FP06": "WILLING",
+        "FP07": ["LEARNING_CAPABILITY"],
+        "FP08": "STUDENT_ASSESSMENT"
+      }
+    }
+  },
+  "submit": {
+    "method": "POST",
+    "path": "/v1/assessments/{assessmentId}/submit",
+    "headers": {
+      "Idempotency-Key": "example-free-submit-001"
+    },
+    "body": {
+      "revision": 2
+    }
+  }
+}

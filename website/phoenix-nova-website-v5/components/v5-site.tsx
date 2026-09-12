@@ -1,4 +1,6 @@
+import { FrontendLink } from "./rc-frontend-link";
 import Image from "next/image";
+import { FamilyExperience, ApplicationExperience } from "./rc-experiences";
 import Link from "next/link";
 import { BrandMark } from "./brand-mark";
 import { FamilyDashboardPreview } from "./family-dashboard-preview";
@@ -12,12 +14,14 @@ export const pageIds = [
   "oriental",
   "about",
   "family-center",
+  "application",
 ] as const;
 
 export type PageId = "home" | (typeof pageIds)[number];
 export type Locale = "zh" | "en";
 
 const routeLabels = {
+  application: ["升学资料", "Application"],
   home: ["首页", "Home"],
   compass: ["凤启罗盘", "Compass"],
   lighthouse: ["成长灯塔", "Growth Lighthouse"],
@@ -29,6 +33,7 @@ const routeLabels = {
 } as const;
 
 export const routeMetadata = {
+  application: { zh: "升学资料体验", en: "Application Intake Demo" },
   compass: { zh: "凤启罗盘", en: "Phoenix Compass" },
   lighthouse: { zh: "成长灯塔", en: "Growth Lighthouse" },
   services: { zh: "专业服务", en: "Professional Services" },
@@ -487,7 +492,7 @@ function CompassPage({ locale }: { locale: Locale }) {
           ))}
         </div>
       </section>
-      <section className="quiet-cta"><div className="shell"><p>Knowledge First.</p><h2>{pick(locale, "先得到一张清晰的成长快照。", "Begin with a clear growth snapshot.")}</h2><Link className="button button--navy" href={hrefFor(locale, "lighthouse")}>{pick(locale, "继续了解成长蓝图", "Continue to the Growth Blueprint")} <Arrow /></Link></div></section>
+      <section className="quiet-cta"><div className="shell"><p>Knowledge First.</p><h2>{pick(locale, "先得到一张清晰的成长快照。", "Begin with a clear growth snapshot.")}</h2><FrontendLink className="button button--navy" href="/education">{pick(locale, "开始成长探索", "Start Growth Exploration")} <Arrow /></FrontendLink></div></section>
     </>
   );
 }
@@ -558,6 +563,7 @@ function FamilyCenterPage({ locale }: { locale: Locale }) {
   return (
     <>
       <PageHero locale={locale} page="family-center" eyebrow="Phoenix Family OS™" title={pick(locale, "一次建立家庭档案，\n长期陪伴家庭成长。", "Build the family profile once.\nKeep growing with continuity.")} lead={pick(locale, "V5 Candidate 展示家庭中心的产品关系与视觉方向；正式账户、数据与入口将在产品 Gate 后接驳。", "The V5 Candidate shows the Family Center's product relationship and visual direction. Live accounts, data and entry points follow the product gate.")} />
+      <FamilyExperience />
       <section className="family-center-section"><div className="shell family-center-layout"><FamilyDashboardPreview full locale={locale} compassHref={hrefFor(locale,"compass")} /><div className="family-center-copy"><SectionIntro index="01" eyebrow="MVP focus" title={pick(locale,"一个家庭，\n一份持续更新的成长记录。","One family.\nOne living record of growth.")} /><ul><li>{pick(locale,"家庭档案","Family profile")}</li><li>{pick(locale,"孩子档案","Child profiles")}</li><li>{pick(locale,"Compass 评估结果","Compass assessment results")}</li><li>{pick(locale,"家庭时间线","Family timeline")}</li></ul></div></div></section>
     </>
   );
@@ -566,6 +572,7 @@ function FamilyCenterPage({ locale }: { locale: Locale }) {
 export function V5Site({ locale, page }: { locale: Locale; page: PageId }) {
   const content = page === "home" ? <HomePage locale={locale} />
     : page === "compass" ? <CompassPage locale={locale} />
+    : page === "application" ? <><PageHero locale={locale} page="application" eyebrow="Application Compass" title={pick(locale,"从已有经历，走向下一步。","Start with your experience.")} lead={pick(locale,"以真实事实整理升学资料，保留每一步的确认。","Organize the facts and review every next step. The guided demo is currently in Chinese.")} /><ApplicationExperience /></>
     : page === "lighthouse" ? <LighthousePage locale={locale} />
     : page === "services" ? <ServicesPage locale={locale} />
     : page === "insights" ? <InsightsPage locale={locale} />
@@ -573,5 +580,5 @@ export function V5Site({ locale, page }: { locale: Locale; page: PageId }) {
     : page === "about" ? <AboutPage locale={locale} />
     : <FamilyCenterPage locale={locale} />;
 
-  return <main lang={locale === "zh" ? "zh-Hans" : "en"}>{content}<SiteFooter locale={locale} /></main>;
+  return <main lang={locale === "zh" ? "zh-Hans" : "en"}><nav className="rc-demo-nav" aria-label="RC experiences"><strong>PHOENIX NOVA · RC</strong><FrontendLink href="/education">成长探索</FrontendLink><Link href={hrefFor(locale,"family-center")}>家庭中心</Link><Link href={hrefFor(locale,"application")}>升学资料</Link><span>演示数据 · 未接入正式服务</span></nav>{content}<SiteFooter locale={locale} /></main>;
 }

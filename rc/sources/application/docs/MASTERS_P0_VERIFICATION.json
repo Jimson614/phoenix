@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-09-05T12:39:12.666Z",
+  "status": "BLOCKED",
+  "repository": "yvettfang-netizen/phoenix",
+  "branch": "codex/masters-intake-p0",
+  "baseSha": "846f77c120cd00a49d89635dd4297b020af7d03a",
+  "headShaReference": "Historical round only: 29df2358718232294dcda4af9f2410fd0b32aab6; never applies to a later PR HEAD",
+  "historicalOnly": true,
+  "supersededBy": "MASTERS_PR9_ROUND2.md",
+  "syntheticOnly": true,
+  "merged": false,
+  "productionDeployed": false,
+  "realStudentDataEnabled": false,
+  "results": {
+    "allRegression": {
+      "status": "PASS",
+      "command": "npm run test:all",
+      "serverTests": 110,
+      "passed": 110,
+      "failed": 0,
+      "skipped": 0,
+      "clientContracts": "PASS",
+      "typecheck": "PASS"
+    },
+    "nativeWechatRuntime": {
+      "status": "BLOCKED_EXTERNAL",
+      "testedOnDevice": false,
+      "reason": "Test AppID, approved HTTPS domains, privacy configuration and device verification unavailable"
+    },
+    "http": {
+      "status": "PASS",
+      "realMultipart": true,
+      "formats": [
+        "DOCX",
+        "PDF",
+        "PNG",
+        "JPEG"
+      ],
+      "ownershipAndStaffAuthorization": "PASS"
+    },
+    "privateLocalStorage": {
+      "status": "PASS",
+      "store": "FileStore",
+      "survivedServerRestart": true,
+      "authorizedDownloadedBytesEqualOriginal": true,
+      "withdrawalAndRetentionCleanup": "PASS",
+      "deploymentHostAcl": "NOT_TESTED"
+    },
+    "workbenchBrowser": {
+      "status": "PASS",
+      "suite": "masters-workbench-browser",
+      "browser": "headless Chromium",
+      "realHttp": true,
+      "fileStore": true,
+      "syntheticOnly": true,
+      "cases": [
+        "student-denied",
+        "unassigned-advisor-empty",
+        "seven-categories",
+        "distinct-graduation-degree",
+        "assignment",
+        "authorized-download-byte-equality",
+        "advisor-review",
+        "founder-approval-release",
+        "xlsx-download",
+        "no-token-in-browser-storage"
+      ],
+      "wechatDevice": "NOT_TESTED"
+    },
+    "report": {
+      "status": "PASS",
+      "type": "rules-and-human-review",
+      "persistedQueue": true,
+      "leaseFencing": "PASS",
+      "founderReleaseAndVersionGates": "PASS",
+      "externalAi": "OFF",
+      "schoolSourceVerification": "NOT_TESTED"
+    },
+    "exports": {
+      "status": "PASS",
+      "realPdf": true,
+      "realXlsx": true,
+      "approvedVersionAndContentDigest": "PASS",
+      "chineseFont": "installed-system-font-not-committed"
+    },
+    "educationPostgres": {
+      "status": "BLOCKED_EXTERNAL",
+      "databaseConnectionAttempted": false
+    },
+    "mastersPostgres": {
+      "status": "BLOCKED_EXTERNAL",
+      "databaseConnectionAttempted": false,
+      "migrationRoundTrip": "NOT_EXECUTED"
+    },
+    "release": {
+      "status": "PASS",
+      "actualBytes": 1802384,
+      "budgetBytes": 1835008,
+      "buildResult": "OFFLINE_TEST_ONLY",
+      "productionReady": false
+    },
+    "secretScan": {
+      "status": "PASS",
+      "findings": 0
+    },
+    "startup": {
+      "status": "PASS",
+      "entry": "server/dist/src/index.js",
+      "syntheticTemporaryBootstrap": true,
+      "capabilitiesAndFounderRoleChecked": true,
+      "productionEnabled": false
+    }
+  },
+  "remotePreflight": {
+    "mainSha": "846f77c120cd00a49d89635dd4297b020af7d03a",
+    "visibleWebhookCount": 0,
+    "visibleDeploymentCount": 0,
+    "existingTaskPrCount": 0,
+    "workflowFilesOnTaskAndBase": [],
+    "unrelatedWorkflowRegistryNames": [
+      "Identity Gate 2 Validation",
+      "Website PR checks"
+    ]
+  },
+  "evidenceLogs": [
+    {
+      "path": "outputs/masters-verification/test-all.log",
+      "committed": false,
+      "sha256": "fbeec04641735ed0116d025aaef8d4eba52aa7f9e0ea1c6a3872d2f917d65732"
+    },
+    {
+      "path": "outputs/masters-verification/test-workbench-final.log",
+      "committed": false,
+      "sha256": "3cd953078c911be6018fe35cc4361b07a97b458501100badb7feb02d5cd5cc2e"
+    },
+    {
+      "path": "outputs/masters-verification/test-release.log",
+      "committed": false,
+      "sha256": "5c42cbb84ceab86d945208fd6d04b342ff2c14633ce8ce678a1e0ec45bbc43d7"
+    },
+    {
+      "path": "outputs/masters-verification/test-secret-scan.log",
+      "committed": false,
+      "sha256": "1d429956898b2bafbafcbe7ae6764696914cc2a7c8d8d021f98dbcb190a7ff35"
+    },
+    {
+      "path": "outputs/masters-verification/test-education-postgres.log",
+      "committed": false,
+      "sha256": "3e6feb835aa44aa10f319e60c3a90fb2f8b255bfd5da03df7910eb88596b805c"
+    },
+    {
+      "path": "outputs/masters-verification/test-masters-postgres.log",
+      "committed": false,
+      "sha256": "5834ce9eb9bf243cdac73cbd395cf44f0c338f190e5307c6757ec400dcc2781c"
+    },
+    {
+      "path": "outputs/masters-verification/build-release.log",
+      "committed": false,
+      "sha256": "8c925e6cb62473b6f4f1782f66255bec1de3a18160abb3d73030139790fb7cc3"
+    }
+  ],
+  "changedFiles": [
+    ".gitattributes",
+    "app.json",
+    "config/masters.js",
+    "docs/MASTERS_INTAKE_P0.md",
+    "docs/MASTERS_P0_VERIFICATION.json",
+    "docs/MASTERS_P0_VERIFICATION.md",
+    "models/masters-intake.js",
+    "package.json",
+    "pages/home/index.js",
+    "pages/home/index.wxml",
+    "pages/masters-confirm/index.js",
+    "pages/masters-confirm/index.json",
+    "pages/masters-confirm/index.wxml",
+    "pages/masters-confirm/index.wxss",
+    "pages/masters-intake/index.js",
+    "pages/masters-intake/index.json",
+    "pages/masters-intake/index.wxml",
+    "pages/masters-intake/index.wxss",
+    "pages/masters-list/index.js",
+    "pages/masters-list/index.json",
+    "pages/masters-list/index.wxml",
+    "pages/masters-list/index.wxss",
+    "pages/masters-materials/index.js",
+    "pages/masters-materials/index.json",
+    "pages/masters-materials/index.wxml",
+    "pages/masters-materials/index.wxss",
+    "pages/masters-report/index.js",
+    "pages/masters-report/index.json",
+    "pages/masters-report/index.wxml",
+    "pages/masters-report/index.wxss",
+    "pages/masters-status/index.js",
+    "pages/masters-status/index.json",
+    "pages/masters-status/index.wxml",
+    "pages/masters-status/index.wxss",
+    "pages/mine/index.js",
+    "pages/mine/index.wxml",
+    "project.config.json",
+    "scripts/test-masters-postgres.js",
+    "scripts/test-masters-workbench.js",
+    "server/.env.example",
+    "server/migrations/006_masters_intake.sql",
+    "server/migrations/rollback/006_masters_intake.down.sql",
+    "server/package-lock.json",
+    "server/package.json",
+    "server/scripts/masters-bootstrap-test.js",
+    "server/src/domain/masters/contracts.ts",
+    "server/src/domain/masters/index.ts",
+    "server/src/domain/masters/validation.ts",
+    "server/src/domain/model.ts",
+    "server/src/http/app.ts",
+    "server/src/index.ts",
+    "server/src/masters/config.ts",
+    "server/src/masters/document-operations.ts",
+    "server/src/masters/document-parser.ts",
+    "server/src/masters/documents.ts",
+    "server/src/masters/exports.ts",
+    "server/src/masters/http.ts",
+    "server/src/masters/private-files.ts",
+    "server/src/masters/workbench.ts",
+    "server/src/masters/worker.ts",
+    "server/src/services/masters-service.ts",
+    "server/src/store/postgres-store.ts",
+    "server/tests/fixtures/masters-fixtures.ts",
+    "server/tests/masters-domain.test.ts",
+    "server/tests/masters-exports.test.ts",
+    "server/tests/masters-files.test.ts",
+    "server/tests/masters-http.test.ts",
+    "server/tests/masters-postgres.test.ts",
+    "server/tests/masters-workflow-http.test.ts",
+    "services/masters.js",
+    "tests/masters-client.test.js",
+    "tests/validate-ui-contract.js"
+  ]
+}

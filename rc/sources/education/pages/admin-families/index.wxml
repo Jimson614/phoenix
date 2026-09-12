@@ -1,0 +1,63 @@
+<view class="advisor-list-page">
+  <image class="advisor-list__feather" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+
+  <view class="advisor-list__header">
+    <view class="advisor-list__brand">
+      <brand-mark />
+      <view><text class="eyebrow">PHOENIX ADVISOR</text><text class="advisor-list__title">家庭陪伴工作台</text></view>
+    </view>
+    <button class="advisor-list__logout" bindtap="logout">退出</button>
+  </view>
+
+  <view class="advisor-list__summary">
+    <view class="advisor-list__summary-orbit" aria-hidden="true"></view>
+    <view class="advisor-list__summary-top">
+      <view><text class="advisor-list__number">{{allFamilies.length || 0}}</text><text class="advisor-list__summary-label">个家庭成长档案</text></view>
+      <view class="advisor-list__summary-mark" aria-hidden="true">✦</view>
+    </view>
+    <text class="advisor-list__summary-note">先理解家庭，再开始一次有依据的跟进。</text>
+    <view class="advisor-list__summary-rule" aria-hidden="true"><view></view><text>ADVISOR VIEW</text></view>
+  </view>
+
+  <view class="page advisor-list__body">
+    <view class="advisor-search-wrap">
+      <text class="advisor-search-wrap__icon" aria-hidden="true">⌕</text>
+      <input class="advisor-search" value="{{query}}" placeholder="搜索家庭、家长或地区" confirm-type="search" aria-label="搜索家庭、家长或地区" bindinput="search" />
+      <text wx:if="{{query}}" class="advisor-search-wrap__active">筛选中</text>
+    </view>
+
+    <view class="advisor-list__section-head">
+      <view><text class="eyebrow">FAMILY DIRECTORY</text><text class="advisor-list__section-title">家庭档案</text></view>
+      <text class="advisor-list__result-count">{{families.length}} 条</text>
+    </view>
+
+    <view wx:if="{{families.length}}" class="family-list">
+      <view wx:for="{{families}}" wx:key="id" class="family-row" data-id="{{item.id}}" role="button" bindtap="open">
+        <view class="family-row__crest" aria-hidden="true">家</view>
+        <view class="family-row__content">
+          <view class="family-row__top"><text class="family-row__name">{{item.family_name}}</text><text class="status {{item.hasRequest ? 'status--warm' : ''}}">{{item.followStatus}}</text></view>
+          <text class="family-row__meta">{{item.parent_name}} · {{item.location || '地区待完善'}} · {{item.students.length}} 位孩子</text>
+          <view class="family-row__bottom"><text>{{item.reportCount}} 份成长报告</text><text>更新于 {{item.lastUpdate}}</text></view>
+        </view>
+        <text class="family-row__chevron" aria-hidden="true">›</text>
+      </view>
+    </view>
+
+    <view wx:elif="{{query}}" class="advisor-empty">
+      <view class="advisor-empty__mark" aria-hidden="true">⌕</view>
+      <text class="h3">没有匹配的家庭</text>
+      <text class="muted advisor-empty__copy">请尝试家庭名、家长姓名或其他地区关键词。</text>
+    </view>
+
+    <view wx:else class="advisor-empty">
+      <view class="advisor-empty__mark" aria-hidden="true">◇</view>
+      <text class="h3">暂无家庭档案</text>
+      <text class="muted advisor-empty__copy">家庭端完成档案后，会在这里出现。</text>
+    </view>
+
+    <view class="advisor-list__boundary">
+      <text class="advisor-list__boundary-mark" aria-hidden="true">◇</text>
+      <text>内部演示工作台 · 不进入家庭端发布包</text>
+    </view>
+  </view>
+</view>

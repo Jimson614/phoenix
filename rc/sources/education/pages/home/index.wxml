@@ -1,0 +1,88 @@
+<view class="home">
+  <image class="home__feather" src="/assets/ui/feather-champagne.png" mode="aspectFit" aria-hidden="true" />
+  <view
+    class="home__header"
+    style="padding-top: {{navigation.statusBarHeight}}px; padding-right: {{navigation.menuButtonSafeWidth}}px; min-height: {{navigation.navigationBarHeight}}px;"
+  >
+    <brand-mark />
+    <text class="home__hello">你好，{{user.name || '新家庭'}}</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="home-state">
+    <image class="home-state__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+    <text class="h3">正在读取家庭成长状态…</text>
+    <text class="muted">进度与下一步以 Phoenix 服务端记录为准</text>
+  </view>
+
+  <view wx:elif="{{error}}" class="home-state home-state--error">
+    <image class="home-state__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+    <text class="h3">家庭中心暂时不可用</text>
+    <text class="muted">{{error}}</text>
+    <button class="btn btn--outline" bindtap="retry">重新加载</button>
+  </view>
+
+  <view wx:elif="{{!family}}" class="onboarding">
+    <text class="eyebrow">MY FAMILY GROWTH CENTER</text>
+    <text class="onboarding__title">从了解家庭开始，
+慢慢找到下一步。</text>
+    <text class="onboarding__copy">这里不是服务清单，而是一份会随家庭一起成长的长期档案。</text>
+    <view class="onboarding__progress">
+      <view class="onboarding__progress-fill" style="width: {{progress}}%;"></view>
+    </view>
+    <button class="btn btn--gold" bindtap="goNext">{{nextStep.title}}</button>
+  </view>
+
+  <block wx:else>
+    <view class="family-hero">
+      <image class="family-hero__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+      <text class="family-hero__label">家庭成长中心</text>
+      <text class="family-hero__name">{{family.family_name}}</text>
+      <text class="family-hero__goal">“{{family.goal || '在每个重要阶段，做更适合家庭的选择。'}}”</text>
+      <view class="family-hero__meta">
+        <text>{{family.location || '地点待完善'}}</text>
+        <text class="family-hero__dot">·</text>
+        <text>{{students.length}} 位孩子</text>
+      </view>
+    </view>
+
+    <view class="page home__body">
+      <view class="child-line" bindtap="goStudent">
+        <view class="child-line__avatar">{{studentInitial}}</view>
+        <view class="grow">
+          <text class="child-line__label">孩子状态</text>
+          <text class="child-line__name">{{primaryStudent ? primaryStudent.name : '添加孩子档案'}}</text>
+          <text wx:if="{{primaryStudent}}" class="child-line__stage">{{stage}}</text>
+        </view>
+        <text class="chevron">›</text>
+      </view>
+
+      <view class="insight-block" bindtap="goReport">
+        <view class="section-head">
+          <view>
+            <text class="eyebrow">LATEST AI INSIGHT</text>
+            <text class="insight-block__title">最近的成长洞察</text>
+          </view>
+          <image class="insight-block__mark" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+        </view>
+        <text class="insight-block__copy">{{insightCopy}}</text>
+        <text class="insight-block__link">{{latestReportActionLabel || '开始第一次探索'}} →</text>
+      </view>
+
+      <view class="next-block" bindtap="goNext">
+        <text class="next-block__label">下一步</text>
+        <text class="next-block__title">{{nextStep.title}}</text>
+        <text class="next-block__note">{{nextStep.note}}</text>
+        <view class="next-block__line"><view style="width: {{progress}}%;"></view></view>
+      </view>
+
+      <view class="home-links">
+        <view class="home-link" bindtap="goCompass">
+          <text class="home-link__number">01</text><text class="home-link__title">Education Compass</text><text class="chevron">›</text>
+        </view>
+        <view class="home-link" bindtap="goAdvisor">
+          <text class="home-link__number">02</text><text class="home-link__title">联系 Phoenix 顾问</text><text class="chevron">›</text>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

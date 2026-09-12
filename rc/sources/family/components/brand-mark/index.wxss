@@ -1,0 +1,12 @@
+.brand { align-items: center; display: flex; min-width: 0; }
+.brand__logo { display: block; flex-shrink: 0; height: auto; width: 180rpx; }
+.brand__product-lockup { align-items: center; display: flex; margin-left: 15rpx; }
+.brand__divider { background: rgba(13,27,42,.2); height: 54rpx; width: 1rpx; }
+.brand__product-copy { display: flex; flex-direction: column; margin-left: 15rpx; }
+.brand__product, .brand__descriptor { display: block; white-space: nowrap; }
+.brand__product { color: #0d1b2a; font-family: serif; font-size: 19rpx; font-weight: 600; letter-spacing: 1.6rpx; }
+.brand__descriptor { color: #9b752f; font-size: 16rpx; letter-spacing: .8rpx; margin-top: 5rpx; }
+.brand--light .brand__divider { background: rgba(255,249,237,.24); }
+.brand--light .brand__product { color: #fff9ed; }
+.brand--light .brand__descriptor { color: #d7bd82; }
+.brand--compact .brand__logo { width: 42rpx; }

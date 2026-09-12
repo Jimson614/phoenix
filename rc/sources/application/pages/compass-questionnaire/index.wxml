@@ -1,0 +1,136 @@
+<block wx:if="{{isV05}}">
+  <view class="questionnaire questionnaire--level-{{level}} page--paper" data-ui-screen="{{uiScreen}}">
+    <image class="questionnaire__feather questionnaire__feather--top" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+    <image class="questionnaire__feather questionnaire__feather--bottom" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+    <view class="questionnaire__brand">
+      <image class="questionnaire__brand-logo" src="/assets/brand/phoenix-nova-logo-primary.png" mode="widthFix" aria-label="Phoenix Nova" />
+      <view class="questionnaire__brand-product"><image src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" /><view><text>EDUCATION COMPASS™</text><text>{{level === 1 ? 'FREE PARENT' : 'GROWTH DISCOVERY'}}</text></view></view>
+    </view>
+    <view class="questionnaire__top">
+      <view class="row row--between questionnaire__context">
+        <text>{{level === 1 ? '免费家长教育罗盘' : '学生成长发现'}}</text>
+        <text>{{estimatedMinutesLabel}}</text>
+      </view>
+      <view class="progress"><view class="progress__fill" style="width: {{progress}}%;"></view></view>
+      <view class="row row--between questionnaire__meta">
+        <text wx:if="{{totalQuestions}}">{{currentRangeLabel}} / 共 {{totalQuestions}} 题</text>
+        <text wx:else>正在读取题库</text>
+        <text wx:if="{{totalQuestions}}">第 {{stepIndex + 1}} / {{steps.length || 1}} 组</text>
+      </view>
+      <view class="row row--between questionnaire__score">
+        <text wx:if="{{totalQuestions}}">已答 {{answeredCount}} / {{totalQuestions}} · 必答 {{requiredQuestions}}</text>
+        <text wx:if="{{totalQuestions}}">覆盖 {{coverage}}%</text>
+      </view>
+      <view class="row row--between questionnaire__save-row">
+        <text>{{savedLabel}}</text>
+        <button class="questionnaire__save-exit" disabled="{{saving || submitting || routeReloading}}" bindtap="exitQuestionnaire">保存并退出</button>
+      </view>
+    </view>
+
+    <view wx:if="{{loading}}" class="questionnaire-state" role="status">
+      <text class="questionnaire-state__title">正在读取服务端题库与草稿</text>
+      <text class="muted">请稍候，已填写内容不会存到本机正文缓存。</text>
+    </view>
+    <view wx:elif="{{error}}" class="questionnaire-state" role="alert">
+      <text class="questionnaire-state__title">暂时无法打开问卷</text>
+      <text class="muted">{{error}}</text>
+      <button class="btn btn--secondary questionnaire-state__button" bindtap="retry">重试</button>
+    </view>
+    <view wx:elif="{{!current}}" class="questionnaire-state" role="status">
+      <text class="questionnaire-state__title">当前题库没有可填写题目</text>
+      <text class="muted">请返回后重试，或联系顾问核对 Assessment ID。</text>
+      <button class="btn btn--secondary questionnaire-state__button" bindtap="exitQuestionnaire">返回首页</button>
+    </view>
+    <view wx:else class="questionnaire__body">
+      <view wx:if="{{stepIndex === 0 && experienceTitle}}" class="questionnaire__experience">
+        <text class="questionnaire__experience-eyebrow">{{experienceEyebrow}}</text>
+        <text class="questionnaire__experience-title">{{experienceTitle}}</text>
+        <text class="questionnaire__experience-summary">{{experienceSummary}}</text>
+        <text class="questionnaire__experience-respondent">{{respondentHint}}</text>
+        <text wx:if="{{systemRouteHint}}" class="questionnaire__experience-route">{{systemRouteHint}}</text>
+      </view>
+      <text class="eyebrow">{{level === 1 ? 'PARENT OBSERVATION' : 'STUDENT SELF DISCOVERY'}}</text>
+      <text class="h1 questionnaire__title">{{current.title}}</text>
+      <text class="muted questionnaire__hint">{{current.hint}}</text>
+
+      <view wx:for="{{current.questions}}" wx:key="id" wx:for-item="question" wx:for-index="qIndex" class="question">
+        <text class="question__label">{{question.label}} <text class="question__optional">{{question.required ? '必答' : '选填'}}</text></text>
+        <text wx:if="{{question.guidance}}" class="question__guidance">{{question.guidance}}</text>
+
+        <view wx:if="{{question.type !== 'SUBJECT_RANGE_MATRIX'}}" class="question__options">
+          <button wx:for="{{question.options}}" wx:key="code" wx:for-item="option"
+            class="option {{option.selected ? 'option--selected' : ''}}"
+            data-id="{{question.id}}" data-code="{{option.code}}" bindtap="choose">
+            <text class="option__label">{{option.label}}</text><text class="option__check">{{option.selected ? '✓' : ''}}</text>
+          </button>
+        </view>
+
+        <view wx:else class="matrix">
+          <view wx:if="{{!question.value.length}}" class="matrix__empty">尚未填写成绩区间</view>
+          <view wx:for="{{question.value}}" wx:key="subjectCode" wx:for-item="row" wx:for-index="rowIndex" class="matrix__row">
+            <view class="matrix__subject">{{row.subjectLabel}}</view>
+            <picker class="matrix__picker" range="{{question.matrixRangeLabels}}" value="{{row.rangeIndex}}"
+              data-id="{{question.id}}" data-row="{{rowIndex}}" bindchange="updateMatrixRange">
+              <view class="matrix__range">{{row.rangeLabel}} <text aria-hidden="true">⌄</text></view>
+            </picker>
+            <button class="matrix__remove" aria-label="删除{{row.subjectLabel}}成绩区间" data-id="{{question.id}}" data-row="{{rowIndex}}" bindtap="removeMatrixRow">删除</button>
+          </view>
+          <picker mode="multiSelector" range="{{question.matrixPickerRange}}"
+            data-id="{{question.id}}" bindchange="addMatrixRow">
+            <view class="matrix__add">＋ 添加科目与成绩区间</view>
+          </picker>
+        </view>
+      </view>
+      <view class="questionnaire__privacy"><text class="questionnaire__privacy-mark" aria-hidden="true">◇</text><text>资料按隐私说明处理｜结果仅授权家庭可见</text></view>
+      <view wx:if="{{stepIndex === steps.length - 1 && completionOutcome}}" class="questionnaire__completion-note">
+        <text class="questionnaire__completion-label">完成后</text><text>{{completionOutcome}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{current && !loading && !error}}" class="questionnaire__actions">
+      <button class="questionnaire__back" disabled="{{submitting || saving || routeReloading}}" bindtap="previous">{{stepIndex ? '上一步' : '保存退出'}}</button>
+      <button class="btn btn--primary questionnaire__next" disabled="{{routeReloading}}" loading="{{submitting || saving || routeReloading}}" bindtap="next">{{stepIndex === steps.length - 1 ? '提交问卷' : '保存并继续'}}</button>
+    </view>
+    <view class="safe-bottom"></view>
+  </view>
+</block>
+
+<block wx:else>
+  <view class="questionnaire page--paper" data-ui-screen="{{uiScreen}}">
+    <image class="questionnaire__feather questionnaire__feather--top" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+    <image class="questionnaire__feather questionnaire__feather--bottom" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+    <view class="questionnaire__brand">
+      <image class="questionnaire__brand-logo" src="/assets/brand/phoenix-nova-logo-primary.png" mode="widthFix" aria-label="Phoenix Nova" />
+      <view class="questionnaire__brand-product"><image src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" /><text>EDUCATION COMPASS™</text></view>
+    </view>
+    <view class="questionnaire__top">
+      <view class="progress"><view class="progress__fill" style="width: {{progress}}%;"></view></view>
+      <view class="row row--between questionnaire__meta"><text>STEP {{stepIndex + 1}} / {{steps.length}}</text><text>{{student.name}}</text></view>
+      <view class="row row--between questionnaire__score"><text>资料完整度 {{completenessScore}} / 100</text><text>{{savedLabel}}</text></view>
+    </view>
+
+    <view wx:if="{{loading}}" class="questionnaire-state"><text class="questionnaire-state__title">正在读取问卷</text></view>
+    <view wx:elif="{{error}}" class="questionnaire-state"><text class="questionnaire-state__title">{{error}}</text><button class="btn btn--secondary questionnaire-state__button" bindtap="retry">重试</button></view>
+    <view wx:elif="{{current}}" class="questionnaire__body">
+      <text class="eyebrow">EDUCATION COMPASS · {{current.key}}</text>
+      <text class="h1 questionnaire__title">{{current.title}}</text>
+      <text class="muted questionnaire__hint">{{current.hint}}</text>
+
+      <view wx:for="{{current.questions}}" wx:key="key" wx:for-index="qIndex" class="question">
+        <text class="question__label">{{item.label}} <text class="question__optional">{{item.required ? '必填' : '选填'}}</text></text>
+        <view wx:if="{{item.type === 'single' || item.type === 'multi'}}" class="question__options">
+          <view wx:for="{{item.options}}" wx:key="text" wx:for-index="oIndex" class="option {{item.selected ? 'option--selected' : ''}}" data-question="{{qIndex}}" data-option="{{oIndex}}" bindtap="choose">
+            <text>{{item.text}}</text><text class="option__check">{{item.selected ? '✓' : ''}}</text>
+          </view>
+        </view>
+        <textarea wx:if="{{item.type === 'text'}}" class="textarea question__textarea" value="{{item.value}}" placeholder="{{item.placeholder}}" maxlength="600" data-question="{{qIndex}}" bindinput="typeAnswer"></textarea>
+      </view>
+    </view>
+
+    <view wx:if="{{current && !loading && !error}}" class="questionnaire__actions">
+      <button class="questionnaire__back" bindtap="previous">{{stepIndex ? '上一步' : '退出'}}</button>
+      <button class="btn btn--primary questionnaire__next" loading="{{submitting || saving}}" bindtap="next">{{stepIndex === steps.length - 1 ? '生成免费预览' : '保存并继续'}}</button>
+    </view>
+    <view class="safe-bottom"></view>
+  </view>
+</block>

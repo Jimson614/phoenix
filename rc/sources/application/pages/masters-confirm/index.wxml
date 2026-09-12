@@ -1,0 +1,40 @@
+<view class="masters-confirm page--screen">
+  <view class="page masters-confirm__page">
+    <view class="masters-confirm__topbar"><button class="btn btn--text" bindtap="back">‹ 返回</button><text class="eyebrow">CHECK &amp; CONFIRM</text></view>
+    <view wx:if="{{!enabled}}" class="ui-state"><text class="h3">香港硕士免费咨询暂未开放</text><text class="muted">当前不会确认或提交任何咨询。</text></view>
+    <view wx:elif="{{!loggedIn}}" class="ui-state"><text class="h3">请先登录后继续</text><text class="muted">登录后会回到当前核对页。</text><button class="btn btn--gold" loading="{{loginBusy}}" disabled="{{loginBusy}}" bindtap="login">登录并继续</button></view>
+    <block wx:elif="{{loggedIn}}">
+      <view wx:if="{{loading}}" class="ui-state" aria-busy="true"><text class="h3">正在读取服务端资料…</text><text class="muted">资料版本和附件清单以服务端记录为准。</text></view>
+      <block wx:else>
+        <view class="masters-confirm__heading"><text class="eyebrow">VERSION {{version}}</text><text class="h1">核对你的咨询资料</text><text class="muted">确认前请检查原始分数、分制和目标信息。资料冲突会保留并提示人工核验。</text></view>
+        <view class="panel summary-panel">
+          <view class="summary-row"><text>姓名／称呼</text><text>{{profile.name || '未填写'}}</text></view>
+          <view class="summary-row"><text>联系方式</text><text>{{contactTypeLabel}} · {{profile.contact.value || '未填写'}}</text></view>
+          <view class="summary-row"><text>学籍状态</text><text>{{profile.educationStatus === 'GRADUATED' ? '已毕业' : '本科在读'}}</text></view>
+          <view class="summary-row"><text>本科院校／专业</text><text>{{profile.institution || '未填写'}} · {{profile.major || '未填写'}}</text></view>
+          <view class="summary-row"><text>学位／毕业年月</text><text>{{profile.degree || '待核验'}} · {{profile.graduationDate || profile.graduationYear || '待补'}}</text></view>
+          <view class="summary-row"><text>均分／GPA</text><text>{{profile.averageScore || '未填写'}} · {{profile.gpa || '未填写'}} / {{profile.gpaScale || '原始分制待补'}}</text></view>
+          <view class="summary-row"><text>语言</text><text>{{profile.languageType}} · {{profile.languageScores.total || '暂无总分'}}</text></view>
+          <view class="summary-row"><text>申请目标</text><text>{{targetYearLabel}} · {{targetMajorsLabel}}</text></view>
+          <view class="summary-row"><text>意向院校</text><text>{{targetInstitutionsLabel}}</text></view>
+        </view>
+        <view wx:if="{{resumeDraft}}" class="panel resume-draft"><view class="section-head"><view><text class="eyebrow">GUIDED RESUME DRAFT</text><text class="h3">{{resumeDraft.title}}</text></view><text class="status status--warm">仅供你核对</text></view><text class="muted">以下内容只来自你已填写的事实；“待补”表示未知，不会替你补造项目或结论。勾选资料准确前请逐行检查。</text><view wx:for="{{resumeDraft.lines}}" wx:for-item="line" wx:for-index="lineIndex" wx:key="lineIndex" class="resume-draft__line"><text>{{line}}</text></view></view>
+        <view class="section">
+          <view class="section-head"><view><text class="eyebrow">DOCUMENTS</text><text class="h2">已存材料</text></view><text class="status status--warm">{{documents.length}} 份</text></view>
+          <view class="panel"><view wx:if="{{!documents.length}}" class="empty"><text class="empty__mark">◇</text><text class="h3">暂无附件</text><text class="muted">资料不齐仍可提交咨询，顾问会按缺件清单跟进。</text></view><view wx:for="{{documentGroups}}" wx:key="type" class="document-group"><text class="document-group__title">{{item.title}}</text><view wx:for="{{item.files}}" wx:key="id" class="document-group__file"><text>{{item.name}}</text><text>{{item.sizeLabel}} · {{item.uploadStatusLabel}} · {{item.parseStatusLabel}}</text></view></view></view>
+        </view>
+        <view class="panel missing-panel"><text class="h3">资料状态</text><text class="muted">资料缺失或识别失败会形成缺件和待核验标记，不会被当成“材料完整”，也不会自动补造内容。</text></view>
+        <view wx:if="{{extractionError}}" class="panel extraction-error"><text class="h3">识别结果暂时无法读取</text><text class="muted">{{extractionError}}。当前不会把读取失败当成“没有冲突”，原件仍以服务端附件记录为准。</text><button class="btn btn--text" bindtap="retryExtractionLoad">重试读取识别结果</button></view>
+        <view wx:if="{{extractionFields.length}}" class="panel extraction-review"><view class="section-head"><view><text class="eyebrow">EXTRACTION REVIEW</text><text class="h3">识别结果待你确认</text></view><text class="status status--warm">{{extractionFields.length}} 项</text></view><text class="muted">每项都显示来源；接受或拒绝后才会进入资料快照。系统不会自动替你选择冲突答案。</text><view wx:for="{{extractionFields}}" wx:key="field" class="extraction-item"><view class="extraction-item__copy"><text class="extraction-item__field">{{item.fieldLabel}}</text><text class="extraction-item__value">{{item.valueLabel}}</text><text class="extraction-item__source">来源：{{item.sourceLabel}} · {{item.locationLabel}} · {{item.confidenceLabel}}</text><text class="extraction-item__decision">{{item.decisionLabel}}</text></view><view class="extraction-item__actions"><button class="btn btn--text" data-index="{{index}}" data-accepted="true" bindtap="resolveExtraction">接受</button><button class="btn btn--text extraction-item__reject" data-index="{{index}}" data-accepted="false" bindtap="resolveExtraction">拒绝</button></view></view></view>
+        <view wx:if="{{conflicts.length}}" class="panel conflict-review"><view class="section-head"><view><text class="eyebrow">CONFLICTS</text><text class="h3">资料冲突，需要选择</text></view><text class="status status--warm">{{conflicts.length}} 项</text></view><text class="muted">不同材料给出了不同答案。请选择来源值或保留待人工核验，系统不会静默覆盖。</text><view wx:for="{{conflicts}}" wx:key="field" class="conflict-item"><text class="conflict-item__field">{{item.fieldLabel}}</text><view class="conflict-item__values"><button wx:for="{{item.values}}" wx:for-item="value" wx:for-index="valueIndex" wx:key="value" class="btn btn--outline" data-index="{{index}}" data-value="{{value}}" bindtap="resolveConflict">采用：{{value}}</button></view><text class="conflict-item__status">{{item.decisionLabel}}</text></view></view>
+        <view class="panel masters-confirm__consent">
+          <checkbox-group bindchange="serviceConsentChange"><label class="check-line"><checkbox value="service" checked="{{serviceConsent}}" color="#b98426" /><text>我同意按说明处理本次咨询资料</text></label></checkbox-group>
+          <checkbox-group bindchange="accuracyChange"><label class="check-line"><checkbox value="accuracy" checked="{{accuracyConfirmed}}" color="#b98426" /><text>我已核对以上资料及简历草稿，确认其准确；未知项将保留为待补或待核验</text></label></checkbox-group>
+        </view>
+        <button class="btn btn--gold masters-confirm__submit" loading="{{confirming}}" disabled="{{confirming || !serviceConsent || !accuracyConfirmed}}" bindtap="confirm">确认资料并继续</button>
+        <button class="btn btn--outline masters-confirm__edit" bindtap="edit">返回修改资料</button>
+        <view wx:if="{{error}}" class="masters-confirm__error">{{error}}</view>
+      </block>
+    </block>
+  </view>
+</view>

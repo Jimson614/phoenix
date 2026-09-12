@@ -1,0 +1,25 @@
+<view class="page page--paper advisor-page">
+  <block wx:if="{{!submitted}}">
+    <text class="eyebrow">HUMAN CONNECTION</text>
+    <text class="h1 advisor-title">让洞察变成一次
+有温度的讨论。</text>
+    <text class="muted advisor-copy">Phoenix 顾问会先阅读家庭档案与最近报告，再与你联系。无需重复讲述已经记录的信息。</text>
+
+    <view class="advisor-profile">
+      <view class="advisor-profile__avatar">P</view>
+      <view><text class="advisor-profile__title">Phoenix Family Advisor</text><text class="advisor-profile__subtitle">报告解读 · 方向梳理 · 下一步规划</text></view>
+    </view>
+
+    <view class="field"><text class="field__label">希望讨论的主题</text><picker mode="selector" range="{{topics}}" value="{{topicIndex}}" bindchange="pickTopic"><view class="picker {{!form.topic ? 'placeholder' : ''}}">{{form.topic || '请选择'}}</view></picker></view>
+    <view class="field"><text class="field__label">方便联系的时间</text><picker mode="selector" range="{{times}}" value="{{timeIndex}}" bindchange="pickTime"><view class="picker {{!form.preferred_time ? 'placeholder' : ''}}">{{form.preferred_time || '请选择'}}</view></picker></view>
+    <view class="field"><text class="field__label">补充说明（选填）</text><textarea class="textarea" value="{{form.note}}" maxlength="300" placeholder="还有什么希望顾问提前了解？" bindinput="input"></textarea></view>
+    <view class="form-actions"><button class="btn btn--primary" loading="{{submitting}}" disabled="{{submitting}}" bindtap="submit">申请顾问联系</button></view>
+  </block>
+
+  <view wx:else class="success">
+    <view class="success__mark">✓</view>
+    <text class="h1 success__title">申请已记录</text>
+    <text class="muted success__copy">顾问会结合你的家庭档案与成长报告进行准备。该节点也已保存到家庭时间线。</text>
+    <button class="btn btn--primary success__btn" bindtap="done">完成</button>
+  </view>
+</view>

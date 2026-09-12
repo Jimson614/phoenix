@@ -1,0 +1,126 @@
+<view class="preview-page page--paper">
+  <image class="preview-decoration preview-decoration--top" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+  <image class="preview-decoration preview-decoration--bottom" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+  <view class="preview-brand">
+    <image class="preview-brand__logo" src="/assets/brand/phoenix-nova-logo-primary.png" mode="widthFix" aria-label="Phoenix Nova" />
+    <view class="preview-brand__product"><image src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" /><text>EDUCATION COMPASS™</text></view>
+  </view>
+  <view wx:if="{{loading}}" class="preview-state" role="status"><text class="h3">正在读取服务端结果…</text><text class="muted">请稍候，结果与支付状态均以服务端记录为准</text></view>
+  <view wx:elif="{{error}}" class="preview-state" role="alert"><text class="h3">结果暂时不可用</text><text class="muted">{{error}}</text><button class="btn btn--outline preview-state__button" bindtap="retry">重新加载</button></view>
+
+  <block wx:elif="{{viewKind === 'family'}}">
+    <view class="preview-hero preview-hero--family" data-ui-screen="free-result">
+      <image class="preview-hero__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+      <button class="preview-share" open-type="share" aria-label="分享通用小程序入口">分享</button>
+      <text class="eyebrow">FAMILY EDUCATION SNAPSHOT</text>
+      <text class="preview-hero__title">你的第一份成长信号来了</text>
+      <text class="preview-hero__subtitle">这是基于家长近期观察形成的家庭教育快照</text>
+    </view>
+    <view class="page preview-body">
+      <view class="signal-card">
+        <image class="signal-card__feather" src="/assets/ui/feather-champagne.png" mode="aspectFit" aria-hidden="true" />
+        <text class="signal-card__label">孩子当前值得关注的信号</text>
+        <text class="signal-card__title">{{primarySignal}}</text>
+        <text class="signal-card__source">来自：{{primarySignalSource}}。这是一条观察线索，建议结合学生本人感受继续验证。</text>
+      </view>
+
+      <text class="snapshot-overview__title">其他观察线索</text>
+      <view class="snapshot-overview">
+        <view wx:for="{{overviewCards}}" wx:key="key" class="snapshot-overview__card">
+          <view class="snapshot-overview__mark"></view>
+          <text class="snapshot-overview__name">{{item.title}}</text>
+          <text class="snapshot-overview__value">{{item.value}}</text>
+        </view>
+      </view>
+
+      <view class="readiness-card">
+        <text class="readiness-card__label">STUDENT READINESS</text>
+        <text class="readiness-card__title">学生参与准备度</text>
+        <text class="readiness-card__copy">{{studentReadiness}}</text>
+        <view class="readiness-card__divider"></view>
+        <text class="readiness-card__label">NEXT STEP STATUS</text>
+        <text class="readiness-card__copy">{{nextStepStatus}}</text>
+        <text wx:for="{{nextStepReasons}}" wx:key="*this" class="readiness-card__reason">• {{item}}</text>
+      </view>
+
+      <view class="snapshot-details">
+        <text class="snapshot-details__title">家庭教育快照详情</text>
+        <view wx:for="{{familySections}}" wx:key="key" class="snapshot-section">
+          <view class="row row--between snapshot-section__head"><text class="snapshot-section__title">{{item.title}}</text><text wx:if="{{item.source}}" class="snapshot-section__source">{{item.source}}</text></view>
+          <view wx:if="{{item.lines.length}}" class="snapshot-section__lines">
+            <view wx:for="{{item.lines}}" wx:key="*this" class="snapshot-line"><text class="snapshot-line__mark">•</text><text>{{item}}</text></view>
+          </view>
+          <text wx:else class="snapshot-section__empty">本次未选择相关内容</text>
+        </view>
+      </view>
+
+      <view class="boundary-note">
+        <text>{{rendered.disclaimer || '本快照用于发现家庭教育关注点，并帮助决定是否邀请学生本人继续测评；不替代专业诊断或完整升学规划。'}}</text>
+      </view>
+      <view wx:if="{{canStartLevel2}}" class="snapshot-invite">
+        <text class="snapshot-invite__title">想更深入了解孩子当前需要支持的地方？</text>
+        <text class="snapshot-invite__copy">邀请学生本人完成成长发现，提交后再决定是否解锁完整报告。</text>
+        <text class="snapshot-invite__flow">学生本人确认 → 按教育体系加载题目 → 提交问卷 → 自主决定是否单次解锁</text>
+        <text class="snapshot-invite__boundary">IB／其他体系当前使用公共题 fallback；“下一阶段学历路径”为选填背景项，不改变题库路由或形成录取结论。</text>
+        <text wx:if="{{growthPrice}}" class="snapshot-invite__price">完整报告解锁价 {{growthPrice}}（学生提交后自愿付款）</text>
+        <text wx:if="{{growthPriceError}}" class="snapshot-invite__warning">{{growthPriceError}}</text>
+      </view>
+      <button wx:if="{{canStartLevel2}}" class="btn btn--primary snapshot-cta" bindtap="startStudentAssessment">邀请学生开始成长发现</button>
+      <button class="btn {{canStartLevel2 ? 'btn--text' : 'btn--outline'}} snapshot-cta" bindtap="home">{{canStartLevel2 ? '稍后再说' : '尊重学生当前意愿，返回家庭中心'}}</button>
+      <view class="safe-bottom"></view>
+    </view>
+  </block>
+
+  <block wx:elif="{{viewKind === 'growth-locked'}}">
+    <view class="preview-hero">
+      <image class="preview-hero__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+      <text class="eyebrow">STUDENT GROWTH DISCOVERY</text>
+      <text class="preview-hero__title">学生成长发现已提交</text>
+      <text class="preview-hero__subtitle">完整报告仍由服务端锁定</text>
+    </view>
+    <view class="page preview-body preview-body--locked">
+      <view class="locked-report locked-report--strict">
+        <view class="locked-report__icon" aria-label="报告已锁定"><image src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" /><text class="visually-hidden">锁</text></view>
+        <text class="h2 locked-report__title">付款后解锁本次完整报告</text>
+        <text class="locked-report__copy">未付款前不展示结论、信号、证据或六项报告内容。支付状态仅以服务端订单查询和微信支付通知为准。</text>
+        <view class="locked-product">
+          <text class="locked-product__name">{{product.productName || product.name || 'Education Growth Discovery'}}</text>
+          <text class="locked-product__price">{{product.displayPrice}}</text>
+          <text class="locked-product__type">单次解锁本次报告</text>
+        </view>
+        <text class="locked-report__note">职责边界：发现学习与成长问题，不提供完整升学规划，不预测或保证录取结果。</text>
+      </view>
+      <view class="purchase-bar-placeholder"></view>
+    </view>
+    <view class="purchase-bar">
+      <view class="purchase-bar__summary"><text class="purchase-bar__price">{{product.displayPrice}}</text><text class="purchase-bar__type">提交后付款 · 单次解锁</text></view>
+      <button class="btn btn--gold purchase-bar__button" loading="{{paying}}" disabled="{{paying || !canPurchase}}" bindtap="purchase">{{canPurchase ? '微信支付并解锁' : '支付通道暂未开放'}}</button>
+    </view>
+  </block>
+
+  <block wx:elif="{{viewKind === 'growth-full'}}">
+    <view class="preview-state preview-state--success"><text class="h2">完整报告已解锁</text><text class="muted">服务端已确认权益，可进入报告查看六项结果。</text><button class="btn btn--primary preview-state__button" bindtap="openGrowthReport">查看完整报告</button><button class="btn btn--text preview-state__button" bindtap="retry">刷新报告状态</button></view>
+  </block>
+
+  <block wx:elif="{{viewKind === 'legacy' && preview}}">
+    <view class="preview-hero">
+      <image class="preview-hero__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+      <text class="eyebrow">FREE PREVIEW</text>
+      <text class="preview-hero__title">Education Compass
+报告预览</text>
+      <view class="preview-meta"><text>完整度 {{preview.completenessScore}} / 100</text><text>可信度 {{preview.confidence}}</text></view>
+    </view>
+    <view class="page preview-body">
+      <view class="preview-card preview-card--lead"><text class="preview-card__label">学生画像摘要</text><text class="preview-card__copy">{{preview.profileSummary}}</text></view>
+      <view class="preview-pair"><view class="preview-card"><text class="preview-card__label">一项优势</text><text class="preview-card__copy">{{preview.oneStrength}}</text></view><view class="preview-card"><text class="preview-card__label">一项风险</text><text class="preview-card__copy">{{preview.oneRisk}}</text></view></view>
+      <view class="preview-card"><text class="preview-card__label">路线概览</text><text class="preview-card__copy">{{preview.routeOverview}}</text></view>
+      <view class="free-analysis-card"><text class="free-analysis-card__eyebrow">FREE ASSESSMENT AI ANALYSIS</text><text class="free-analysis-card__title">免费测评 · 有限 AI 分析</text><text class="free-analysis-card__copy">本地演示不会把测评正文发送给外部 AI；此有限分析不等同于付费完整报告。</text><button class="btn btn--outline" bindtap="openFreeAnalysis">查看后端联调说明</button></view>
+      <view class="locked-report"><view class="row row--between"><text class="h3">完整报告目录</text><text class="locked-report__mark">已锁定</text></view><view wx:for="{{preview.tableOfContents}}" wx:key="*this" class="locked-row"><text>{{index + 1 < 10 ? '0' : ''}}{{index + 1}}</text><text>{{item}}</text><image class="locked-row__icon" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-label="已锁定" /></view><text class="locked-report__note">支付后解锁演示版完整报告。</text></view>
+      <view class="basis-note"><text>数据截至 {{preview.dataAsOf}}</text><text>{{preview.disclaimer}}</text></view>
+      <view class="purchase-bar-placeholder"></view>
+    </view>
+    <view class="purchase-bar"><view class="purchase-bar__summary"><text class="purchase-bar__price">{{product.displayPrice}}</text><text class="purchase-bar__type">单次解锁本报告</text></view><button class="btn btn--gold purchase-bar__button" loading="{{paying}}" disabled="{{!preview.canPurchase}}" bindtap="purchase">演示解锁</button></view>
+  </block>
+
+  <view wx:else class="preview-state"><text class="h3">当前没有可展示的结果</text><button class="btn btn--outline preview-state__button" bindtap="retry">重新加载</button></view>
+</view>

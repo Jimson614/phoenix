@@ -1,0 +1,98 @@
+.admin-detail-page {
+  background:
+    radial-gradient(circle at 96% 0, rgba(226, 190, 118, .19), transparent 26%),
+    linear-gradient(180deg, #fffdf9 0%, #faf5ec 44%, #f7efe3 100%);
+  min-height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+.admin-detail__feather { opacity: .14; pointer-events: none; position: absolute; right: -155rpx; top: 12rpx; transform: rotate(20deg); width: 450rpx; z-index: 1; }
+.admin-detail__brand { align-items: center; display: flex; justify-content: space-between; padding-bottom: 22rpx; padding-top: 28rpx; position: relative; z-index: 2; }
+.admin-detail__brand > text { color: #916a2c; font-size: 17rpx; font-weight: 600; letter-spacing: 2rpx; }
+
+.admin-detail__hero { background: linear-gradient(145deg, #162d42, #0c1d2e); border-radius: 0 0 42rpx 42rpx; color: #fff; overflow: hidden; padding: 46rpx 36rpx 40rpx; position: relative; }
+.admin-detail__hero-orbit { border: 1rpx solid rgba(225,194,128,.15); border-radius: 50%; height: 330rpx; position: absolute; right: -86rpx; top: -132rpx; width: 330rpx; }
+.admin-detail__eyebrow { color: #d8b86f; position: relative; }
+.admin-detail__name { display: block; font-family: "Songti SC", serif; font-size: 50rpx; font-weight: 700; letter-spacing: 2rpx; margin-top: 15rpx; position: relative; }
+.admin-detail__meta { color: rgba(255,255,255,.68); display: block; font-size: 21rpx; line-height: 1.6; margin-top: 12rpx; overflow-wrap: anywhere; position: relative; }
+.admin-detail__goal { align-items: flex-start; color: #e2ca91; display: flex; font-family: "Songti SC", serif; font-size: 25rpx; line-height: 1.7; margin-top: 25rpx; position: relative; }
+.admin-detail__goal-mark { flex-shrink: 0; font-size: 15rpx; margin: 8rpx 14rpx 0 0; }
+.admin-detail__hero-rule { align-items: center; color: rgba(226,198,137,.63); display: flex; font-size: 14rpx; letter-spacing: 1.5rpx; margin-top: 26rpx; }
+.admin-detail__hero-rule view { background: rgba(226,198,137,.32); height: 1rpx; margin-right: 14rpx; width: 66rpx; }
+
+.admin-detail__body { padding-bottom: calc(76rpx + env(safe-area-inset-bottom)); padding-top: 30rpx; }
+.admin-section { background: rgba(255,253,249,.95); border: 1rpx solid rgba(183,132,39,.15); border-radius: 28rpx; box-shadow: 0 14rpx 38rpx rgba(30,39,50,.05); margin-top: 20rpx; padding: 30rpx; }
+.admin-section:first-child { margin-top: 0; }
+.admin-section .section-head { align-items: center; margin-bottom: 20rpx; }
+.admin-section__eyebrow { color: #9d722f; display: block; font-size: 17rpx; font-weight: 600; letter-spacing: 2rpx; }
+.admin-section__title { display: block; margin-top: 6rpx; }
+.admin-section__count { background: #f6ecda; border-radius: 999rpx; color: #896226; font-size: 19rpx; padding: 9rpx 14rpx; }
+.admin-section__empty { align-items: center; border-top: 1rpx solid #eee4d4; color: #77736d; display: flex; font-size: 22rpx; min-height: 92rpx; }
+.admin-section__empty text:first-child { color: #ad7928; font-size: 27rpx; margin-right: 14rpx; }
+
+.student-row { align-items: center; border-top: 1rpx solid #eee4d4; display: flex; min-height: 100rpx; padding: 17rpx 0; }
+.student-row:first-child { border-top: 0; padding-top: 0; }
+.student-row__avatar { align-items: center; background: linear-gradient(145deg, #f3e3c2, #d6ae63); border: 5rpx solid #fffaf1; border-radius: 50%; color: #173047; display: flex; flex-shrink: 0; font-family: "Songti SC", serif; font-size: 25rpx; height: 66rpx; justify-content: center; margin-right: 18rpx; width: 66rpx; }
+.student-row__copy { flex: 1; min-width: 0; }
+.student-row__name, .student-row__meta { display: block; }
+.student-row__name { color: #12283d; font-size: 26rpx; font-weight: 650; }
+.student-row__meta { color: #76736f; font-size: 20rpx; line-height: 1.55; margin-top: 6rpx; overflow-wrap: anywhere; }
+
+.report-row { align-items: center; border-top: 1rpx solid #eee4d4; display: flex; min-height: 102rpx; padding: 18rpx 0; }
+.report-row:first-child { border-top: 0; }
+.report-row__mark { align-items: center; border: 1rpx solid rgba(177,123,33,.28); border-radius: 50%; color: #a26d1c; display: flex; flex-shrink: 0; font-family: "Songti SC", serif; height: 54rpx; justify-content: center; margin-right: 16rpx; width: 54rpx; }
+.report-row__copy { flex: 1; min-width: 0; }
+.report-row__date, .report-row__title { display: block; }
+.report-row__date { color: #9b6d25; font-size: 18rpx; }
+.report-row__title { color: #13283c; font-size: 24rpx; font-weight: 600; line-height: 1.5; margin-top: 5rpx; }
+
+.request-card { background: linear-gradient(145deg, #f8edda, #fffaf1); border: 1rpx solid rgba(183,132,39,.14); border-radius: 21rpx; padding: 24rpx; }
+.request-card + .request-card { margin-top: 14rpx; }
+.request-card__top { align-items: center; display: flex; justify-content: space-between; }
+.request-card__topic, .request-card__meta, .request-card__note { display: block; }
+.request-card__topic { color: #13283c; font-size: 25rpx; font-weight: 650; }
+.request-card__mark { color: #ac7827; font-size: 18rpx; }
+.request-card__meta { color: #8f6626; font-size: 20rpx; margin-top: 8rpx; }
+.request-card__note { border-top: 1rpx solid rgba(177,127,42,.16); color: #68645e; font-size: 22rpx; line-height: 1.65; margin-top: 14rpx; padding-top: 14rpx; }
+
+.note-form { border-color: rgba(170,113,24,.24); }
+.note-form__heading { align-items: center; display: flex; justify-content: space-between; }
+.note-form__heading > text { color: #ac7726; }
+.note-form__hint { color: #7c756c; display: block; font-size: 20rpx; line-height: 1.6; margin-top: 13rpx; }
+.note-form__textarea { background: #fffdf9; border-color: #dfd2c0; margin-top: 20rpx; }
+.note-form__picker { align-items: center; background: #fffdf9; display: flex; justify-content: space-between; margin: 14rpx 0; }
+.note-form__picker text:first-child { color: #5e6670; font-size: 22rpx; }
+.note-form__picker text:last-child { color: #936929; font-size: 22rpx; }
+.note-form__button { background: linear-gradient(135deg, #d8ad58, #b98120); box-shadow: 0 13rpx 28rpx rgba(151,103,23,.18); color: #12283c; }
+.note-form__button text { font-size: 32rpx; margin-left: 20rpx; }
+
+.note-row { border-top: 1rpx solid #eee4d4; margin-top: 18rpx; padding-top: 20rpx; }
+.note-row:first-child { margin-top: 0; }
+.note-row__date { color: #8e887f; font-size: 19rpx; }
+.note-row__copy { color: #3f4c57; display: block; font-size: 23rpx; line-height: 1.7; margin-top: 12rpx; overflow-wrap: anywhere; }
+.event-list { margin-top: 4rpx; }
+.event-row { display: flex; min-height: 88rpx; padding: 10rpx 0 14rpx; position: relative; }
+.event-row::before { background: #e2c58d; content: ""; left: 7rpx; position: absolute; top: 26rpx; bottom: -10rpx; width: 1rpx; }
+.event-row:last-child::before { display: none; }
+.event-row__dot { background: #b47d28; border: 4rpx solid #f5e7cd; border-radius: 50%; flex-shrink: 0; height: 15rpx; margin: 7rpx 20rpx 0 0; position: relative; width: 15rpx; z-index: 1; }
+.event-row__date, .event-row__copy { display: block; }
+.event-row__date { color: #986d2b; font-size: 18rpx; }
+.event-row__copy { color: #505a63; font-size: 22rpx; line-height: 1.55; margin-top: 5rpx; }
+.admin-detail__boundary { align-items: center; color: #817a71; display: flex; font-size: 20rpx; justify-content: center; margin-top: 34rpx; }
+.admin-detail__boundary text:first-child { color: #a8782f; margin-right: 10rpx; }
+
+.admin-detail__loading { align-items: center; display: flex; flex-direction: column; padding-top: 34rpx; }
+.admin-detail__loading brand-mark { align-self: flex-start; }
+.admin-detail__loading-mark { align-items: center; border: 1rpx solid rgba(177,123,33,.3); border-radius: 50%; color: #a87121; display: flex; font-size: 28rpx; height: 78rpx; justify-content: center; margin: 110rpx 0 24rpx; width: 78rpx; }
+.admin-detail__loading .muted { margin-top: 12rpx; }
+.admin-detail__loading-card { background: rgba(255,253,249,.94); border: 1rpx solid #eadfce; border-radius: 26rpx; margin-top: 42rpx; padding: 30rpx; width: 100%; }
+.admin-detail__loading-card view { background: linear-gradient(90deg, #eee5d7, #faf6ee, #eee5d7); border-radius: 999rpx; height: 17rpx; margin-top: 17rpx; }
+.admin-detail__loading-card view:first-child { margin-top: 0; width: 70%; }
+.admin-detail__loading-card view:nth-child(2) { width: 92%; }
+.admin-detail__loading-card view:nth-child(3) { width: 58%; }
+
+@media (max-width: 340px) {
+  .admin-detail__brand > text { display: none; }
+  .admin-detail__name { font-size: 44rpx; }
+  .admin-detail__meta { font-size: 19rpx; }
+}

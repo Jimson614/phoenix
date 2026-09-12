@@ -1,0 +1,22 @@
+{
+  "description": "Phoenix Family OS Mini Program MVP V0.1",
+  "packOptions": { "ignore": ["tests", "docs", "node_modules", "backend"] },
+  "setting": {
+    "bundle": false,
+    "userConfirmedBundleSwitch": false,
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "coverView": true,
+    "showShadowRootInWxmlPanel": true,
+    "packNpmManually": false
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.7.12",
+  "appid": "touristappid",
+  "projectname": "Phoenix-Family-OS-MVP-V0.1",
+  "simulatorType": "wechat",
+  "condition": {}
+}

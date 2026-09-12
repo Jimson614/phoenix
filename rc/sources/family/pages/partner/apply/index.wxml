@@ -1,0 +1,31 @@
+<view class="apply page page--paper">
+  <block wx:if="{{!submitted}}">
+    <text class="eyebrow">JOINT EXPERIENCE REQUEST</text>
+    <text class="h1 apply__title">从一次真实的兴趣观察开始。</text>
+    <text class="muted apply__copy">提交后，团队会围绕孩子当下的兴趣与家庭期待准备沟通。本阶段不涉及课程购买、支付或排课。</text>
+    <view class="apply__project"><text>{{experience.projectName}}</text><text>{{experience.collaborationLabel}}</text></view>
+
+    <view class="field"><text class="field__label">孩子称呼 <text class="field__required">*</text></text><input class="input" value="{{form.child_name}}" maxlength="20" placeholder="如何称呼孩子" data-field="child_name" bindinput="input" /></view>
+    <view class="field"><text class="field__label">年龄阶段 <text class="field__required">*</text></text><picker mode="selector" range="{{ageStages}}" value="{{ageIndex}}" bindchange="pickAge"><view class="picker {{!form.age_stage ? 'placeholder' : ''}}">{{form.age_stage || '请选择'}}</view></picker></view>
+    <view class="field"><text class="field__label">家长称呼 <text class="field__required">*</text></text><input class="input" value="{{form.parent_name}}" maxlength="20" placeholder="如何称呼你" data-field="parent_name" bindinput="input" /></view>
+    <view class="field"><text class="field__label">联系方式 <text class="field__required">*</text></text><input class="input" value="{{form.contact}}" maxlength="50" placeholder="手机或微信" data-field="contact" bindinput="input" /></view>
+    <view class="field"><text class="field__label">音乐兴趣 <text class="field__required">*</text></text><textarea class="textarea" value="{{form.music_interest}}" maxlength="240" placeholder="孩子平时会被哪些声音、音乐或表达方式吸引？" data-field="music_interest" bindinput="input"></textarea></view>
+    <view class="field"><text class="field__label">希望参与的方向 <text class="field__required">*</text></text><picker mode="selector" range="{{directions}}" value="{{directionIndex}}" bindchange="pickDirection"><view class="picker {{!form.preferred_direction ? 'placeholder' : ''}}">{{form.preferred_direction || '请选择'}}</view></picker></view>
+
+    <view class="consent" bindtap="toggleConsent" hover-class="consent--pressed">
+      <view class="consent__check {{form.privacy_consent ? 'consent__check--active' : ''}}">{{form.privacy_consent ? '✓' : ''}}</view>
+      <text>我已阅读并同意：以上信息仅用于本次联合体验沟通与家庭成长记录，经家庭授权后使用。</text>
+    </view>
+    <button class="btn btn--primary apply__submit" loading="{{submitting}}" bindtap="submit">提交体验申请</button>
+    <text class="apply__note">这是前端 Demo 申请入口，不代表报名成功或形成任何购买关系。</text>
+  </block>
+
+  <view wx:else class="success">
+    <view class="success__mark">✓</view>
+    <text class="eyebrow">REQUEST RECORDED</text>
+    <text class="h1 success__title">联合体验申请已记录</text>
+    <text class="muted success__copy">团队将结合你的家庭信息与参与方向准备下一次沟通。若已有家庭档案，这个节点也已写入 Family Timeline。</text>
+    <button class="btn btn--gold success__button" bindtap="done">返回家庭中心</button>
+  </view>
+  <view class="safe-bottom"></view>
+</view>

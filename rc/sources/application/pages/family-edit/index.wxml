@@ -1,0 +1,35 @@
+<view class="page page--paper family-page">
+  <image class="profile-feather" src="/assets/ui/feather-champagne.png" mode="aspectFit" aria-hidden="true" />
+  <view class="profile-hero">
+    <image class="profile-hero__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+    <text class="eyebrow">FAMILY PROFILE</text>
+    <text class="h1 profile-title">先认识你的家庭</text>
+    <text class="muted profile-intro">这些信息属于家庭成长档案，用于持续记录目标与重要节点。</text>
+  </view>
+
+  <view class="form-section">
+    <view class="field">
+      <text class="field__label">家庭称呼 <text class="field__required">*</text></text>
+      <input class="input" value="{{form.family_name}}" placeholder="例如：王先生家庭" data-field="family_name" bindinput="input" />
+    </view>
+    <view class="field">
+      <text class="field__label">家长姓名 <text class="field__required">*</text></text>
+      <input class="input" value="{{form.parent_name}}" placeholder="如何称呼你" data-field="parent_name" bindinput="input" />
+    </view>
+    <view class="field">
+      <text class="field__label">联系电话 <text class="field__required">*</text></text>
+      <input class="input" type="number" maxlength="20" value="{{form.phone}}" placeholder="仅用于档案与顾问联系" data-field="phone" bindinput="input" />
+    </view>
+    <view class="field">
+      <text class="field__label">常住地区</text>
+      <input class="input" value="{{form.location}}" placeholder="例如：深圳 / 香港" data-field="location" bindinput="input" />
+    </view>
+    <view class="field">
+      <text class="field__label">家庭目前最重要的目标</text>
+      <textarea class="textarea" value="{{form.goal}}" maxlength="240" placeholder="例如：帮助孩子找到适合的国际升学方向，同时保持家庭沟通。" data-field="goal" bindinput="input"></textarea>
+    </view>
+  </view>
+
+  <view class="privacy-note"><text class="privacy-note__mark">◇</text><text>数据只服务于家庭成长关系，不作为外部销售线索。</text></view>
+  <view class="form-actions"><button class="btn btn--primary" loading="{{saving}}" disabled="{{loading}}" bindtap="save">保存并继续</button></view>
+</view>

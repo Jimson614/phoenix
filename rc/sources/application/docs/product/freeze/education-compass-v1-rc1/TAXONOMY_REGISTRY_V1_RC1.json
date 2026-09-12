@@ -1,0 +1,123 @@
+{
+  "package_status": "FROZEN_BY_PRODUCT_MANIFEST",
+  "registry_version": "education_compass_taxonomy_v1.0.0-rc1",
+  "language": "zh-CN",
+  "rules": {
+    "store_codes_not_labels": true,
+    "unknown_codes_fail_validation": true,
+    "legacy_aliases_are_read_compatibility_only": true,
+    "unknown_education_system_must_not_map_to_formal_route": true
+  },
+  "education_system": {
+    "formal": ["GAOKAO", "DSE", "IGCSE", "A_LEVEL", "AP_US"],
+    "fallback": ["IB", "OTHER"],
+    "legacy_aliases": {
+      "高考": "GAOKAO", "内地课程": "GAOKAO", "HKDSE": "DSE", "A-Level": "A_LEVEL",
+      "A Level": "A_LEVEL", "AP": "AP_US", "美国课程": "AP_US", "IB_LEGACY": "IB"
+    },
+    "fallback_behavior": "COMMON_ONLY_WITH_SYSTEM_BANK_PENDING"
+  },
+  "education_pathway_target": {
+    "semantic_type": "POST_SECONDARY_QUALIFICATION_OR_ATTENDANCE_PATHWAY",
+    "question_bank_router": false,
+    "values": [
+      { "code": "MAINLAND_TERTIARY_DIPLOMA", "label": "内地大专", "jurisdiction": "MAINLAND_CHINA", "qualification_level": "TERTIARY_DIPLOMA", "study_mode": "UNSPECIFIED", "declared_credential_pattern": "UNSPECIFIED", "label_source": "FOUNDER_SUPPLIED_PRODUCT_LABEL" },
+      { "code": "MAINLAND_BACHELOR_DUAL_CREDENTIAL_PART_TIME", "label": "内地本科双证（兼读）", "jurisdiction": "MAINLAND_CHINA", "qualification_level": "BACHELOR", "study_mode": "PART_TIME", "declared_credential_pattern": "DUAL_CREDENTIAL_USER_STATED_LABEL", "label_source": "FOUNDER_SUPPLIED_PRODUCT_LABEL" },
+      { "code": "MAINLAND_BACHELOR_SINGLE_CREDENTIAL", "label": "内地本科（单证）", "jurisdiction": "MAINLAND_CHINA", "qualification_level": "BACHELOR", "study_mode": "UNSPECIFIED", "declared_credential_pattern": "SINGLE_CREDENTIAL_USER_STATED_LABEL", "label_source": "FOUNDER_SUPPLIED_PRODUCT_LABEL" },
+      { "code": "OVERSEAS_BACHELOR_FULL_TIME", "label": "海外学士（全日制）", "jurisdiction": "OVERSEAS_UNSPECIFIED", "qualification_level": "BACHELOR", "study_mode": "FULL_TIME", "declared_credential_pattern": "UNSPECIFIED", "label_source": "FOUNDER_SUPPLIED_PRODUCT_LABEL" },
+      { "code": "HONG_KONG_ASSOCIATE_DEGREE", "label": "香港副学士", "jurisdiction": "HONG_KONG", "qualification_level": "ASSOCIATE_DEGREE", "study_mode": "UNSPECIFIED", "declared_credential_pattern": "UNSPECIFIED", "label_source": "FOUNDER_SUPPLIED_PRODUCT_LABEL" },
+      { "code": "OTHER_PATHWAY", "label": "其他学历路径", "jurisdiction": "UNSPECIFIED", "qualification_level": "UNSPECIFIED", "study_mode": "UNSPECIFIED", "declared_credential_pattern": "UNSPECIFIED", "label_source": "FREEZE_DEFAULT" },
+      { "code": "UNSURE", "label": "尚未确定", "jurisdiction": "UNSPECIFIED", "qualification_level": "UNSPECIFIED", "study_mode": "UNSPECIFIED", "declared_credential_pattern": "UNSPECIFIED", "label_source": "FREEZE_DEFAULT" }
+    ],
+    "rules": {
+      "user_stated_context_only": true,
+      "max_selections": 3,
+      "unsure_is_exclusive": true,
+      "no_automatic_equivalence_or_recognition_or_eligibility_claim": true,
+      "not_sent_to_askwise": true,
+      "not_scored": true
+    }
+  },
+  "grade_stage": [
+    { "code": "PRIMARY", "label": "小学" },
+    { "code": "LOWER_SECONDARY", "label": "初中／Lower Secondary" },
+    { "code": "UPPER_SECONDARY", "label": "高中／Upper Secondary" },
+    { "code": "POST_SECONDARY", "label": "大学或以上" },
+    { "code": "OTHER_STAGE", "label": "其他阶段" }
+  ],
+  "CN_PROVINCE_REGION_REGISTRY_V1": [
+    { "code": "BEIJING", "label": "北京" }, { "code": "TIANJIN", "label": "天津" },
+    { "code": "HEBEI", "label": "河北" }, { "code": "SHANXI", "label": "山西" },
+    { "code": "INNER_MONGOLIA", "label": "内蒙古" }, { "code": "LIAONING", "label": "辽宁" },
+    { "code": "JILIN", "label": "吉林" }, { "code": "HEILONGJIANG", "label": "黑龙江" },
+    { "code": "SHANGHAI", "label": "上海" }, { "code": "JIANGSU", "label": "江苏" },
+    { "code": "ZHEJIANG", "label": "浙江" }, { "code": "ANHUI", "label": "安徽" },
+    { "code": "FUJIAN", "label": "福建" }, { "code": "JIANGXI", "label": "江西" },
+    { "code": "SHANDONG", "label": "山东" }, { "code": "HENAN", "label": "河南" },
+    { "code": "HUBEI", "label": "湖北" }, { "code": "HUNAN", "label": "湖南" },
+    { "code": "GUANGDONG", "label": "广东" }, { "code": "GUANGXI", "label": "广西" },
+    { "code": "HAINAN", "label": "海南" }, { "code": "CHONGQING", "label": "重庆" },
+    { "code": "SICHUAN", "label": "四川" }, { "code": "GUIZHOU", "label": "贵州" },
+    { "code": "YUNNAN", "label": "云南" }, { "code": "TIBET", "label": "西藏" },
+    { "code": "SHAANXI", "label": "陕西" }, { "code": "GANSU", "label": "甘肃" },
+    { "code": "QINGHAI", "label": "青海" }, { "code": "NINGXIA", "label": "宁夏" },
+    { "code": "XINJIANG", "label": "新疆" }, { "code": "OTHER_OR_UNSURE", "label": "其他／不确定" }
+  ],
+  "ACHIEVEMENT_PERCENT_OF_MAX_BANDS_V1": [
+    { "code": "LT_40_PERCENT", "label": "低于满分的 40%" },
+    { "code": "P40_TO_59", "label": "满分的 40%–59%" },
+    { "code": "P60_TO_74", "label": "满分的 60%–74%" },
+    { "code": "P75_TO_84", "label": "满分的 75%–84%" },
+    { "code": "GE_85_PERCENT", "label": "满分的 85% 或以上" },
+    { "code": "UNSURE", "label": "不确定" }, { "code": "NOT_PROVIDED", "label": "不提供" }
+  ],
+  "RELATIVE_POSITION_BANDS_V1": [
+    { "code": "TOP_5_PERCENT", "label": "前 5%" }, { "code": "TOP_6_TO_10_PERCENT", "label": "前 6%–10%" },
+    { "code": "TOP_11_TO_25_PERCENT", "label": "前 11%–25%" }, { "code": "MIDDLE_50_PERCENT", "label": "中间 50%" },
+    { "code": "LOWER_25_PERCENT", "label": "后 25%" }, { "code": "UNSURE", "label": "不确定" },
+    { "code": "NOT_PROVIDED", "label": "不提供" }
+  ],
+  "DSE_GRADE_BANDS_V1": [
+    { "code": "LEVEL_1_OR_BELOW", "label": "Level 1 或以下" }, { "code": "LEVEL_2", "label": "Level 2" },
+    { "code": "LEVEL_3", "label": "Level 3" }, { "code": "LEVEL_4", "label": "Level 4" },
+    { "code": "LEVEL_5", "label": "Level 5" }, { "code": "LEVEL_5_STAR", "label": "Level 5*" },
+    { "code": "LEVEL_5_DOUBLE_STAR", "label": "Level 5**" }, { "code": "UNSURE", "label": "不确定" },
+    { "code": "NOT_PROVIDED", "label": "不提供" }
+  ],
+  "IGCSE_GRADE_BANDS_V1": [
+    { "code": "GRADE_9_TO_8_OR_A_STAR", "label": "9–8／A*" }, { "code": "GRADE_7_TO_6_OR_A", "label": "7–6／A" },
+    { "code": "GRADE_5_TO_4_OR_B_C", "label": "5–4／B–C" }, { "code": "GRADE_3_TO_1_OR_D_G", "label": "3–1／D–G" },
+    { "code": "UNGRADED", "label": "未评级" }, { "code": "UNSURE", "label": "不确定" },
+    { "code": "NOT_PROVIDED", "label": "不提供" }
+  ],
+  "A_LEVEL_GRADE_BANDS_V1": [
+    { "code": "A_STAR", "label": "A*" }, { "code": "A_TO_B", "label": "A–B" },
+    { "code": "C_TO_D", "label": "C–D" }, { "code": "E", "label": "E" },
+    { "code": "UNGRADED", "label": "未评级" }, { "code": "UNSURE", "label": "不确定" },
+    { "code": "NOT_PROVIDED", "label": "不提供" }
+  ],
+  "GPA_BANDS_V1": [
+    { "code": "LT_2_5", "label": "低于 2.5" }, { "code": "GPA_2_5_TO_2_99", "label": "2.50–2.99" },
+    { "code": "GPA_3_0_TO_3_49", "label": "3.00–3.49" }, { "code": "GPA_3_5_TO_3_79", "label": "3.50–3.79" },
+    { "code": "GPA_3_8_TO_4_0", "label": "3.80–4.00" }, { "code": "WEIGHTED_OR_NOT_COMPARABLE", "label": "加权 GPA／无法直接比较" },
+    { "code": "UNSURE", "label": "不确定" }, { "code": "NOT_PROVIDED", "label": "不提供" }
+  ],
+  "AP_GRADE_BANDS_V1": [
+    { "code": "AP_5", "label": "5" }, { "code": "AP_4", "label": "4" }, { "code": "AP_3", "label": "3" },
+    { "code": "AP_1_TO_2", "label": "1–2" }, { "code": "PREDICTED_ONLY", "label": "仅有预计等级" },
+    { "code": "UNSURE", "label": "不确定" }, { "code": "NOT_PROVIDED", "label": "不提供" }
+  ],
+  "result_signal_status": ["SUPPORTED", "NEEDS_VALIDATION", "UNKNOWN"],
+  "assessment_kind": ["FREE_PARENT_COMPASS", "STUDENT_GROWTH_DISCOVERY", "LEGACY_EDUCATION_COMPASS"],
+  "assessment_level": ["LEVEL_1", "LEVEL_2", "LEVEL_3_ENTRY_ONLY"],
+  "source_entry": [
+    "MINIPROGRAM_HOME", "LEVEL_1_RESULT", "DIRECT_LEVEL_2", "XIAOHONGSHU_CONTENT",
+    "ADVISOR_REFERRAL", "INTERNAL_UAT"
+  ],
+  "unknown_source_entry_behavior": "REJECT_OR_MAP_TO_MANUAL_REVIEW_WITHOUT_MARKETING_ATTRIBUTION",
+  "advisor_status": ["NOT_REQUESTED", "PENDING", "CONTACTED", "CLOSED"],
+  "askwise_learning_mode": ["RECALL", "TEACH", "THINKING", "TRANSFER", "DEBUG"],
+  "askwise_session_status": ["CREATED", "READY", "STARTED", "PAUSED", "COMPLETED", "FAILED", "NEXT_ACTION_READY"],
+  "askwise_task_status": ["CREATED", "READY", "STARTED", "WAITING_INPUT", "HINT_AVAILABLE", "PAUSED", "COMPLETED", "FAILED", "EXITED_SAVED"],
+  "aoyu_state": ["WELCOME", "FOCUS", "WAITING", "HINT", "ENCOURAGE", "CELEBRATE", "SAFE_ERROR"]
+}

@@ -1,0 +1,29 @@
+{
+  "version": "education_compass_v1",
+  "completenessThreshold": 70,
+  "fields": [
+    { "key": "identity_type", "type": "single", "weight": 6 },
+    { "key": "school_stage", "type": "single", "weight": 4 },
+    { "key": "education_system", "type": "single", "weight": 4 },
+    { "key": "target_enrollment_year", "type": "single", "weight": 6 },
+    { "key": "academic_summary", "type": "text", "weight": 12 },
+    { "key": "language_level", "type": "text", "weight": 5 },
+    { "key": "strongest_subjects", "type": "text", "weight": 5 },
+    { "key": "learning_feeling", "type": "single", "weight": 3 },
+    { "key": "strengths", "type": "multi", "weight": 6 },
+    { "key": "interests", "type": "text", "weight": 6 },
+    { "key": "strength_evidence", "type": "text", "weight": 3 },
+    { "key": "challenges", "type": "multi", "weight": 4 },
+    { "key": "parent_observation", "type": "text", "weight": 3 },
+    { "key": "parent_expectation", "type": "single", "weight": 3 },
+    { "key": "future_goal", "type": "text", "weight": 5 },
+    { "key": "target_region", "type": "multi", "weight": 5 },
+    { "key": "target_major", "type": "text", "weight": 5 },
+    { "key": "route_preference", "type": "single", "weight": 3 },
+    { "key": "backup_route_acceptance", "type": "single", "weight": 2 },
+    { "key": "annual_budget", "type": "single", "weight": 4 },
+    { "key": "available_time", "type": "single", "weight": 2 },
+    { "key": "support_need", "type": "multi", "weight": 3 },
+    { "key": "location_preference", "type": "text", "weight": 1 }
+  ]
+}

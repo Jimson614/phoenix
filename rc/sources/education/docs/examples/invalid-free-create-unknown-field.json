@@ -1,0 +1,21 @@
+{
+  "fixtureId": "INVALID_FREE_CREATE_UNKNOWN_FIELD",
+  "expectedStatus": 400,
+  "expectedErrorCode": "UNKNOWN_REQUEST_FIELDS",
+  "request": {
+    "method": "POST",
+    "path": "/v1/education-compass/free-parent-assessments",
+    "headers": { "Idempotency-Key": "invalid-free-create-001" },
+    "body": {
+      "studentId": "{studentId}",
+      "sourceEntry": "MINIPROGRAM_HOME",
+      "unexpected": true,
+      "consent": {
+        "scope": "CORE_ASSESSMENT",
+        "copyVersion": "guardian_core_assessment_v1.0.0-rc1",
+        "locale": "zh-CN",
+        "guardianAuthorityConfirmed": true
+      }
+    }
+  }
+}

@@ -1,0 +1,44 @@
+.masters-status { min-height: 100vh; }
+.masters-status__page { padding-bottom: calc(80rpx + env(safe-area-inset-bottom)); }
+.masters-status__topbar { align-items: center; display: flex; justify-content: space-between; }
+.masters-status__topbar .btn { font-size: 24rpx; margin-left: -14rpx; }
+.masters-status__heading { margin: 50rpx 0 28rpx; }
+.masters-status__heading .h1 { display: block; margin-top: 12rpx; }
+.masters-status__heading .muted { margin-top: 10rpx; }
+.status-hero { margin-top: 20rpx; }
+.status-hero__line { align-items: center; display: flex; gap: 20rpx; justify-content: space-between; }
+.progress-track { background: var(--line); border-radius: 999rpx; height: 12rpx; margin-top: 30rpx; overflow: hidden; }
+.progress-track__fill { background: var(--gradient-primary); border-radius: inherit; height: 100%; transition: width .25s ease; }
+.status-steps { display: flex; justify-content: space-between; margin-top: 14rpx; }
+.status-step { color: var(--muted); font-size: 19rpx; }
+.status-step--done { color: var(--gold-deep); }
+.missing-panel, .extraction-panel, .report-entry { margin-top: 20rpx; }
+.missing-panel .section-head, .extraction-panel .section-head { align-items: center; margin-bottom: 6rpx; }
+.missing-list { align-items: center; display: flex; flex-wrap: wrap; margin-top: 18rpx; }
+.missing-list__label { color: var(--navy); font-size: 22rpx; font-weight: 650; margin-right: 14rpx; }
+.missing-list .tag { font-size: 20rpx; min-height: 46rpx; padding: 8rpx 14rpx; }
+.document-request { align-items: flex-start; display: flex; gap: 14rpx; line-height: 1.5; margin-top: 18rpx; }
+.document-request > text:last-child { color: var(--navy); flex: 1; font-size: 22rpx; }
+.document-request__note { color: var(--muted); display: block; font-size: 21rpx; line-height: 1.5; margin-top: 10rpx; }
+.extraction-row { border-top: 1rpx solid var(--line); display: flex; gap: 14rpx; justify-content: space-between; margin-top: 15rpx; padding-top: 15rpx; }
+.extraction-row text:first-child { color: var(--navy); font-size: 22rpx; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.extraction-row text:last-child { color: var(--muted); font-size: 20rpx; }
+.report-entry { position: relative; }
+.report-entry .eyebrow, .report-entry .h3, .report-entry .muted { display: block; margin-right: 48rpx; }
+.report-entry .h3 { margin-top: 8rpx; }
+.report-entry .muted { margin-top: 8rpx; }
+.report-entry .chevron { position: absolute; right: 30rpx; top: 50%; transform: translateY(-50%); }
+.masters-status__actions { margin-top: 30rpx; }
+.masters-status__actions .btn { width: 100%; }
+.masters-status__actions .btn--text { margin-top: 12rpx; }
+.masters-status__error { background: #fff1ee; border-radius: var(--radius-md); color: var(--danger); font-size: 22rpx; line-height: 1.55; margin-top: 18rpx; padding: 18rpx 20rpx; }
+.masters-status__error .btn { color: var(--danger); display: block; font-size: 21rpx; margin: 10rpx 0 0; padding-left: 0; }
+
+@media (max-width: 360px) {
+  .masters-status__page { padding-left: 28rpx; padding-right: 28rpx; }
+  .status-steps { gap: 8rpx; }
+  .status-step { font-size: 17rpx; }
+  .extraction-row { display: block; }
+  .extraction-row text { display: block; max-width: 100%; }
+  .extraction-row text:last-child { margin-top: 5rpx; }
+}

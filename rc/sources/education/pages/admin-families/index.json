@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "Phoenix Advisor",
+  "enablePullDownRefresh": true,
+  "backgroundColor": "#FAF5EC",
+  "usingComponents": { "brand-mark": "/components/brand-mark/index" }
+}

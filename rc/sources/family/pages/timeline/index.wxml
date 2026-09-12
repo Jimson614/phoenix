@@ -1,0 +1,20 @@
+<view class="timeline-page page">
+  <text class="eyebrow">FAMILY GROWTH TIMELINE</text>
+  <text class="h1 timeline-title">成长，是被时间
+慢慢看见的。</text>
+  <text class="muted timeline-copy">每一次测评、洞察与沟通，都会成为家庭关系历史的一部分。</text>
+
+  <view wx:if="{{events.length}}" class="timeline">
+    <view wx:for="{{events}}" wx:key="id" class="timeline__item">
+      <view class="timeline__rail"><view class="timeline__icon">{{item.meta.icon}}</view><view class="timeline__line"></view></view>
+      <view class="timeline__content">
+        <view class="row row--between"><text class="timeline__label">{{item.meta.label}}</text><text class="timeline__date">{{item.dateLabel}}</text></view>
+        <text class="timeline__description">{{item.description}}</text>
+      </view>
+    </view>
+  </view>
+  <view wx:else class="empty">
+    <view class="empty__mark">◌</view><text class="h3">第一条记录正在等待你</text><text class="muted empty-copy">建立家庭档案后，重要成长节点会自动保存在这里。</text>
+    <button class="btn btn--outline empty-btn" bindtap="goHome">返回家庭中心</button>
+  </view>
+</view>

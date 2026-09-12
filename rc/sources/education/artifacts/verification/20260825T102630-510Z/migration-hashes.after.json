@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "phoenix_migration_hash_manifest_v1",
+  "capturedAt": "2026-08-25T10:26:44.593Z",
+  "bindings": {
+    "freezePath": "docs/product/EDUCATION_COMPASS_PRODUCT_FREEZE_V1.md",
+    "freezeSha256": "9884503DA89A61F1DFC78FF97F429FDE210D240B30764D099105DD7C8A100B2D",
+    "sourceAggregateSha256": "51A3E970B9B16C8EAF760A9D08571DAF2FD083691CF826EEE569EB92A7331C6D"
+  },
+  "freezeBaselineSha256": "9884503DA89A61F1DFC78FF97F429FDE210D240B30764D099105DD7C8A100B2D",
+  "freezeBaselineMatch": true,
+  "historicalMigrationsUnchanged": true,
+  "aggregateSha256": "DBDCDDA40BB8995BC65CED72A6F7D867F55ED1F270AE5C3F437DB238DDDA703D",
+  "migrations": [
+    {
+      "path": "server/migrations/001_initial_schema.sql",
+      "bytes": 11141,
+      "sha256": "502AB6BED513978922FAD8FD424D1C11281B07771E37CE056CF001A2674B35C9",
+      "historicalBaselineSha256": "502AB6BED513978922FAD8FD424D1C11281B07771E37CE056CF001A2674B35C9",
+      "historicalBaselineMatch": true
+    },
+    {
+      "path": "server/migrations/002_feishu_bitable_integration.sql",
+      "bytes": 1080,
+      "sha256": "5A9FC3092BDF46025834A1211E8458CBFF9D3B1DD39ECBF3C2BD02A72CA2D34D",
+      "historicalBaselineSha256": "5A9FC3092BDF46025834A1211E8458CBFF9D3B1DD39ECBF3C2BD02A72CA2D34D",
+      "historicalBaselineMatch": true
+    },
+    {
+      "path": "server/migrations/003_openai_agent.sql",
+      "bytes": 6472,
+      "sha256": "1E8B64E1FE38D48BEFD11AD3D69AF73423D77AF17A294ECF8E809A83C3D197E6",
+      "historicalBaselineSha256": "1E8B64E1FE38D48BEFD11AD3D69AF73423D77AF17A294ECF8E809A83C3D197E6",
+      "historicalBaselineMatch": true
+    },
+    {
+      "path": "server/migrations/004_dual_agent_analysis.sql",
+      "bytes": 626,
+      "sha256": "62F9B9213B768C2C2C694632AC30C791E5CAE77F75F0760CE0FB95C308D3E097",
+      "historicalBaselineSha256": "62F9B9213B768C2C2C694632AC30C791E5CAE77F75F0760CE0FB95C308D3E097",
+      "historicalBaselineMatch": true
+    },
+    {
+      "path": "server/migrations/005_education_compass_levels.sql",
+      "bytes": 19774,
+      "sha256": "12B341EA87F9F5560016C5929DCD6695E8391B2AC82C05F5482C2D20169FEE5F",
+      "historicalBaselineSha256": null,
+      "historicalBaselineMatch": null
+    }
+  ]
+}

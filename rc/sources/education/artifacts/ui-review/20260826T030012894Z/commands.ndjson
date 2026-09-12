@@ -1,0 +1,28 @@
+{"phase":"baseline","command":"npm.cmd run test:client","exitCode":0,"wallTimeSeconds":22.01,"status":"PASS"}
+{"phase":"baseline","command":"npm.cmd run typecheck:server","exitCode":0,"wallTimeSeconds":18.83,"status":"PASS"}
+{"phase":"baseline","command":"npm.cmd run test:server","exitCode":0,"wallTimeSeconds":14.80,"status":"PASS","tests":83}
+{"phase":"verification","command":"npm.cmd run validate","exitCode":0,"wallTimeSeconds":2.50,"status":"PASS"}
+{"phase":"verification","command":"npm.cmd run test:ui-contract","exitCode":0,"wallTimeSeconds":1.29,"status":"PASS"}
+{"phase":"verification","command":"npm.cmd run test:client","exitCode":0,"wallTimeSeconds":2.48,"status":"PASS"}
+{"phase":"verification","command":"npm.cmd run scan:release-secrets","exitCode":0,"wallTimeSeconds":1.40,"status":"PASS","findings":0}
+{"phase":"verification","command":"npm.cmd run test:server","exitCode":0,"wallTimeSeconds":7.56,"status":"PASS","tests":83}
+{"phase":"verification","command":"npm.cmd run build:release","exitCode":0,"wallTimeSeconds":1.24,"status":"PASS","artifactClass":"OFFLINE_TEST_ONLY"}
+{"phase":"verification","command":"npm.cmd run typecheck:server","exitCode":0,"wallTimeSeconds":4.88,"status":"PASS"}
+{"phase":"verification","command":"npm.cmd run test:release","exitCode":0,"wallTimeSeconds":1.64,"status":"PASS"}
+{"phase":"verification","command":"npm.cmd run test:education-contracts","exitCode":0,"wallTimeSeconds":5.89,"status":"PASS","tests":10}
+{"phase":"verification","command":"npm.cmd run test:education-http","exitCode":0,"wallTimeSeconds":7.11,"status":"PASS","tests":5}
+{"phase":"verification","command":"npm.cmd run test:education-integrations","exitCode":0,"wallTimeSeconds":6.40,"status":"PASS","tests":3}
+{"phase":"verification","command":"npm.cmd run smoke:education","exitCode":0,"wallTimeSeconds":4.95,"status":"PASS","mode":"LOCAL_HTTP_MOCK","externalCalls":0}
+{"phase":"verification","command":"npm.cmd run validate:education-docs","exitCode":0,"wallTimeSeconds":5.06,"status":"PASS","openapiOperations":30,"validExamples":8,"invalidExamples":4}
+{"phase":"verification","command":"npm.cmd run test:all","exitCode":0,"wallTimeSeconds":14.66,"status":"PASS","serverTests":83}
+{"phase":"verification","command":"npm.cmd run verify:education-evidence","exitCode":0,"wallTimeSeconds":17.73,"status":"PASS","externalCalls":0,"postgres":"BLOCKED_EXTERNAL"}
+{"phase":"manual-tooling","command":"D:\\微信web开发者工具\\cli.bat --help","exitCode":0,"status":"PASS","devToolsVersion":"2.01.2510260"}
+{"phase":"manual-tooling","command":"D:\\微信web开发者工具\\cli.bat open --project <PROJECT_ROOT> --port 9420","status":"BLOCKED_MANUAL","reason":"IDE process started but 127.0.0.1:9420 did not listen; CLI timed out; WeappLocalData lock errors recorded"}
+{"phase":"final-verification","command":"npm.cmd run test:client","exitCode":0,"status":"PASS"}
+{"phase":"final-verification","command":"npm.cmd run validate:education-docs","exitCode":0,"status":"PASS","openapiOperations":30,"validExamples":8,"invalidExamples":4}
+{"phase":"wxss-compatibility-fix","command":"replace universal selectors in pages/compass/index.wxss and pages/home/index.wxss","status":"PASS","fixedSelectors":2}
+{"phase":"wxss-compatibility-fix","command":"npm.cmd run build:release && npm.cmd run test:client && source/release WXSS universal-selector scan","exitCode":0,"status":"PASS","remainingUniversalSelectors":0}
+{"phase":"authorized-layout-fix","command":"remove shared .page min-height and compact Mine/consent spacing","status":"PASS","scope":"user-requested"}
+{"phase":"authorized-flow-fix","command":"server-authoritative Free Level 1 -> Snapshot -> paid Level 2 gating","status":"PASS","directLevel2BypassBlocked":true,"studentStateIsolated":true}
+{"phase":"final-verification","command":"npm.cmd run validate; npm.cmd run test:ui-contract; npm.cmd run test:client; npm.cmd run build:release","exitCode":0,"status":"PASS","buildClass":"OFFLINE_TEST_ONLY"}
+{"phase":"devtools-hot-reload","command":"inspect active workspace WeChat DevTools log after source changes","status":"PASS","newCompileErrors":0,"manualVisualConfirmationStillRequired":true}

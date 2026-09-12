@@ -1,0 +1,629 @@
+.compass-page {
+  background:
+    radial-gradient(circle at 86% 0%, rgba(221, 189, 125, .2), transparent 30%),
+    linear-gradient(180deg, #fffdf9 0%, #fcf8f4 100%);
+  min-height: 100vh;
+}
+
+.compass-hero {
+  background:
+    radial-gradient(circle at 84% 20%, rgba(221, 189, 125, .24), transparent 34%),
+    linear-gradient(150deg, #fffdf9, #f8f0e5);
+  border-bottom: 1rpx solid var(--line);
+  min-height: 390rpx;
+  overflow: hidden;
+  padding: 56rpx 40rpx 50rpx;
+  position: relative;
+}
+
+.compass-hero > .row,
+.compass-hero > text,
+.compass-hero__student {
+  max-width: 76%;
+  position: relative;
+  z-index: 1;
+}
+
+.compass-hero__feather {
+  height: 570rpx;
+  opacity: .15;
+  pointer-events: none;
+  position: absolute;
+  right: -210rpx;
+  top: -110rpx;
+  transform: rotate(17deg);
+  width: 390rpx;
+}
+
+.compass-hero__compass {
+  height: 226rpx;
+  opacity: .34;
+  pointer-events: none;
+  position: absolute;
+  right: -18rpx;
+  top: 110rpx;
+  width: 226rpx;
+}
+
+.compass-hero__title {
+  color: var(--navy);
+  display: block;
+  font-family: var(--font-display);
+  font-size: 50rpx;
+  font-weight: 700;
+  line-height: 1.42;
+  margin-top: 24rpx;
+  white-space: pre-line;
+}
+
+.compass-hero__copy {
+  color: var(--ink-secondary);
+  display: block;
+  font-size: 25rpx;
+  line-height: 1.8;
+  margin-top: 24rpx;
+}
+
+.compass-hero__student {
+  align-items: center;
+  border-top: 1rpx solid rgba(137, 88, 12, .16);
+  display: flex;
+  margin-top: 34rpx;
+  padding-top: 28rpx;
+}
+
+.compass-hero__avatar {
+  align-items: center;
+  background: linear-gradient(145deg, #1a2d43, #102033);
+  border: 1rpx solid rgba(221, 189, 125, .4);
+  border-radius: 50%;
+  color: #f0d99e;
+  display: flex;
+  font-family: var(--font-display);
+  height: 72rpx;
+  justify-content: center;
+  margin-right: 18rpx;
+  width: 72rpx;
+}
+
+.compass-hero__name,
+.compass-hero__meta {
+  display: block;
+}
+
+.compass-hero__name {
+  color: var(--navy);
+  font-weight: 650;
+}
+
+.compass-hero__meta {
+  color: var(--muted);
+  font-size: 22rpx;
+  line-height: 1.5;
+  margin-top: 5rpx;
+}
+
+.compass-body {
+  padding-top: 38rpx;
+}
+
+.compass-state {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 48vh;
+  text-align: center;
+}
+
+.compass-state__compass {
+  height: 116rpx;
+  margin-bottom: 26rpx;
+  opacity: .74;
+  pointer-events: none;
+  width: 116rpx;
+}
+
+.compass-state .muted {
+  margin: 18rpx 0 28rpx;
+  max-width: 560rpx;
+}
+
+.compass-path {
+  background: rgba(255, 253, 249, .88);
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  margin-bottom: 30rpx;
+  overflow: hidden;
+  padding: 10rpx 28rpx;
+}
+
+.compass-path__item {
+  display: flex;
+  min-height: 116rpx;
+  padding: 24rpx 0;
+  position: relative;
+}
+
+.compass-path__item + .compass-path__item {
+  border-top: 1rpx solid var(--line);
+}
+
+.compass-path__item > text {
+  align-items: center;
+  background: var(--gold-wash);
+  border: 1rpx solid var(--line-strong);
+  border-radius: 50%;
+  color: var(--gold-deep);
+  display: flex;
+  flex: 0 0 58rpx;
+  font-family: var(--font-display);
+  font-size: 20rpx;
+  height: 58rpx;
+  justify-content: center;
+  margin-right: 22rpx;
+  margin-top: 2rpx;
+}
+
+.compass-path__item view {
+  min-width: 0;
+}
+
+.compass-path__item view text {
+  display: block;
+}
+
+.compass-path__item view text:first-child {
+  color: var(--navy);
+  font-size: 29rpx;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.compass-path__item view text:last-child {
+  color: var(--muted);
+  font-size: 23rpx;
+  line-height: 1.65;
+  margin-top: 7rpx;
+}
+
+.compass-time {
+  color: var(--muted);
+  display: block;
+  font-size: 21rpx;
+  line-height: 1.6;
+  margin-top: 22rpx;
+  text-align: center;
+}
+
+.history {
+  border-top: 1rpx solid var(--line);
+  padding-top: 36rpx;
+}
+
+.history__item {
+  align-items: center;
+  background: rgba(255, 253, 249, .8);
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-md);
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14rpx;
+  min-height: 104rpx;
+  padding: 22rpx 24rpx;
+}
+
+.history__item:active {
+  background: var(--gold-wash);
+}
+
+.history__date,
+.history__title {
+  display: block;
+}
+
+.history__date {
+  color: var(--gold-deep);
+  font-size: 20rpx;
+}
+
+.history__title {
+  color: var(--navy);
+  font-size: 27rpx;
+  line-height: 1.5;
+  margin-top: 6rpx;
+}
+
+.demo-badge {
+  background: rgba(255, 253, 249, .8);
+  border: 1rpx solid var(--line-strong);
+  border-radius: 999rpx;
+  color: var(--gold-deep);
+  font-size: 19rpx;
+  padding: 8rpx 14rpx;
+}
+
+.product-card {
+  background:
+    radial-gradient(circle at 92% 0%, rgba(221, 189, 125, .28), transparent 34%),
+    linear-gradient(145deg, #1a2d43, #102033);
+  border: 1rpx solid rgba(221, 189, 125, .22);
+  border-radius: var(--radius-card);
+  box-shadow: 0 18rpx 44rpx rgba(20, 36, 58, .12);
+  color: white;
+  margin-bottom: 30rpx;
+  overflow: hidden;
+  padding: 32rpx;
+  position: relative;
+}
+
+.product-card::after {
+  background: radial-gradient(circle, rgba(226, 194, 125, .28), transparent 70%);
+  border-radius: 50%;
+  content: "";
+  height: 190rpx;
+  opacity: .1;
+  pointer-events: none;
+  position: absolute;
+  right: -40rpx;
+  top: 8rpx;
+  width: 190rpx;
+}
+
+.product-card .row,
+.product-card__note {
+  position: relative;
+  z-index: 1;
+}
+
+.product-card__label,
+.product-card__price,
+.product-card__note {
+  display: block;
+}
+
+.product-card__label {
+  color: rgba(255, 255, 255, .72);
+  font-size: 21rpx;
+}
+
+.product-card__price {
+  color: #efd596;
+  font-family: var(--font-display);
+  font-size: 52rpx;
+  font-weight: 700;
+  margin-top: 8rpx;
+}
+
+.product-card__type {
+  border: 1rpx solid rgba(239, 213, 150, .45);
+  border-radius: 999rpx;
+  color: #efd596;
+  font-size: 20rpx;
+  padding: 9rpx 15rpx;
+}
+
+.product-card__note {
+  color: rgba(255, 255, 255, .72);
+  font-size: 21rpx;
+  line-height: 1.72;
+  margin-top: 18rpx;
+  max-width: 90%;
+}
+
+.compass-entry-note {
+  background: rgba(250, 244, 233, .82);
+  border: 1rpx solid rgba(185, 134, 45, .18);
+  border-radius: var(--radius-md);
+  color: var(--ink-secondary);
+  font-size: 22rpx;
+  line-height: 1.7;
+  margin: -6rpx 0 28rpx;
+  padding: 22rpx 24rpx;
+}
+
+.compass-entry-note__label {
+  color: var(--gold-deep);
+  display: block;
+  font-size: 19rpx;
+  font-weight: 700;
+  letter-spacing: 1.2rpx;
+  margin-bottom: 5rpx;
+}
+
+.consent-card {
+  background: rgba(255, 253, 249, .9);
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  margin-bottom: 24rpx;
+  padding: 30rpx;
+}
+
+.consent-card .h3 {
+  margin-bottom: 16rpx;
+}
+
+.consent-row {
+  align-items: center;
+  box-sizing: border-box;
+  color: var(--ink-secondary);
+  display: flex;
+  font-size: 23rpx;
+  line-height: 1.68;
+  min-height: 88rpx;
+  padding: 10rpx 0;
+}
+
+.consent-row--divided {
+  border-top: 1rpx solid var(--line);
+}
+
+.consent-row__copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.consent-row checkbox {
+  flex: none;
+  margin-right: 13rpx;
+  transform: scale(.86);
+}
+
+.text-link {
+  color: var(--gold-deep);
+  text-decoration: underline;
+}
+
+.consent-copy {
+  color: var(--ink-secondary);
+  display: block;
+  font-size: 23rpx;
+  line-height: 1.76;
+  margin-bottom: 16rpx;
+}
+
+.consent-row--touch {
+  border-top: 1rpx solid var(--line);
+  padding: 12rpx 0;
+}
+
+.consent-link {
+  align-items: center;
+  display: inline-flex;
+  min-height: 88rpx;
+}
+
+.consent-card--student {
+  background: linear-gradient(145deg, #fffdf9, #f2f7f6);
+  border-color: #d7e3e0;
+}
+
+@media (max-width: 360px) {
+  .compass-hero {
+    padding-left: 30rpx;
+    padding-right: 30rpx;
+  }
+
+  .compass-hero > .row,
+  .compass-hero > text,
+  .compass-hero__student {
+    max-width: 82%;
+  }
+
+  .compass-hero__title {
+    font-size: 43rpx;
+  }
+
+  .compass-hero__compass {
+    opacity: .22;
+    right: -58rpx;
+  }
+
+  .product-card {
+    padding: 28rpx;
+  }
+
+  .product-card__price {
+    font-size: 45rpx;
+  }
+
+  .compass-path {
+    padding-left: 22rpx;
+    padding-right: 22rpx;
+  }
+}
+
+/* Education Compass V2 landing presentation. Business state remains page-owned. */
+.compass-page {
+  overflow: hidden;
+  padding-bottom: env(safe-area-inset-bottom);
+  position: relative;
+}
+
+.compass-page__feather {
+  opacity: .16;
+  pointer-events: none;
+  position: absolute;
+  width: 500rpx;
+  z-index: 0;
+}
+
+.compass-page__feather--top { right: -190rpx; top: 10rpx; transform: rotate(16deg); }
+.compass-page__feather--bottom { bottom: -190rpx; left: -210rpx; transform: rotate(188deg); }
+
+.compass-brand {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin: 0 auto;
+  max-width: 750rpx;
+  padding: 32rpx 36rpx 18rpx;
+  position: relative;
+  z-index: 2;
+}
+
+.compass-brand__logo { display: block; height: auto; width: 292rpx; }
+
+.compass-product-lockup {
+  align-items: center;
+  color: #a36f1e;
+  display: flex;
+  justify-content: center;
+  margin: 26rpx auto 0;
+  position: relative;
+  z-index: 2;
+}
+
+.compass-product-lockup image { height: 56rpx; margin-right: 12rpx; width: 56rpx; }
+.compass-product-lockup view { display: flex; flex-direction: column; text-align: left; }
+.compass-product-lockup text { display: block; font-family: var(--font-display); font-size: 22rpx; font-weight: 700; letter-spacing: 2rpx; }
+.compass-product-lockup text:last-child { color: #8d8579; font-family: var(--font-body); font-size: 14rpx; font-weight: 600; letter-spacing: 1.5rpx; margin-top: 3rpx; }
+
+.compass-hero {
+  background: transparent;
+  border: 0;
+  min-height: 0;
+  overflow: visible;
+  padding: 34rpx 36rpx 36rpx;
+  text-align: center;
+}
+
+.compass-hero__compass {
+  height: 300rpx;
+  left: 50%;
+  opacity: .12;
+  right: auto;
+  top: 0;
+  transform: translateX(-50%);
+  width: 300rpx;
+}
+
+.compass-hero > .eyebrow,
+.compass-hero > .compass-hero__title,
+.compass-hero > .compass-hero__copy,
+.compass-hero__student {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 650rpx;
+}
+
+.compass-hero > .eyebrow { font-size: 20rpx; letter-spacing: 3rpx; position: relative; z-index: 1; }
+
+.compass-hero__title {
+  font-size: 58rpx;
+  line-height: 1.34;
+  margin-top: 24rpx;
+  position: relative;
+  white-space: pre-line;
+  z-index: 1;
+}
+
+.compass-hero__copy {
+  font-size: 25rpx;
+  line-height: 1.76;
+  margin-top: 24rpx;
+  position: relative;
+  z-index: 1;
+}
+
+.compass-benefits {
+  background: rgba(255,253,249,.82);
+  border: 1rpx solid rgba(185,134,45,.17);
+  border-radius: 26rpx;
+  box-shadow: 0 14rpx 40rpx rgba(59,42,18,.055);
+  display: flex;
+  margin: 34rpx auto 0;
+  max-width: 650rpx;
+  padding: 22rpx 8rpx;
+  position: relative;
+  z-index: 1;
+}
+
+.compass-benefit { display: flex; flex: 1; flex-direction: column; min-width: 0; padding: 2rpx 10rpx; text-align: center; }
+.compass-benefit + .compass-benefit { border-left: 1rpx solid rgba(183,129,34,.15); }
+.compass-benefit__value { color: #a36d18; font-family: var(--font-display); font-size: 30rpx; font-weight: 700; line-height: 1.35; }
+.compass-benefit__label { color: #716c65; font-size: 18rpx; line-height: 1.45; margin-top: 6rpx; }
+
+.compass-hero__student {
+  background: rgba(255,253,249,.72);
+  border: 1rpx solid rgba(185,134,45,.14);
+  border-radius: 22rpx;
+  justify-content: flex-start;
+  margin-top: 24rpx;
+  padding: 16rpx 20rpx;
+  text-align: left;
+}
+
+.compass-hero__avatar { height: 64rpx; width: 64rpx; }
+
+.compass-body {
+  margin: 0 auto;
+  max-width: 750rpx;
+  padding-bottom: calc(72rpx + env(safe-area-inset-bottom));
+  padding-top: 18rpx;
+  position: relative;
+  z-index: 1;
+}
+
+.compass-state { min-height: 360rpx; }
+
+.product-card {
+  background: linear-gradient(145deg, #fff6e5, #f4dfb6);
+  border-color: rgba(177,119,22,.28);
+  color: #102238;
+  padding: 28rpx 30rpx;
+}
+
+.product-card__label { color: #806b49; }
+.product-card__price { color: #9c6814; }
+.product-card__type { border-color: rgba(156,104,20,.35); color: #865b17; }
+.product-card__note { color: #685f52; max-width: 100%; }
+
+.compass-path { margin-bottom: 24rpx; }
+.compass-path__item { min-height: 104rpx; padding: 20rpx 0; }
+.compass-path__item view text:first-child { font-size: 27rpx; }
+.compass-path__item view text:last-child { font-size: 22rpx; }
+
+.consent-card { padding: 28rpx; }
+
+.consent-card__heading { align-items: center; display: flex; margin-bottom: 18rpx; }
+.consent-card__heading view { min-width: 0; }
+.consent-card__heading .h3 { margin-bottom: 0; }
+.consent-card__heading view > text:last-child { color: #837c72; display: block; font-size: 19rpx; line-height: 1.5; margin-top: 4rpx; }
+.consent-card__step { align-items: center; background: #f8ead0; border: 1rpx solid #d9b56f; border-radius: 50%; color: #95651a; display: flex; flex: 0 0 54rpx; font-family: var(--font-display); font-size: 19rpx; height: 54rpx; justify-content: center; margin-right: 16rpx; }
+
+.compass-primary {
+  background: linear-gradient(105deg, #d9af48 0%, #c99217 56%, #b77a0b 100%);
+  box-shadow: 0 14rpx 32rpx rgba(172,113,13,.24);
+  color: #fffdf8;
+  min-height: 104rpx;
+}
+
+.compass-privacy { align-items: center; color: #898279; display: flex; font-size: 21rpx; justify-content: center; line-height: 1.55; margin: 20rpx auto 0; min-height: 88rpx; text-align: center; }
+.compass-privacy__mark { color: #ac7a27; font-size: 25rpx; margin-right: 10rpx; }
+
+@media (max-width: 360px) {
+  .compass-brand { padding-left: 24rpx; padding-right: 24rpx; }
+  .compass-brand__logo { width: 250rpx; }
+  .compass-hero { padding-left: 24rpx; padding-right: 24rpx; }
+  .compass-hero > .eyebrow,
+  .compass-hero > .compass-hero__title,
+  .compass-hero > .compass-hero__copy,
+  .compass-hero__student { max-width: 100%; }
+  .compass-hero__title { font-size: 48rpx; }
+  .compass-benefits { margin-top: 28rpx; }
+  .compass-benefit { padding-left: 5rpx; padding-right: 5rpx; }
+  .compass-benefit__value { font-size: 26rpx; }
+  .compass-benefit__label { font-size: 17rpx; }
+  .compass-body { padding-left: 24rpx; padding-right: 24rpx; }
+}
+
+@media (max-width: 340px) {
+  .compass-brand__logo { width: 226rpx; }
+  .compass-product-lockup { margin-top: 20rpx; }
+  .compass-hero__title { font-size: 44rpx; }
+  .compass-hero__copy { font-size: 23rpx; }
+  .consent-card { padding: 24rpx 22rpx; }
+}

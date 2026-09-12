@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "phoenix_openapi_conformance_evidence_v1",
+  "generatedAt": "2026-08-25T10:25:38.653Z",
+  "status": "PASS",
+  "verificationCommandId": "openapi-and-examples",
+  "exitCode": 0,
+  "openapi": {
+    "path": "docs/openapi/education-compass-v0.5.0.openapi.yaml",
+    "sha256": "AD6E9926CD5083D5938DFBBC008DFF561F79D189076A1960421161BED2FF6425",
+    "operationCount": 19,
+    "uniqueOperationIds": true,
+    "operationIds": [
+      "health",
+      "createWechatSession",
+      "upsertFamily",
+      "createStudent",
+      "getEducationCompassState",
+      "getQuestionnaireByVersion",
+      "getGrowthDiscoveryProduct",
+      "createFreeParentAssessment",
+      "createGrowthDiscoveryAssessment",
+      "getAssessmentQuestionnaire",
+      "getEducationCompassDraft",
+      "saveEducationCompassDraft",
+      "submitEducationCompass",
+      "getEducationCompassResult",
+      "createGrowthDiscoveryOrder",
+      "createGrowthDiscoveryWechatPrepay",
+      "getOrder",
+      "getReport",
+      "setFeishuProfileConsent"
+    ]
+  },
+  "examples": [
+    {
+      "path": "docs/examples/free-parent-valid.json",
+      "sha256": "FE315AFAC4F97309AD0670434A16EAD1AEC908562EB3721794C53EB42390922B"
+    },
+    {
+      "path": "docs/examples/invalid-draft-stale-revision.json",
+      "sha256": "CEC06AE8158BF6231EB7ADAC31C0A5348CC3EB671E961AF62D448D75BF6057D0"
+    },
+    {
+      "path": "docs/examples/invalid-free-create-unknown-field.json",
+      "sha256": "78CADDE360C938FDC84D6822B8FD0EF6A8F82CDE835087D8A78EE5D22D5E9D3E"
+    },
+    {
+      "path": "docs/examples/invalid-level2-parent-respondent.json",
+      "sha256": "7F52BDBDC3D04043B073530F1C8157A43FD8E0A7911E7356417285D098A0C88E"
+    },
+    {
+      "path": "docs/examples/invalid-level2-system-route-mismatch.json",
+      "sha256": "12A50160E72E066E3994E8224238566D71C3A1142054CA9BC7FD9167B933FB32"
+    },
+    {
+      "path": "docs/examples/level2-a-level-valid.json",
+      "sha256": "FA7B41935760CA5093FFFD4B3AEFAF7BFB302F62CE95D1BB9951712DD582E67D"
+    },
+    {
+      "path": "docs/examples/level2-ap-us-valid.json",
+      "sha256": "B339704D65D299950F4B7423648B2541E37D56A7D0FE680864E31B6022C3E206"
+    },
+    {
+      "path": "docs/examples/level2-dse-valid.json",
+      "sha256": "14F3BF172A411FE0A6B9C058BB36A5DE41B2B0F3326C9D2516E992826304BC64"
+    },
+    {
+      "path": "docs/examples/level2-gaokao-valid.json",
+      "sha256": "D1C001BEE7A49801680075E61107B59651FF1B33C4FB1F71F58E4D59C5D29B6F"
+    },
+    {
+      "path": "docs/examples/level2-ib-valid.json",
+      "sha256": "2859B4FC9682E14A423A15C63A27CF37FB9D420DC31F6240336015AFD9D13B34"
+    },
+    {
+      "path": "docs/examples/level2-igcse-valid.json",
+      "sha256": "E12C8CCF245195B11ABFB7D6365329B7E99BAB8C40B3C272DCD8C7511E579BF7"
+    },
+    {
+      "path": "docs/examples/level2-other-valid.json",
+      "sha256": "8139D0D6C745FEFDA15ED13F1E85E4606571C202B846A879686DA350EB75D649"
+    }
+  ],
+  "structuredResult": {
+    "status": "PASS",
+    "suite": "education-docs",
+    "openapiOperations": 19,
+    "validExamples": 8,
+    "invalidExamples": 4
+  },
+  "bindings": {
+    "freezeSha256": "9884503DA89A61F1DFC78FF97F429FDE210D240B30764D099105DD7C8A100B2D",
+    "migrationAggregateSha256": "DBDCDDA40BB8995BC65CED72A6F7D867F55ED1F270AE5C3F437DB238DDDA703D",
+    "sourceBeforeSha256": "329AF47BDE481D22E4FAD0B4B0CE34A4B671070E0A20775B1E62D448C6B77D8D",
+    "sourceAfterSha256": "329AF47BDE481D22E4FAD0B4B0CE34A4B671070E0A20775B1E62D448C6B77D8D"
+  }
+}

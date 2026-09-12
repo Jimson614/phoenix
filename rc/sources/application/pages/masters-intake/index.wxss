@@ -1,0 +1,29 @@
+.masters-intake { min-height: 100vh; overflow: hidden; position: relative; }
+.masters-intake__page { position: relative; z-index: 1; }
+.masters-intake__topbar { align-items: center; display: flex; justify-content: space-between; }
+.masters-intake__label { color: var(--gold-deep); font-size: 18rpx; letter-spacing: 2rpx; }
+.masters-intake__hero { padding: 78rpx 12rpx 36rpx; }
+.masters-intake__title { display: block; margin-top: 22rpx; }
+.masters-intake__copy { margin-top: 30rpx; }
+.masters-intake__promise { border-bottom: 1rpx solid var(--line); border-top: 1rpx solid var(--line); display: flex; justify-content: space-between; margin-top: 38rpx; padding: 24rpx 0; }
+.masters-intake__promise text { color: var(--gold-deep); font-size: 21rpx; }
+.masters-intake__entries { margin-top: 12rpx; }
+.masters-entry { margin-top: 20rpx; }
+.masters-entry__head { align-items: flex-start; display: flex; gap: 20rpx; margin-bottom: 26rpx; }
+.masters-entry__head .muted { margin-top: 8rpx; }
+.masters-entry__number { color: var(--gold); font-family: var(--font-display); font-size: 38rpx; line-height: 1; }
+.masters-entry .btn { width: 100%; }
+.masters-intake__closed { margin-top: 20rpx; }
+.masters-intake__closed .muted { margin-top: 14rpx; }
+.masters-intake__actions { display: flex; justify-content: space-between; margin-top: 28rpx; }
+.masters-intake__actions .btn { font-size: 23rpx; padding: 0 8rpx; }
+.masters-intake__busy, .masters-intake__error { border-radius: var(--radius-md); font-size: 23rpx; margin-top: 20rpx; padding: 20rpx 22rpx; text-align: center; }
+.masters-intake__busy { background: var(--gold-wash); color: var(--gold-deep); }
+.masters-intake__error { background: #fff1ee; color: var(--danger); }
+.masters-intake__home { margin: 20rpx auto 0; }
+
+@media (max-width: 360px) {
+  .masters-intake__hero { padding-top: 54rpx; }
+  .masters-intake__promise text { font-size: 18rpx; }
+  .masters-intake__label { display: none; }
+}

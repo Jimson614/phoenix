@@ -1,0 +1,158 @@
+<view class="masters-materials page--screen">
+  <view class="page masters-materials__page">
+    <view class="masters-materials__topbar"><button class="btn btn--text" bindtap="back">‹ 返回</button><text class="eyebrow">{{path === 'RESUME' ? 'UPLOAD FIRST' : 'GUIDED PROFILE'}}</text></view>
+
+    <view wx:if="{{!enabled}}" class="ui-state">
+      <image class="ui-state__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+      <text class="h3">香港硕士免费咨询暂未开放</text>
+      <text class="muted">功能开关关闭时不会创建草稿、上传文件或显示假成功。</text>
+    </view>
+
+    <view wx:elif="{{!loggedIn}}" class="ui-state">
+      <image class="ui-state__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+      <text class="h3">请先登录后继续</text>
+      <text class="muted">登录会在当前流程完成，之后恢复本页。不会要求先建立家庭档案或购买测评。</text>
+      <button class="btn btn--gold" loading="{{loginBusy}}" disabled="{{loginBusy}}" bindtap="login">登录并继续</button>
+    </view>
+
+    <block wx:elif="{{loggedIn}}">
+      <view class="masters-materials__heading">
+        <text class="eyebrow">MATERIALS &amp; PROFILE</text>
+        <text class="h1">补充你的申请背景</text>
+        <text class="muted">资料缺失可以先提交咨询。每一张卡片独立保存，上传成功以服务端附件编号为准。</text>
+      </view>
+
+      <view class="panel masters-consent">
+        <view class="masters-consent__head"><text class="h3">免费咨询资料处理说明</text><text class="status status--warm">上传前必需</text></view>
+        <text class="muted">{{uploadConfigReady ? serviceConsentText : '资料用途与保留规则正在读取，请读取后再同意。'}}</text>
+        <checkbox-group bindchange="onServiceConsentChange">
+          <label class="check-line"><checkbox value="service" disabled="{{!uploadConfigReady}}" checked="{{serviceConsent}}" color="#b98426" /><text>我同意按说明处理本次咨询资料（{{serviceConsent ? '已同意' : '未同意'}}）</text></label>
+        </checkbox-group>
+      </view>
+
+      <view wx:if="{{uploadConfigError}}" class="panel"><text class="muted">{{uploadConfigError}}。已存资料仍可查看，请重新读取规则后上传。</text><button class="btn btn--text" bindtap="loadUploadConfiguration">重新读取上传规则</button></view>
+      <block wx:if="{{path === 'RESUME'}}">
+        <view class="panel resume-start">
+          <view class="section-head"><view><text class="eyebrow">UPLOAD FIRST</text><text class="h3">先上传已有材料</text></view><text class="status status--warm">优先</text></view>
+          <text class="muted">上传简历和成绩单后，我们只展示已识别的事实、缺项和冲突；无需把常规简历重新抄成系统表格。</text>
+          <view class="resume-priority-actions"><button class="btn btn--gold" data-type="RESUME" data-source="file" bindtap="selectUpload">点击上传简历</button><button class="btn btn--outline" data-type="TRANSCRIPT" data-source="file" bindtap="selectUpload">点击上传成绩单</button></view>
+          <view wx:if="{{resumeReview.hasResume}}" class="resume-review-card">
+            <view class="document-card__head"><view class="grow"><text class="h3">简历核对</text><text class="muted">{{resumeReview.resume.name}}</text></view><text class="status status--warm">{{resumeReview.resume.statusLabel}}</text></view>
+             <view wx:if="{{resumeReview.knownFacts.length}}" class="resume-facts"><text class="resume-review__label">已识别或已填写的事实</text><view wx:for="{{resumeReview.knownFacts}}" wx:key="field" class="resume-fact"><button class="resume-fact__edit" data-field="{{item.field}}" bindtap="editResumeFact">{{item.label}}：{{item.value}} · 编辑</button></view></view>
+             <view wx:if="{{resumeEditingField}}" class="resume-fact-editor"><view class="row row--between"><text class="resume-review__label">编辑 {{resumeEditingLabel}}</text><button class="btn btn--text" bindtap="closeResumeFactEditor">完成</button></view><picker wx:if="{{resumeEditingField === 'targetYear'}}" class="picker" mode="selector" range="{{targetYearOptions}}" range-key="label" value="{{targetYearIndex}}" bindchange="targetYearChange"><view>{{targetYearOptions[targetYearIndex].label}}</view></picker><input wx:else class="input" value="{{resumeEditingValue}}" bindinput="onResumeFactInput" placeholder="修改后会保留在当前咨询草稿" /></view>
+             <view wx:if="{{resumeReview.missingFacts.length}}" class="resume-missing"><text class="resume-review__label">只需补这些缺项</text><view class="resume-missing__tags"><text wx:for="{{resumeReview.missingFacts}}" wx:key="field" class="tag">{{item.label}}</text></view><button class="btn btn--text" bindtap="toggleMissingProfile">只补缺项</button></view>
+             <view wx:if="{{showMissingProfile}}" class="resume-missing-editor"><view class="row row--between"><text class="resume-review__label">只补必要缺项</text><button class="btn btn--text" bindtap="closeMissingProfile">完成补录</button></view><text class="muted">只补必要缺项；“尚未确定，希望顾问建议”是合法选择，不会被列为缺项。</text><view wx:if="{{missingEditName}}" class="field"><text class="field__label">姓名／称呼 <text class="field__required">*</text></text><input class="input" data-field="name" value="{{profile.name}}" bindinput="onFieldInput" placeholder="请输入你希望顾问使用的称呼" /></view><checkbox-group wx:if="{{missingEditAdult}}" bindchange="adultChange"><label class="check-line"><checkbox value="adult" color="#b98426" /><text>我已年满 18 岁，并确认以本人身份提交咨询</text></label></checkbox-group><view wx:if="{{missingEditContact}}" class="field"><text class="field__label">联系方式 <text class="field__required">*</text></text><picker class="picker" mode="selector" range="{{contactOptions}}" range-key="label" value="{{contactTypeIndex}}" bindchange="selectContactType"><view>{{contactOptions[contactTypeIndex].label}}</view></picker><input class="input field-gap" data-field="contact.value" value="{{profile.contact.value}}" bindinput="onFieldInput" placeholder="请输入手机、微信号或邮箱" /></view><view wx:if="{{missingEditInstitution}}" class="field"><text class="field__label">本科院校 <text class="field__required">*</text></text><input class="input" data-field="institution" value="{{profile.institution}}" bindinput="onFieldInput" placeholder="院校名称，不确定可后补" /></view><view wx:if="{{missingEditMajor}}" class="field"><text class="field__label">本科专业 <text class="field__required">*</text></text><input class="input" data-field="major" value="{{profile.major}}" bindinput="onFieldInput" placeholder="本科专业名称，不确定可后补" /></view></view>
+            <text wx:if="{{!resumeReview.missingFacts.length}}" class="resume-review__ready">必要资料已具备，可直接核对并提交咨询。</text>
+            <view wx:if="{{resumeReview.conflicts.length}}" class="resume-conflicts"><text class="resume-review__label">需要你核对的冲突</text><text wx:for="{{resumeReview.conflicts}}" wx:key="field" class="resume-conflict">{{item.label}}：现有“{{item.existingLabel}}”，材料中为“{{item.value}}”</text></view>
+            <view wx:if="{{resumeReview.manualReviewDocuments.length}}" class="resume-manual-review"><text class="resume-review__label">暂时无法自动识别</text><text class="muted" wx:for="{{resumeReview.manualReviewDocuments}}" wx:key="name">{{item.typeLabel}}「{{item.name}}」{{item.statusLabel}}，原件已保留，顾问会人工核验。</text></view>
+            <button class="btn btn--text" bindtap="toggleFullProfile">{{showFullProfile ? '收起其他资料编辑' : '需要修改其他资料？编辑全部资料'}}</button>
+          </view>
+          <view wx:else class="resume-empty"><text class="h3">等待简历上传</text><text class="muted">没有简历也可以切换到四步引导；缺少其他材料不会阻止先提交咨询。</text></view>
+          <button class="btn btn--text" bindtap="switchToGuided">没有简历，改为四步引导填写</button>
+        </view>
+      </block>
+
+      <view wx:if="{{extractionFields.length}}" class="panel extraction-review extraction-review--near-top"><view class="section-head"><view><text class="eyebrow">EXTRACTION REVIEW</text><text class="h3">上传材料中的候选字段</text></view><text class="status status--warm">{{extractionFields.length}} 项</text></view><text class="muted">采用前请核对来源。已有填写会被保留，不会被识别结果覆盖；拒绝或未确认的候选只留作待核验依据。</text><view wx:for="{{extractionFields}}" wx:key="field" class="extraction-item"><view class="extraction-item__copy"><text class="extraction-item__field">{{item.label}}</text><text class="extraction-item__value">{{item.valueLabel}}</text><text class="extraction-item__source">来源：{{item.sourceLabel}} · {{item.locationLabel}}</text><text wx:if="{{item.existing}}" class="extraction-item__existing">已有填写：{{item.existingLabel}}（采用时保留）</text><text class="extraction-item__decision">{{item.decisionLabel}}</text></view><view class="extraction-item__actions"><button class="btn btn--text" disabled="{{applyingExtractionField === item.field}}" data-index="{{index}}" bindtap="adoptExtraction">采用并保存</button><button class="btn btn--text extraction-item__reject" disabled="{{applyingExtractionField === item.field}}" data-index="{{index}}" bindtap="rejectExtraction">拒绝</button></view></view></view>
+
+      <block wx:if="{{path === 'RESUME' || path === 'GUIDED' && guidedStep === 0}}">
+        <view class="section resume-required-section">
+          <view class="section-head"><view><text class="eyebrow">{{path === 'GUIDED' ? 'STEP 1 · BACKGROUND' : 'REQUIRED DETAILS'}}</text><text class="h2">{{path === 'GUIDED' ? '教育背景' : '必要联系与学籍状态'}}</text></view><text class="status status--warm">{{path === 'GUIDED' ? '必要项优先' : '短表单'}}</text></view>
+          <view class="panel">
+            <view class="field"><text class="field__label">姓名／称呼 <text class="field__required">*</text></text><input class="input" data-field="name" value="{{profile.name}}" bindinput="onFieldInput" placeholder="请输入你希望顾问使用的称呼" /></view>
+            <checkbox-group bindchange="adultChange"><label class="check-line"><checkbox value="adult" checked="{{profile.adultConfirmed}}" data-field="adultConfirmed" color="#b98426" /><text>我已年满 18 岁，并确认以本人身份提交咨询</text></label></checkbox-group>
+            <view class="field"><text class="field__label">联系方式 <text class="field__required">*</text></text><picker class="picker" mode="selector" range="{{contactOptions}}" range-key="label" value="{{contactTypeIndex}}" bindchange="selectContactType"><view>{{contactOptions[contactTypeIndex].label}}</view></picker><input class="input field-gap" data-field="contact.value" value="{{profile.contact.value}}" bindinput="onFieldInput" placeholder="请输入手机、微信号或邮箱" /></view>
+            <view class="field"><text class="field__label">学籍状态</text><radio-group class="radio-row" bindchange="educationStatusChange"><label><radio value="ENROLLED" checked="{{profile.educationStatus === 'ENROLLED'}}" color="#b98426" />本科在读</label><label><radio value="GRADUATED" checked="{{profile.educationStatus === 'GRADUATED'}}" color="#b98426" />已毕业</label></radio-group></view>
+            <block wx:if="{{path === 'GUIDED' || showFullProfile}}">
+              <view class="field"><text class="field__label">本科院校 <text class="field__required">*</text></text><input class="input" data-field="institution" value="{{profile.institution}}" bindinput="onFieldInput" placeholder="院校名称，不确定可后补" /></view>
+              <view class="field"><text class="field__label">专业 <text class="field__required">*</text></text><input class="input" data-field="major" value="{{profile.major}}" bindinput="onFieldInput" placeholder="本科专业名称，不确定可后补" /></view>
+              <view class="field"><text class="field__label">学位名称</text><input class="input" data-field="degree" value="{{profile.degree}}" bindinput="onFieldInput" placeholder="可留空，后续核验" /></view>
+              <view class="field field-grid"><view><text class="field__label">毕业年份</text><input class="input" data-field="graduationYear" value="{{profile.graduationYear}}" bindinput="onFieldInput" placeholder="如 2027，可待补" /></view><view><text class="field__label">预计／实际毕业年月</text><input class="input" data-field="graduationDate" value="{{profile.graduationDate}}" bindinput="onFieldInput" placeholder="YYYY-MM，可待补" /></view></view>
+            </block>
+          </view>
+        </view>
+      </block>
+
+      <view wx:if="{{path === 'GUIDED'}}" class="panel guided-progress">
+        <view class="section-head"><view><text class="eyebrow">GUIDED PROFILE</text><text class="h3">第 {{guidedStep + 1}} / 4 步：{{guidedStepLabel}}</text></view><text class="status status--warm">可跳过选填</text></view>
+        <view class="guided-step-tabs"><button wx:for="{{guidedSteps}}" wx:key="value" class="btn {{index === guidedStep ? 'btn--gold' : 'btn--text'}}" data-index="{{index}}" bindtap="setGuidedStep">{{index + 1}} {{item.label}}</button></view>
+        <text class="muted">前后步骤会保留当前填写值；未知项可以留空，之后仍可从服务端草稿恢复。</text>
+      </view>
+
+      <block wx:if="{{path === 'GUIDED' && guidedStep === 1 || path === 'RESUME' && showFullProfile}}">
+        <view class="section">
+          <view class="section-head"><view><text class="eyebrow">STEP 2 · ACADEMICS &amp; LANGUAGE</text><text class="h2">成绩与语言</text></view><text class="muted">可跳过未知</text></view>
+          <view class="panel">
+            <view class="field-grid"><view class="field"><text class="field__label">百分制均分</text><input class="input" data-field="averageScore" value="{{profile.averageScore}}" bindinput="onFieldInput" placeholder="保留原始口径" /></view><view class="field"><text class="field__label">GPA</text><input class="input" data-field="gpa" value="{{profile.gpa}}" bindinput="onFieldInput" placeholder="不擅自换算" /></view></view>
+            <view class="field-grid"><view class="field"><text class="field__label">GPA 满分制</text><input class="input" data-field="gpaScale" value="{{profile.gpaScale}}" bindinput="onFieldInput" placeholder="如 4.0" /></view><view class="field"><text class="field__label">专业排名（可选）</text><input class="input" data-field="classRank" value="{{profile.classRank}}" bindinput="onFieldInput" placeholder="如 12/120" /></view></view>
+            <view class="field"><text class="field__label">语言情况</text><picker class="picker" mode="selector" range="{{languageOptions}}" range-key="label" value="{{languageTypeIndex}}" bindchange="languageTypeChange"><view>{{languageOptions[languageTypeIndex].label}}</view></picker></view>
+            <block wx:if="{{profile.languageStatus === 'AVAILABLE'}}">
+              <view class="field-grid"><view class="field"><text class="field__label">总分</text><input class="input" data-field="languageScores.total" value="{{profile.languageScores.total}}" bindinput="onFieldInput" placeholder="如 7.0" /></view><view class="field"><text class="field__label">考试日期</text><input class="input" data-field="languageScores.examDate" value="{{profile.languageScores.examDate}}" bindinput="onFieldInput" placeholder="YYYY-MM-DD" /></view></view>
+              <view class="subscore-grid"><view><text>听力</text><input class="input" data-field="languageScores.subscores.listening" value="{{profile.languageScores.subscores.listening}}" bindinput="onFieldInput" /></view><view><text>阅读</text><input class="input" data-field="languageScores.subscores.reading" value="{{profile.languageScores.subscores.reading}}" bindinput="onFieldInput" /></view><view><text>写作</text><input class="input" data-field="languageScores.subscores.writing" value="{{profile.languageScores.subscores.writing}}" bindinput="onFieldInput" /></view><view><text>口语</text><input class="input" data-field="languageScores.subscores.speaking" value="{{profile.languageScores.subscores.speaking}}" bindinput="onFieldInput" /></view></view>
+            </block>
+          </view>
+        </view>
+      </block>
+
+      <block wx:if="{{path === 'RESUME' || path === 'GUIDED' && guidedStep === 2}}">
+        <view class="section">
+          <view class="section-head"><view><text class="eyebrow">{{path === 'GUIDED' ? 'STEP 3 · APPLICATION TARGET' : 'REQUIRED DETAILS'}}</text><text class="h2">申请意向</text></view><text class="muted">{{path === 'GUIDED' ? '可留给顾问建议' : '短表单'}}</text></view>
+          <view class="panel">
+            <view class="field"><text class="field__label">入学年份</text><picker class="picker" mode="selector" range="{{targetYearOptions}}" range-key="label" value="{{targetYearIndex}}" bindchange="targetYearChange"><view>{{targetYearOptions[targetYearIndex].label}}</view></picker></view>
+            <view class="field"><text class="field__label">意向专业（可多个）</text><input class="input" data-field="targetMajors" value="{{targetMajorsText}}" bindinput="onFieldInput" placeholder="用逗号分隔；尚未确定也可以留空" /></view>
+            <view class="field"><text class="field__label">意向院校（可多个）</text><input class="input" data-field="targetInstitutions" value="{{targetInstitutionsText}}" bindinput="onFieldInput" placeholder="用逗号分隔；希望顾问建议也可以" /></view>
+            <view class="field"><text class="field__label">目标偏好／补充说明</text><textarea class="textarea" data-field="targetPreference" value="{{profile.targetPreference}}" bindinput="onFieldInput" placeholder="例如地区、方向、时间安排或尚未确定的部分" /></view>
+          </view>
+        </view>
+      </block>
+
+      <block wx:if="{{path === 'GUIDED' && guidedStep === 3 || path === 'RESUME' && showFullProfile}}">
+        <view class="section">
+          <view class="section-head"><view><text class="eyebrow">STEP 4 · EXPERIENCE</text><text class="h2">相关经历</text></view><text class="muted">可跳过</text></view>
+          <view class="panel">
+            <text class="muted">有则添加实习、科研、竞赛或学生工作；没有相关经历可以不填，不要补造事实。</text>
+            <view wx:for="{{profile.experiences}}" wx:key="index" class="experience-row">
+              <view class="row row--between"><text class="h3">经历 {{index + 1}}</text><button class="btn btn--text experience-remove" data-index="{{index}}" bindtap="removeExperience">移除</button></view>
+              <picker class="picker" mode="selector" range="{{experienceOptions}}" range-key="label" value="0" data-index="{{index}}" bindchange="experienceTypeChange"><view>{{experienceLabels[item.type] || '请选择经历类型'}}</view></picker>
+              <input class="input field-gap" data-index="{{index}}" data-field="title" value="{{item.title}}" bindinput="onExperienceInput" placeholder="经历标题" />
+              <input class="input field-gap" data-index="{{index}}" data-field="organization" value="{{item.organization}}" bindinput="onExperienceInput" placeholder="机构／组织" />
+              <textarea class="textarea field-gap" data-index="{{index}}" data-field="description" value="{{item.description}}" bindinput="onExperienceInput" placeholder="具体事实、职责和成果（只写真实信息）" />
+            </view>
+            <button class="btn btn--outline add-experience" bindtap="addExperience">＋ 添加一条经历</button>
+          </view>
+        </view>
+      </block>
+
+      <view wx:if="{{path === 'GUIDED'}}" class="guided-navigation"><button class="btn btn--outline" disabled="{{guidedStep === 0}}" bindtap="previousGuidedStep">上一步</button><button class="btn btn--gold" wx:if="{{guidedStep < 3}}" bindtap="nextGuidedStep">下一步</button><button class="btn btn--gold" wx:else bindtap="nextGuidedStep">完成四步填写</button></view>
+
+      <view class="section materials-section">
+        <view class="section-head"><view><text class="eyebrow">DOCUMENTS</text><text class="h2">独立材料卡片</text></view><text class="status status--warm">{{totalDocumentCount || 0}} / 20 份</text></view>
+        <view class="panel document-note"><text class="muted">支持 PDF / DOCX / JPG / PNG（含 JPEG），单文件最大 10 MB；旧 DOC 不支持。每类可以多件，上传成功不等于解析成功。</text></view>
+        <block wx:for="{{cards}}" wx:key="type">
+          <view wx:if="{{item.type !== 'SUPPLEMENTAL' && item.visible}}" class="panel document-card">
+            <view class="document-card__head"><view class="grow"><text class="h3">{{item.title}}</text><text class="muted">{{item.description}}</text></view><text class="status status--warm">可后补</text></view>
+            <button class="btn btn--outline document-card__upload" data-type="{{item.type}}" data-source="file" data-description="{{item.description}}" bindtap="selectUpload">＋ {{item.button}}</button>
+            <button class="btn btn--text document-card__photo" data-type="{{item.type}}" data-source="image" data-description="{{item.description}}" bindtap="selectUpload">相册／拍照选择图片</button>
+            <view wx:for="{{item.files}}" wx:key="id" class="document-file">
+               <view class="grow"><text class="document-file__name">{{item.name}}</text><text wx:if="{{item.description}}" class="muted">{{item.description}}</text><text class="document-file__meta">{{item.sizeLabel}} · {{item.uploadStatusLabel}} · {{item.parseStatusLabel}}</text><text wx:if="{{item.uploadError}}" class="document-file__error">{{item.uploadError}}</text></view>
+              <view class="document-file__actions"><button wx:if="{{item.id}}" class="btn btn--text" data-id="{{item.id}}" bindtap="viewDocument">查看</button><button wx:if="{{item.uploadStatus === 'FAILED'}}" class="btn btn--text" data-id="{{item.localId || item.id}}" bindtap="retryUpload">重试上传</button><button wx:if="{{item.id && (item.parseStatus === 'FAILED' || item.parseStatus === 'MANUAL_REVIEW' || item.parseStatus === 'NEEDS_REVIEW')}}" class="btn btn--text" loading="{{retryingDocumentId === item.id}}" data-id="{{item.id}}" bindtap="retryExtraction">重试识别</button><button wx:if="{{item.id && !item.manualReviewAcknowledged && (item.parseStatus === 'FAILED' || item.parseStatus === 'MANUAL_REVIEW' || item.parseStatus === 'NEEDS_REVIEW')}}" class="btn btn--text" data-id="{{item.id}}" bindtap="keepForManualReview">保留并人工核验</button><text wx:if="{{item.manualReviewAcknowledged}}" class="document-file__manual">已保留，待人工核验</text><button wx:if="{{item.id}}" class="btn btn--text" data-type="{{item.type}}" data-id="{{item.id}}" bindtap="replaceUpload">替换</button><button wx:if="{{item.id || item.localId}}" class="btn btn--text document-file__remove" data-id="{{item.id || item.localId}}" bindtap="removeDocument">撤除</button></view>
+            </view>
+          </view>
+          <view wx:if="{{item.type === 'SUPPLEMENTAL'}}" class="panel document-card document-card--supplemental">
+            <view class="document-card__head"><view class="grow"><text class="h3">{{item.title}}</text><text class="muted">实习、科研、竞赛或学生工作等可选证明，可按类别说明。</text></view><button class="btn btn--text" bindtap="toggleSupplemental">{{supplementalExpanded ? '收起' : '展开'}}</button></view>
+            <block wx:if="{{supplementalExpanded}}"><input class="input" value="{{supplementalDescription}}" maxlength="500" bindinput="supplementalDescriptionChange" placeholder="补充材料类别／说明，如实习、科研、竞赛（可选）" /><button class="btn btn--outline document-card__upload" data-type="SUPPLEMENTAL" data-source="file" data-description="实习、科研、竞赛或学生工作等可选证明。" bindtap="selectUpload">＋ 点击上传补充材料</button><button class="btn btn--text document-card__photo" data-type="SUPPLEMENTAL" data-source="image" data-description="实习、科研、竞赛或学生工作等可选证明。" bindtap="selectUpload">相册／拍照选择图片</button><view wx:for="{{item.files}}" wx:key="id" class="document-file"><view class="grow"><text class="document-file__name">{{item.name}}</text><text wx:if="{{item.description}}" class="muted">{{item.description}}</text><text class="document-file__meta">{{item.sizeLabel}} · {{item.uploadStatusLabel}} · {{item.parseStatusLabel}}</text></view><text wx:if="{{item.uploadError}}" class="document-file__error">{{item.uploadError}}</text><view class="document-file__actions"><button wx:if="{{item.uploadStatus === 'FAILED'}}" class="btn btn--text" data-id="{{item.localId || item.id}}" bindtap="retryUpload">重试上传</button><button wx:if="{{item.id}}" class="btn btn--text" data-id="{{item.id}}" bindtap="viewDocument">查看</button><button wx:if="{{item.id && (item.parseStatus === 'FAILED' || item.parseStatus === 'MANUAL_REVIEW' || item.parseStatus === 'NEEDS_REVIEW')}}" class="btn btn--text" loading="{{retryingDocumentId === item.id}}" data-id="{{item.id}}" bindtap="retryExtraction">重试识别</button><button wx:if="{{item.id && !item.manualReviewAcknowledged && (item.parseStatus === 'FAILED' || item.parseStatus === 'MANUAL_REVIEW' || item.parseStatus === 'NEEDS_REVIEW')}}" class="btn btn--text" data-id="{{item.id}}" bindtap="keepForManualReview">保留并人工核验</button><text wx:if="{{item.manualReviewAcknowledged}}" class="document-file__manual">已保留，待人工核验</text><button wx:if="{{item.id}}" class="btn btn--text" data-type="SUPPLEMENTAL" data-id="{{item.id}}" bindtap="replaceUpload">替换</button><button wx:if="{{item.id || item.localId}}" class="btn btn--text document-file__remove" data-id="{{item.id || item.localId}}" bindtap="removeDocument">撤除</button></view></view></block>
+          </view>
+        </block>
+        <view wx:if="{{hiddenDocuments.length}}" class="panel hidden-documents"><text class="h3">已存其他类别材料</text><text class="muted">切换在读／毕业状态不会删除原文件；以下材料当前不在主卡片中，但仍按原类别保留。</text><view wx:for="{{hiddenDocuments}}" wx:key="id" class="hidden-document"><view class="grow"><text>{{item.name}}</text><text>{{item.typeLabel}} · {{item.sizeLabel}} · {{item.uploadStatusLabel}}</text></view><view class="document-file__actions"><button wx:if="{{item.id}}" class="btn btn--text" data-id="{{item.id}}" bindtap="viewDocument">查看</button><button wx:if="{{item.id}}" class="btn btn--text document-file__remove" data-id="{{item.id}}" bindtap="removeDocument">撤除</button></view></view></view>
+      </view>
+
+        <view class="masters-materials__footer">
+        <text wx:if="{{pendingUploads}}" class="upload-warning">有 {{pendingUploads}} 个文件正在上传，请等待完成或撤下失败项后再离开。</text>
+        <text wx:if="{{lastSavedAt}}" class="saved-note">最近保存 {{lastSavedAt}}，以服务端版本为准</text>
+        <button class="btn btn--outline" loading="{{saving}}" disabled="{{saving || pendingUploads}}" bindtap="saveLater">保存，稍后继续</button>
+        <button class="btn btn--gold" loading="{{saving}}" disabled="{{saving || pendingUploads || !serviceConsent}}" bindtap="goConfirm">核对并提交免费咨询</button>
+      </view>
+      <view wx:if="{{extractionError}}" class="panel extraction-error"><text class="h3">识别结果暂时无法读取</text><text class="muted">{{extractionError}}。原件仍按服务端附件记录保留，不会被当成已识别。</text><button class="btn btn--text" bindtap="retryExtractionLoad">重试读取识别结果</button></view>
+      <view wx:if="{{error}}" class="masters-materials__error">{{error}}</view>
+    </block>
+  </view>
+</view>

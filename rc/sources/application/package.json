@@ -1,0 +1,31 @@
+{
+  "name": "phoenix-family-os-mini-program-mvp",
+  "version": "0.5.0",
+  "private": true,
+  "description": "Phoenix Family OS WeChat Mini Program MVP V0.5.0 with Education Compass Level 1 and Level 2 flows, dual AI analysis, WeChat Pay and opt-in Feishu customer profile mirror",
+  "scripts": {
+    "test": "npm run test:client",
+    "test:client": "node tests/run-tests.js && node tests/validate-project.js && node tests/validate-ui-contract.js && node tests/validate-release-build.js && node tests/masters-client.test.js && node tests/masters-report-client.test.js && node tests/masters-environment.test.js && node tests/masters-candidate-evidence.test.js && node tests/masters-postgres-guard.test.js",
+    "test:ui-contract": "node tests/validate-ui-contract.js",
+    "test:server": "npm --prefix server test",
+    "test:education-contracts": "npm --prefix server run test:education-contracts",
+    "test:education-http": "npm --prefix server run test:education-http",
+    "test:education-integrations": "npm --prefix server run test:education-integrations",
+    "test:education-postgres": "node scripts/test-education-postgres.js",
+    "typecheck:server": "npm --prefix server run typecheck",
+    "test:all": "npm run test:client && npm run typecheck:server && npm run test:server",
+    "smoke:education": "npm --prefix server run build && node scripts/smoke-education-compass-mock.js",
+    "validate:education-docs": "npm --prefix server run build && node scripts/verify-education-docs.js",
+    "verify:education-evidence": "node scripts/generate-education-evidence.js",
+    "verify:ui-evidence": "node scripts/generate-ui-review-evidence.js",
+    "scan:release-secrets": "node scripts/scan-release-secrets.js",
+    "test:p0": "npm run scan:release-secrets && npm run validate:education-docs && npm run test:all && npm run smoke:education && npm run test:education-postgres",
+    "build:release": "node scripts/build-release.js",
+    "test:release": "node tests/validate-release-build.js",
+    "validate": "node tests/validate-project.js",
+    "test:masters": "node tests/masters-client.test.js && npm --prefix server run test:masters",
+    "test:masters-postgres": "node scripts/test-masters-postgres.js",
+    "check:masters-environment": "node scripts/check-masters-test-environment.js",
+    "verify:masters-candidate": "node scripts/verify-masters-candidate.js"
+  }
+}

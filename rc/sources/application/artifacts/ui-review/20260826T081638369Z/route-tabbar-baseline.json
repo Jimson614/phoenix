@@ -1,0 +1,112 @@
+{
+  "phase": "before",
+  "generatedAt": "2026-08-26T08:16:41.706Z",
+  "contract": {
+    "pages": [
+      "pages/welcome/index",
+      "pages/home/index",
+      "pages/family-edit/index",
+      "pages/student-edit/index",
+      "pages/compass/index",
+      "pages/compass-questionnaire/index",
+      "pages/compass-preview/index",
+      "pages/payment-result/index",
+      "pages/report/index",
+      "pages/assessment-analysis/index",
+      "pages/agent-chat/index",
+      "pages/timeline/index",
+      "pages/advisor-request/index",
+      "pages/mine/index",
+      "pages/admin-families/index",
+      "pages/admin-family/index"
+    ],
+    "window": {
+      "navigationStyle": null,
+      "navigationBarBackgroundColor": "#FFFDF9",
+      "navigationBarTextStyle": "black"
+    },
+    "tabBar": {
+      "list": [
+        {
+          "pagePath": "pages/home/index",
+          "text": "家庭"
+        },
+        {
+          "pagePath": "pages/timeline/index",
+          "text": "时间线"
+        },
+        {
+          "pagePath": "pages/mine/index",
+          "text": "我的"
+        }
+      ]
+    },
+    "lazyCodeLoading": "requiredComponents",
+    "pageNavigation": {
+      "pages/admin-families/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "Phoenix Advisor"
+      },
+      "pages/admin-family/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "家庭详情"
+      },
+      "pages/advisor-request/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "联系 Phoenix 顾问"
+      },
+      "pages/agent-chat/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "已购报告 AI 追问"
+      },
+      "pages/assessment-analysis/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "AI 分析结果"
+      },
+      "pages/compass-preview/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "报告预览"
+      },
+      "pages/compass-questionnaire/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "Education Compass"
+      },
+      "pages/compass/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "Education Compass"
+      },
+      "pages/family-edit/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "家庭档案"
+      },
+      "pages/home/index.json": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": null
+      },
+      "pages/mine/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "我的 Family OS"
+      },
+      "pages/payment-result/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "支付结果"
+      },
+      "pages/report/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "成长洞察报告"
+      },
+      "pages/student-edit/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "孩子档案"
+      },
+      "pages/timeline/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "家庭时间线"
+      },
+      "pages/welcome/index.json": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": null
+      }
+    }
+  }
+}

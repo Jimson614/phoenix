@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "phoenix_agent_egress_key_diff_v1",
+  "generatedAt": "2026-08-25T10:25:38.656Z",
+  "status": "FAIL",
+  "verificationCommandId": "server-tests",
+  "verifiedTestCase": null,
+  "sourceHashes": {
+    "server/src/ai/context/assessment-context.ts": "D3F92C83FC8AB82AF6CF5DFA0D3CBC13BD766FD596E7D86149E4F282BC8D1229",
+    "server/src/services/agent-service.ts": "6FA8EA91D069B4BCA785A48AFA3D09122FD5DE75C07A8AB58161D16367E25F96",
+    "server/tests/education-integrations.test.ts": "537EE27CAF1C3E548FA0C3831BA3CBBDBB5DDE573AC316CE6DA4E7EA725B4592"
+  },
+  "inboundKeyClasses": {
+    "identity": [
+      "userId",
+      "familyId",
+      "studentId",
+      "assessmentId",
+      "reportId"
+    ],
+    "rawResponseContainers": [
+      "answers",
+      "answer_payload"
+    ],
+    "directIdentifiers": [
+      "name",
+      "phone",
+      "email",
+      "school",
+      "address"
+    ]
+  },
+  "providerEgressContract": {
+    "topLevelKeys": [
+      "dataAsOf",
+      "confidence",
+      "disclaimer",
+      "modules",
+      "sources"
+    ],
+    "level1ModuleKeys": [
+      "family_concerns",
+      "parent_observation_signals",
+      "next_step"
+    ],
+    "level2ModuleKeys": [
+      "student_snapshot",
+      "strength_signals",
+      "learning_bottlenecks",
+      "subject_focus",
+      "growth_direction",
+      "action_plan_30d"
+    ]
+  },
+  "removedBeforeEgress": [
+    "identity",
+    "raw questionnaire answers",
+    "internal IDs",
+    "legacy report module free text"
+  ],
+  "externalCallPerformed": false,
+  "bindings": {
+    "freezeSha256": "9884503DA89A61F1DFC78FF97F429FDE210D240B30764D099105DD7C8A100B2D",
+    "migrationAggregateSha256": "DBDCDDA40BB8995BC65CED72A6F7D867F55ED1F270AE5C3F437DB238DDDA703D",
+    "sourceBeforeSha256": "329AF47BDE481D22E4FAD0B4B0CE34A4B671070E0A20775B1E62D448C6B77D8D",
+    "sourceAfterSha256": "329AF47BDE481D22E4FAD0B4B0CE34A4B671070E0A20775B1E62D448C6B77D8D"
+  }
+}

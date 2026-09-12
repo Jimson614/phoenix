@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "../components/rc-experiences.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Phoenix Nova website V5",
+    default: "Phoenix Nova RC",
     template: "%s｜Phoenix Nova™",
   },
   description: "Phoenix Nova™ Global Family Growth Platform — 一个入口，走进凤启世界。",

@@ -1,0 +1,121 @@
+'use strict'
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright')
+const base = process.env.RC_URL || 'http://127.0.0.1:4300'
+const output = path.resolve(process.env.RC_TEST_OUTPUT || path.join(__dirname, '..', '.runtime', 'browser'))
+fs.mkdirSync(output, { recursive: true })
+const results = { origin: base, routes: [], flows: [], pageErrors: [], externalRequests: [], screenshots: [] }
+async function main() {
+  const browser = await chromium.launch({ headless: true, ...(process.env.RC_BROWSER_CHANNEL ? { channel: process.env.RC_BROWSER_CHANNEL } : {}) })
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
+  await context.route('**/*', route => {
+    if (new URL(route.request().url()).origin !== base) { results.externalRequests.push({ method: route.request().method(), url: route.request().url() }); return route.abort() }
+    return route.continue()
+  })
+  const page = await context.newPage()
+  page.on('pageerror', error => results.pageErrors.push(error.message))
+  async function screenshot(name, locator) {
+    const file = path.join(output, name + '.png')
+    if (locator) await locator.screenshot({ path: file })
+    else await page.screenshot({ path: file, fullPage: true })
+    results.screenshots.push(file)
+  }
+  try {
+    const pages = ['', '/compass', '/lighthouse', '/services', '/insights', '/oriental', '/about', '/family-center', '/application']
+    for (const locale of ['zh', 'en']) for (const sub of pages) {
+      const url = '/' + locale + sub
+      const response = await context.request.get(base + url)
+      assert.equal(response.status(), 200, url)
+      assert.match(response.headers()['x-robots-tag'], /noindex/)
+      results.routes.push({ path: url, status: response.status() })
+    }
+    for (const url of ['/education', '/education/assessment', '/education/result', '/rc/health']) {
+      const response = await context.request.get(base + url)
+      assert.equal(response.status(), 200, url)
+      results.routes.push({ path: url, status: response.status() })
+    }
+    for (const url of ['/zh/not-a-page', '/fr', '/education/internal/wealth-compass-preview', '/v1/masters/consultations']) {
+      const response = await context.request.get(base + url)
+      assert.equal(response.status(), 404, url)
+      results.routes.push({ path: url, status: response.status() })
+    }
+    await page.goto(base + '/zh/family-center')
+    const family = page.locator('section[aria-labelledby="family-demo-title"]')
+    await family.getByRole('heading', { name: '让成长记录连接起来' }).waitFor()
+    await family.getByRole('button', { name: '家庭成员', exact: true }).click()
+    await family.getByRole('button', { name: '添加演示成员', exact: true }).click()
+    await family.getByRole('heading', { name: '演示学生 B' }).waitFor()
+    await page.reload()
+    await family.getByRole('button', { name: '家庭成员', exact: true }).click()
+    await family.getByRole('heading', { name: '演示学生 B' }).waitFor()
+    await family.getByRole('button', { name: '成长时间线', exact: true }).click()
+    assert.match(await family.innerText(), /演示学生 B/)
+    await family.getByRole('button', { name: '家庭概览', exact: true }).click()
+    await family.getByLabel('当前家庭目标').selectOption({ label: '准备下一阶段升学' })
+    await screenshot('RC_FAMILY_DESKTOP', family)
+    results.flows.push('Family: add member, reload persistence, timeline, update goal')
+    await page.goto(base + '/zh/application')
+    const app = page.locator('section[aria-labelledby="application-demo-title"]')
+    await app.getByRole('button', { name: '继续 →', exact: true }).click()
+    assert.match(await app.innerText(), /请先补充/)
+    await app.getByRole('button', { name: '使用虚构示例' }).click()
+    await app.getByRole('button', { name: '继续 →', exact: true }).click()
+    await app.getByRole('button', { name: '加入示例材料', exact: true }).first().click()
+    await app.getByRole('button', { name: '继续 →', exact: true }).click()
+    assert.match(await app.locator('pre').innerText(), /演示大学/)
+    assert.match(await app.innerText(), /当前没有发送任何资料/)
+    await page.reload()
+    await app.locator('pre').waitFor()
+    assert.match(await app.locator('pre').innerText(), /演示大学/)
+    await screenshot('RC_APPLICATION_DESKTOP', app)
+    results.flows.push('Application: required-field guard, fictional profile, sample document, facts-only draft, reload persistence')
+    await page.goto(base + '/zh/compass')
+    await page.getByRole('link', { name: '开始成长探索', exact: false }).click()
+    await page.waitForURL(base + '/education')
+    await page.goto(base + '/education/assessment')
+    await page.getByRole('button', { name: '15–18岁', exact: true }).click()
+    await page.getByRole('button', { name: '高中 / 中四至中六', exact: true }).click()
+    await page.getByRole('button', { name: /下一步/ }).click()
+    await page.getByRole('button', { name: '中国香港', exact: true }).click()
+    await page.getByRole('button', { name: '暂不确定 / 不愿透露', exact: true }).click()
+    await page.getByRole('button', { name: /下一步/ }).click()
+    await page.getByRole('button', { name: '香港本地课程 / DSE', exact: true }).click()
+    await page.getByRole('button', { name: /科技与工程/ }).click()
+    await page.getByRole('button', { name: /商业与组织/ }).click()
+    await page.getByRole('button', { name: /下一步/ }).click()
+    const generation = page.waitForResponse(r => r.url() === base + '/education/api/growth-snapshot' && r.request().method() === 'POST')
+    await page.getByRole('button', { name: '明确课程 / 升学方向', exact: true }).click()
+    assert.equal((await (await generation).json()).generation_status, 'fallback')
+    await page.waitForURL(base + '/education/result')
+    const rating = page.getByRole('group', { name: '结果有用度评分' })
+    await rating.getByRole('button').last().click()
+    await page.getByRole('button', { name: '提交反馈', exact: true }).click()
+    await page.getByText('谢谢你的反馈', { exact: false }).waitFor()
+    await screenshot('RC_EDUCATION_RESULT_DESKTOP')
+    results.flows.push('Education: cross-renderer navigation, complete five-step assessment, local fallback result, feedback')
+    for (const url of ['/zh', '/zh/family-center', '/zh/application', '/education', '/education/result']) {
+      await page.setViewportSize({ width: 390, height: 844 })
+      await page.goto(base + url)
+      await page.evaluate(() => document.fonts.ready)
+      const dimensions = await page.evaluate(() => ({ viewport: innerWidth, content: document.documentElement.scrollWidth }))
+      assert.ok(dimensions.content <= dimensions.viewport + 1, url + ' horizontal overflow: ' + JSON.stringify(dimensions))
+    }
+    await screenshot('RC_EDUCATION_RESULT_MOBILE')
+    await page.goto(base + '/zh/application')
+    await page.locator('section[aria-labelledby="application-demo-title"] pre').waitFor()
+    await screenshot('RC_APPLICATION_MOBILE', page.locator('section[aria-labelledby="application-demo-title"]'))
+    const bad = await context.request.post(base + '/education/api/growth-snapshot', { data: {}, headers: { 'Content-Type': 'application/json' } })
+    assert.equal(bad.status(), 400)
+    results.flows.push('Mobile: five representative routes have no horizontal overflow; API rejects invalid assessment')
+    assert.deepEqual(results.pageErrors, [])
+    assert.deepEqual(results.externalRequests, [])
+    results.passed = true
+  } finally {
+    fs.writeFileSync(path.join(output, 'RC_BROWSER_VALIDATION.json'), JSON.stringify(results, null, 2))
+    await browser.close()
+  }
+  console.log(JSON.stringify(results, null, 2))
+}
+main().catch(error => { console.error(error); process.exitCode = 1 })

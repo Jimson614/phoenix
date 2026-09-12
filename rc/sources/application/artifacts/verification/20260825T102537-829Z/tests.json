@@ -1,0 +1,186 @@
+{
+  "schemaVersion": "phoenix_local_test_evidence_v1",
+  "generatedAt": "2026-08-25T10:25:37.830Z",
+  "status": "FAIL",
+  "scope": "Education Compass V0.5.0 Level 1 and Level 2 local verification",
+  "suites": [
+    {
+      "commandId": "release-secret-scan",
+      "category": "security",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 158,
+      "tap": {
+        "tests": null,
+        "pass": null,
+        "fail": null,
+        "cancelled": null,
+        "skipped": null,
+        "todo": null,
+        "durationMs": null,
+        "cases": []
+      },
+      "structuredResult": {
+        "status": "PASS",
+        "findings": 0
+      }
+    },
+    {
+      "commandId": "server-build",
+      "category": "build",
+      "status": "FAIL",
+      "exitCode": 1,
+      "durationMs": 0,
+      "tap": {
+        "tests": null,
+        "pass": null,
+        "fail": null,
+        "cancelled": null,
+        "skipped": null,
+        "todo": null,
+        "durationMs": null,
+        "cases": []
+      },
+      "structuredResult": null
+    },
+    {
+      "commandId": "server-typecheck",
+      "category": "build",
+      "status": "FAIL",
+      "exitCode": 1,
+      "durationMs": 0,
+      "tap": {
+        "tests": null,
+        "pass": null,
+        "fail": null,
+        "cancelled": null,
+        "skipped": null,
+        "todo": null,
+        "durationMs": null,
+        "cases": []
+      },
+      "structuredResult": null
+    },
+    {
+      "commandId": "client-tests",
+      "category": "test",
+      "status": "FAIL",
+      "exitCode": 1,
+      "durationMs": 0,
+      "tap": {
+        "tests": null,
+        "pass": null,
+        "fail": null,
+        "cancelled": null,
+        "skipped": null,
+        "todo": null,
+        "durationMs": null,
+        "cases": []
+      },
+      "structuredResult": null
+    },
+    {
+      "commandId": "server-tests",
+      "category": "test",
+      "status": "FAIL",
+      "exitCode": 1,
+      "durationMs": 0,
+      "tap": {
+        "tests": null,
+        "pass": null,
+        "fail": null,
+        "cancelled": null,
+        "skipped": null,
+        "todo": null,
+        "durationMs": null,
+        "cases": []
+      },
+      "structuredResult": null
+    },
+    {
+      "commandId": "openapi-and-examples",
+      "category": "contract",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 108,
+      "tap": {
+        "tests": null,
+        "pass": null,
+        "fail": null,
+        "cancelled": null,
+        "skipped": null,
+        "todo": null,
+        "durationMs": null,
+        "cases": []
+      },
+      "structuredResult": {
+        "status": "PASS",
+        "suite": "education-docs",
+        "openapiOperations": 19,
+        "validExamples": 8,
+        "invalidExamples": 4
+      }
+    },
+    {
+      "commandId": "education-http-smoke",
+      "category": "smoke",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 316,
+      "tap": {
+        "tests": null,
+        "pass": null,
+        "fail": null,
+        "cancelled": null,
+        "skipped": null,
+        "todo": null,
+        "durationMs": null,
+        "cases": []
+      },
+      "structuredResult": {
+        "status": "PASS",
+        "mode": "LOCAL_HTTP_MOCK",
+        "externalCalls": 0,
+        "checkpoints": [
+          "health",
+          "profile",
+          "level1-ready",
+          "level2-locked-no-leak",
+          "mock-payment-authority",
+          "level2-ready"
+        ]
+      }
+    }
+  ],
+  "externalValidation": [
+    {
+      "id": "postgresql-schema",
+      "status": "BLOCKED_EXTERNAL",
+      "reason": "EDUCATION_TEST_DATABASE_URL is not configured; no database connection was attempted"
+    },
+    {
+      "id": "wechat-pay-live",
+      "status": "BLOCKED_EXTERNAL"
+    },
+    {
+      "id": "openai-agent-live",
+      "status": "BLOCKED_EXTERNAL"
+    },
+    {
+      "id": "feishu-bitable-live",
+      "status": "BLOCKED_EXTERNAL"
+    },
+    {
+      "id": "wechat-devtools-manual",
+      "status": "BLOCKED_MANUAL"
+    }
+  ],
+  "sourceChangedDuringRun": false,
+  "migrationChangedDuringRun": false,
+  "bindings": {
+    "freezeSha256": "9884503DA89A61F1DFC78FF97F429FDE210D240B30764D099105DD7C8A100B2D",
+    "migrationAggregateSha256": "DBDCDDA40BB8995BC65CED72A6F7D867F55ED1F270AE5C3F437DB238DDDA703D",
+    "sourceBeforeSha256": "329AF47BDE481D22E4FAD0B4B0CE34A4B671070E0A20775B1E62D448C6B77D8D",
+    "sourceAfterSha256": "329AF47BDE481D22E4FAD0B4B0CE34A4B671070E0A20775B1E62D448C6B77D8D"
+  }
+}

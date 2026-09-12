@@ -1,0 +1,112 @@
+<view class="compass-page compass-page--level-{{level}}" data-ui-screen="{{uiScreen}}">
+  <image class="compass-page__feather compass-page__feather--top" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+  <image class="compass-page__feather compass-page__feather--bottom" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+
+  <view class="compass-brand">
+    <image class="compass-brand__logo" src="/assets/brand/phoenix-nova-logo-primary.png" mode="widthFix" aria-label="Phoenix Nova" />
+    <text wx:if="{{isDemo}}" class="demo-badge">演示环境</text>
+  </view>
+
+  <view class="compass-product-lockup">
+    <image src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+    <view><text>EDUCATION COMPASS™</text><text>{{level === 1 ? 'FREE PARENT COMPASS' : 'STUDENT GROWTH DISCOVERY'}}</text></view>
+  </view>
+
+  <view class="compass-hero">
+    <image class="compass-hero__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+    <text class="eyebrow">{{level === 1 ? 'FAMILY EDUCATION SNAPSHOT' : 'EDUCATION GROWTH DISCOVERY'}}</text>
+    <text class="compass-hero__title">{{heroTitle}}</text>
+    <text class="compass-hero__copy">{{heroCopy}}</text>
+    <view wx:if="{{isV05 && level === 1}}" class="compass-benefits">
+      <view class="compass-benefit"><text class="compass-benefit__value">免费</text><text class="compass-benefit__label">完整家庭快照</text></view>
+      <view class="compass-benefit"><text class="compass-benefit__value">8</text><text class="compass-benefit__label">道家长必答题</text></view>
+      <view class="compass-benefit"><text class="compass-benefit__value">3—5</text><text class="compass-benefit__label">分钟手机完成</text></view>
+    </view>
+    <view wx:elif="{{isV05 && level === 2}}" class="compass-benefits">
+      <view class="compass-benefit"><text class="compass-benefit__value">学生</text><text class="compass-benefit__label">仅本人作答</text></view>
+      <view class="compass-benefit"><text class="compass-benefit__value">动态</text><text class="compass-benefit__label">按教育体系选题</text></view>
+      <view class="compass-benefit"><text class="compass-benefit__value">4维</text><text class="compass-benefit__label">证据分析非评分</text></view>
+    </view>
+    <view wx:if="{{student}}" class="compass-hero__student">
+      <text class="compass-hero__avatar">{{student.initial}}</text>
+      <view><text class="compass-hero__name">{{student.name || '学生档案'}}</text><text class="compass-hero__meta">{{student.school || '学校选填'}} · {{student.grade || '阶段待确认'}}</text></view>
+    </view>
+  </view>
+
+  <view class="page compass-body">
+    <view wx:if="{{loading}}" class="compass-state"><image class="compass-state__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" /><text class="h3">正在准备测评…</text><text class="muted">题库、进度与商品信息从服务端读取</text></view>
+    <view wx:elif="{{error}}" class="compass-state"><image class="compass-state__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" /><text class="h3">测评入口暂时不可用</text><text class="muted">{{error}}</text><button class="btn btn--outline" bindtap="retry">重新加载</button></view>
+
+    <block wx:else>
+    <view wx:if="{{isV05 && level === 2 && level2EntryAuthorized}}" class="product-card">
+      <view class="row row--between">
+        <view><text class="product-card__label">完整报告解锁价</text><text class="product-card__price">{{product.displayPrice}}</text></view>
+        <text class="product-card__type">{{product.purchaseType}}</text>
+      </view>
+      <text class="product-card__note">此入口只在免费 Family Education Snapshot 完成且允许邀请学生时出现。学生先完成并提交问卷，再自主决定是否付款；付款前不返回六项正文、signals 或 evidence。</text>
+    </view>
+
+    <view wx:if="{{!isV05}}" class="compass-path">
+      <view class="compass-path__item"><text>01</text><view><text>免费填写</text><text>身份、学术、优势、目标与家庭约束</text></view></view>
+      <view class="compass-path__item"><text>02</text><view><text>先看预览</text><text>画像摘要、1 条优势、1 条风险与路线概览</text></view></view>
+      <view class="compass-path__item"><text>03</text><view><text>按需解锁</text><text>六模块完整报告、PDF、反馈与顾问入口</text></view></view>
+    </view>
+
+    <view wx:else class="compass-path">
+      <block wx:if="{{level === 1}}">
+        <view class="compass-path__item"><text>01</text><view><text>家长本人填写</text><text>8 道必答题，记录最近观察而非能力判断</text></view></view>
+        <view class="compass-path__item"><text>02</text><view><text>免费完整结果</text><text>家庭关注、观察信号与学生准备状态</text></view></view>
+        <view class="compass-path__item"><text>03</text><view><text>尊重学生意愿</text><text>只有冻结规则允许时才邀请学生继续</text></view></view>
+      </block>
+      <block wx:else>
+        <view class="compass-path__item"><text>01</text><view><text>学生本人确认</text><text>家长可协助操作或解释，不得代选答案</text></view></view>
+        <view class="compass-path__item"><text>02</text><view><text>按教育体系动态出题</text><text>GAOKAO、DSE、IGCSE、A-Level、AP／美国课程加载分支题；IB／其他体系使用公共题 fallback</text></view></view>
+        <view class="compass-path__item"><text>03</text><view><text>提交后单次解锁</text><text>学历路径为选填背景项；付款确认后查看六项成长发现结果</text></view></view>
+      </block>
+    </view>
+
+    <view wx:if="{{isV05 && level === 2 && level2EntryAuthorized}}" class="compass-entry-note">
+      <text class="compass-entry-note__label">进入条件</text>
+      <text>已完成免费家庭教育快照，并由服务端确认可以邀请学生本人继续。此测评只发现学习与成长问题，不做完整升学规划或录取预测。</text>
+    </view>
+
+    <view wx:if="{{!isV05}}" class="consent-card">
+      <text class="h3">开始前确认</text>
+      <checkbox-group bindchange="consentChange">
+        <label class="consent-row"><checkbox value="guardian" color="#B78A37" /><text class="consent-row__copy">我是该未成年人的监护人，或已获得监护人授权</text></label>
+        <label class="consent-row consent-row--divided"><checkbox value="privacy" color="#B78A37" /><text class="consent-row__copy">我同意按<text class="text-link" catchtap="showPrivacy">隐私说明</text>处理本次资料</text></label>
+        <label class="consent-row consent-row--divided"><checkbox value="terms" color="#B78A37" /><text class="consent-row__copy">我已阅读<text class="text-link" catchtap="showTerms">报告服务说明</text>及非录取承诺</text></label>
+      </checkbox-group>
+    </view>
+
+    <block wx:else>
+      <view class="consent-card">
+        <view class="consent-card__heading"><text class="consent-card__step">01</text><view><text class="h3">监护人核心测评同意</text><text>独立授权，可随时撤回非必要同意</text></view></view>
+        <text class="consent-copy">{{guardianCopy}}</text>
+        <checkbox-group bindchange="guardianChange">
+          <label class="consent-row consent-row--touch"><checkbox value="guardian" checked="{{guardianAccepted}}" color="#B78A37" /><text class="consent-row__copy">我已阅读并单独同意上述核心测评处理</text></label>
+        </checkbox-group>
+        <text class="text-link consent-link" bindtap="showPrivacy">查看隐私说明</text>
+      </view>
+      <view wx:if="{{level === 2}}" class="consent-card consent-card--student">
+        <view class="consent-card__heading"><text class="consent-card__step">02</text><view><text class="h3">学生本人 Assent</text><text>不愿继续可直接退出，不形成负面信号</text></view></view>
+        <text class="consent-copy">{{studentAssentCopy}}</text>
+        <checkbox-group bindchange="assentChange">
+          <label class="consent-row consent-row--touch"><checkbox value="student" checked="{{studentAssentAccepted}}" color="#B78A37" /><text class="consent-row__copy">由学生本人确认愿意继续；不愿意可直接退出</text></label>
+        </checkbox-group>
+      </view>
+    </block>
+
+    <button class="btn btn--primary compass-primary" loading="{{creating}}" disabled="{{isV05 && level === 2 && !level2EntryAuthorized}}" bindtap="start">{{isV05 ? (level === 1 ? '开始免费家长教育罗盘' : '由学生本人开始成长发现') : '免费填写问卷'}}</button>
+    <text class="compass-time">{{isV05 ? (level === 1 ? '约 3—5 分钟 · 8 道家长必答题 · 免费查看完整家庭快照' : '约 15—20 分钟 · 学生本人作答 · 无能力总分') : '约 8—12 分钟 · 资料完整度达到 70 分后可生成预览'}}</text>
+    <view class="compass-privacy"><text class="compass-privacy__mark" aria-hidden="true">◇</text><text>资料按隐私说明处理｜结果仅授权家庭可见</text></view>
+
+    <view wx:if="{{reports.length}}" class="history section">
+      <view class="section-head"><text class="h3">历史成长报告</text><text class="muted">{{reports.length}} 份</text></view>
+      <view wx:for="{{reports}}" wx:key="id" class="history__item" data-id="{{item.id}}" data-assessment-id="{{item.assessment_id}}" data-access="{{item.entitled ? 'full' : 'preview'}}" bindtap="openReport">
+        <view><text class="history__date">{{item.dateLabel}} · {{item.accessLabel}}</text><text class="history__title">{{item.title}}</text></view><text class="chevron">›</text>
+      </view>
+    </view>
+    </block>
+  </view>
+</view>

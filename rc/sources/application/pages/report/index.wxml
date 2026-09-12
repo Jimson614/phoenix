@@ -1,0 +1,218 @@
+<view class="report">
+  <image class="report-decoration report-decoration--top" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+  <image class="report-decoration report-decoration--bottom" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+  <view class="report-brand">
+    <image class="report-brand__logo" src="/assets/brand/phoenix-nova-logo-primary.png" mode="widthFix" aria-label="Phoenix Nova" />
+    <view class="report-brand__product"><image src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" /><text>EDUCATION COMPASS™</text></view>
+  </view>
+  <view wx:if="{{loading}}" class="report-state"><text class="h3">正在读取报告…</text></view>
+  <view wx:elif="{{error}}" class="report-state"><text class="h3">报告暂时不可用</text><text class="muted">{{error}}</text><button class="btn btn--outline" bindtap="retry">重新加载</button></view>
+
+  <block wx:elif="{{response && isGrowthReport}}">
+    <view class="report__cover report__cover--growth">
+      <image class="report__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+      <button class="report-share" open-type="share" aria-label="分享通用小程序入口">分享</button>
+      <text class="eyebrow">PHOENIX EDUCATION COMPASS</text>
+      <text class="report__name">你的专属成长报告</text>
+      <text class="report__date">四大维度证据分析 · {{dateLabel || '服务端版本'}}</text>
+      <view class="report__seal"><text>AI</text><text>INSIGHT</text></view>
+    </view>
+
+    <view wx:if="{{!growthReady}}" class="report-state report-state--inline">
+      <text class="h3">完整报告尚未交付</text>
+      <text class="muted">当前结果仍处于锁定或生成状态。页面不会用占位内容冒充六项结果，也不会依据客户端支付回调自行解锁。</text>
+      <button class="btn btn--outline report-state__button" bindtap="retry">刷新服务端状态</button>
+      <button wx:if="{{rendered.assessmentId && userRole === 'family_user'}}" class="btn btn--text report-state__button" bindtap="unlock">返回解锁页面</button>
+    </view>
+
+    <view wx:else class="page report__body report__body--growth" data-ui-screen="growth-report">
+      <view class="dimension-summary" aria-label="四大维度证据状态，不是能力评分">
+        <text class="dimension-summary__eyebrow">FOUR EVIDENCE DIMENSIONS</text>
+        <text class="dimension-summary__title">四大维度证据状态</text>
+        <text class="dimension-summary__note">只呈现本次回答支持程度，不计算能力分、排名或百分位。</text>
+        <view class="dimension-grid">
+          <view wx:for="{{dimensionCards}}" wx:key="code" class="dimension-card dimension-card--{{item.status}}">
+            <view class="dimension-card__mark"></view>
+            <text class="dimension-card__title">{{item.title}}</text>
+            <text class="dimension-card__status">{{item.statusLabel}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="growth-context">
+        <view><text class="growth-context__label">EDUCATION SYSTEM</text><text class="growth-context__value">{{growthEducationSystem || '未提供'}}</text></view>
+        <view><text class="growth-context__label">SYSTEM ROUTE</text><text class="growth-context__value">{{rendered.systemResultMarker || 'COMMON BANK'}}</text></view>
+      </view>
+
+      <view wx:for="{{growthSections}}" wx:key="key" class="report-section report-section--growth">
+        <text class="report-section__number">{{item.number}}</text>
+        <text class="report-section__label">{{item.key}}</text>
+        <text class="report-section__title">{{item.title}}</text>
+        <view wx:if="{{item.lines.length}}" class="growth-lines">
+          <view wx:for="{{item.lines}}" wx:key="*this" class="growth-line"><text class="growth-line__mark">•</text><text>{{item}}</text></view>
+        </view>
+        <text wx:else class="report-section__empty">本项暂无可展示内容</text>
+      </view>
+
+      <view wx:if="{{evidenceLines.length}}" class="source-card">
+        <text class="source-card__title">结果依据引用</text>
+        <text wx:for="{{evidenceLines}}" wx:key="*this">{{item}}</text>
+      </view>
+      <view class="source-card source-card--version">
+        <text class="source-card__title">版本与生成边界</text>
+        <text>报告版本：{{rendered.resultVersion || '服务端当前版本'}}</text>
+        <text>题库版本：{{questionnaireVersionsLabel}}</text>
+      </view>
+      <view class="report-note">{{rendered.disclaimer || '本报告用于发现学习与成长问题，不构成诊断、完整升学规划、录取预测或结果保证。'}}</view>
+
+      <view wx:if="{{userRole === 'family_user'}}" class="report-tools">
+        <button class="btn btn--primary" loading="{{pdfLoading}}" bindtap="openPdf">打开 / 保存 PDF</button>
+        <view wx:if="{{paidAnalysisVisible}}" class="agent-entry agent-entry--analysis">
+          <text class="agent-entry__eyebrow">PAID REPORT AI ANALYSIS</text>
+          <text class="agent-entry__title">完整已购报告 AI 总分析</text>
+          <text class="agent-entry__copy">须经监护人单独同意，并由服务端重新校验报告权益；AI 入口不会改变报告原始结论。</text>
+          <button class="btn btn--gold" bindtap="openPaidAnalysis">开始 AI 总分析</button>
+        </view>
+        <view wx:if="{{agentEntryVisible}}" class="agent-entry">
+          <text class="agent-entry__eyebrow">PHOENIX AI REPORT FOLLOW-UP</text>
+          <text class="agent-entry__title">已购报告 AI 追问（最多 3 次）</text>
+          <text class="agent-entry__copy">AI 仅解释服务端已交付并通过 QA 的报告；首次进入需由监护人单独同意。</text>
+          <button class="btn btn--gold" bindtap="openAgent">{{agentEntryLabel}}</button>
+        </view>
+      </view>
+
+      <view wx:if="{{nextSupportVisible && nextSupport}}" class="next-support" data-ui-screen="next-support">
+        <text class="next-support__eyebrow">NEXT GROWTH SUPPORT</text>
+        <text class="next-support__title">下一步成长支持</text>
+        <text class="next-support__headline">让建议真正用起来</text>
+        <view class="askwise-card">
+          <text class="askwise-card__name">ASKWISE</text>
+          <text class="askwise-card__title">学习伙伴</text>
+          <view class="askwise-card__points">
+            <text>• 错题分析与薄弱点定位</text>
+            <text>• 个性化学习路径跟踪</text>
+            <text>• 学习计划与执行提醒</text>
+          </view>
+          <button class="btn askwise-card__button" disabled="{{!nextSupport.askwiseEnabled}}">{{nextSupport.askwiseLabel}}</button>
+        </view>
+        <view class="next-support__divider"></view>
+        <view class="advisor-support">
+          <text class="advisor-support__title">需要专业顾问协助？</text>
+          <text class="advisor-support__copy">{{nextSupport.deepStateCopy}}</text>
+          <button wx:if="{{nextSupport.deepAdvisorVisible}}" class="btn btn--outline advisor-support__button" bindtap="contactDeep">了解深度评估 / 预约顾问</button>
+          <text wx:else class="advisor-support__status">当前不主动推荐付费服务，也不会自动创建预约。</text>
+          <button class="btn btn--text advisor-support__button" bindtap="contact">联系教育顾问</button>
+        </view>
+        <button class="btn btn--text next-support__home" bindtap="home">返回家庭中心</button>
+      </view>
+
+      <view wx:if="{{userRole === 'family_user' && !feedbackSent}}" class="feedback-card">
+        <text class="h3">这份报告对你有帮助吗？</text>
+        <view class="rating-row"><text wx:for="{{ratings}}" wx:key="*this" class="rating {{feedback.rating === item ? 'rating--active' : ''}}" data-rating="{{item}}" bindtap="chooseRating">{{item}}</text></view>
+        <view class="feedback-tags"><text wx:for="{{feedbackTags}}" wx:key="text" class="feedback-tag {{item.selected ? 'feedback-tag--active' : ''}}" data-index="{{index}}" bindtap="toggleFeedbackTag">{{item.text}}</text></view>
+        <textarea class="textarea" maxlength="300" placeholder="还有哪些地方希望改进？（选填）" value="{{feedback.comment}}" bindinput="feedbackInput"></textarea>
+        <button class="btn btn--outline" loading="{{feedbackSending}}" bindtap="submitFeedback">提交反馈</button>
+      </view>
+      <text wx:if="{{userRole === 'family_user' && feedbackSent}}" class="feedback-thanks">感谢你的反馈。</text>
+      <button wx:if="{{userRole === 'family_user'}}" class="btn btn--text" bindtap="home">返回家庭中心</button>
+    </view>
+
+    <view wx:if="{{agentManagementVisible}}" class="page agent-management-entry">
+      <text class="h3">AI 数据管理</text><text class="muted">当前不能继续解读，但仍可管理原有会话或撤回专项同意。</text><button class="btn btn--outline" bindtap="manageAgent">管理 AI 对话</button>
+    </view>
+  </block>
+
+  <block wx:elif="{{response}}">
+    <view class="report__cover">
+      <image class="report__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+      <text class="eyebrow">PHOENIX EDUCATION COMPASS</text>
+      <text class="report__name">{{student ? student.name + '的' : ''}}
+成长规划报告</text>
+      <text class="report__date">{{response.access === 'legacy' ? 'V0.1 历史免费洞察' : '六模块完整报告'}} {{dateLabel ? '· ' + dateLabel : ''}}</text>
+      <view class="report__seal"><text>AI</text><text>INSIGHT</text></view>
+    </view>
+
+    <view wx:if="{{response.status === 'GENERATING'}}" class="report-state report-state--inline">
+      <text class="h3">付款已确认，完整报告生成中</text>
+      <text class="muted">请勿重复支付。稍后刷新即可查看六模块内容。</text>
+      <button class="btn btn--outline" bindtap="retry">刷新报告状态</button>
+    </view>
+
+    <view wx:elif="{{response.access === 'full' && !response.full.complete}}" class="report-state report-state--inline">
+      <text class="h3">完整报告内容尚未齐备</text>
+      <text class="muted">已保留你的付费权益，请稍后刷新；页面不会用占位内容冒充完整模块。</text>
+      <button class="btn btn--outline" bindtap="retry">刷新报告状态</button>
+    </view>
+
+    <view wx:elif="{{response.access === 'full'}}" class="page report__body">
+      <view class="report__intro"><text class="report__quote">“</text><text>{{response.preview.profileSummary}}</text></view>
+
+      <view wx:for="{{response.full.modules}}" wx:key="key" class="report-section">
+        <text class="report-section__number">{{index + 1 < 10 ? '0' : ''}}{{index + 1}}</text>
+        <text class="report-section__label">{{item.key}}</text>
+        <text class="report-section__title">{{item.title}}</text>
+        <text class="report-section__copy">{{item.summary}}</text>
+        <view wx:if="{{item.items.length}}" class="module-items">
+          <view wx:for="{{item.items}}" wx:key="*this" class="module-item"><text>•</text><text>{{item}}</text></view>
+        </view>
+      </view>
+
+      <view class="source-card">
+        <text class="source-card__title">生成依据与数据日期</text>
+        <text>数据截至 {{response.full.dataAsOf}}</text>
+        <text>可信度：{{response.full.confidence}}</text>
+        <text wx:for="{{response.full.sources}}" wx:key="name">{{item.name}}{{item.applicableYear ? ' · 适用 ' + item.applicableYear : ''}}{{item.dataVersion ? ' · ' + item.dataVersion : ''}} · 核验 {{item.dataAsOf}}</text>
+      </view>
+      <view class="report-note">{{response.full.disclaimer}}</view>
+
+      <view wx:if="{{userRole === 'family_user'}}" class="report-tools">
+        <button class="btn btn--primary" loading="{{pdfLoading}}" bindtap="openPdf">打开 / 保存 PDF</button>
+        <view wx:if="{{paidAnalysisVisible}}" class="agent-entry agent-entry--analysis">
+          <text class="agent-entry__eyebrow">PAID REPORT AI ANALYSIS</text>
+          <text class="agent-entry__title">完整已购报告 AI 总分析</text>
+          <text class="agent-entry__copy">在监护人单独同意后，Phoenix服务端只使用报告关联的受控选项、结构化结论与核验来源；不发送六模块原文、问卷自由文本或客户资料，并会重新核验权益和报告状态。</text>
+          <button class="btn btn--gold" bindtap="openPaidAnalysis">开始 AI 总分析</button>
+        </view>
+        <view wx:if="{{agentEntryVisible}}" class="agent-entry">
+          <text class="agent-entry__eyebrow">PHOENIX AI REPORT FOLLOW-UP</text>
+          <text class="agent-entry__title">已购报告 AI 追问（最多 3 次）</text>
+          <text class="agent-entry__copy">AI 仅解释服务端已交付并通过 QA 的报告；首次进入需由监护人单独同意，每份报告最多 3 个成功回复。</text>
+          <button class="btn btn--gold" bindtap="openAgent">{{agentEntryLabel}}</button>
+        </view>
+        <button class="btn btn--outline" bindtap="contact">联系顾问解读报告</button>
+      </view>
+
+      <view wx:if="{{userRole === 'family_user' && !feedbackSent}}" class="feedback-card">
+        <text class="h3">这份报告对你有帮助吗？</text>
+        <view class="rating-row"><text wx:for="{{ratings}}" wx:key="*this" class="rating {{feedback.rating === item ? 'rating--active' : ''}}" data-rating="{{item}}" bindtap="chooseRating">{{item}}</text></view>
+        <view class="feedback-tags"><text wx:for="{{feedbackTags}}" wx:key="text" class="feedback-tag {{item.selected ? 'feedback-tag--active' : ''}}" data-index="{{index}}" bindtap="toggleFeedbackTag">{{item.text}}</text></view>
+        <textarea class="textarea" maxlength="300" placeholder="还有哪些地方希望改进？（选填）" value="{{feedback.comment}}" bindinput="feedbackInput"></textarea>
+        <button class="btn btn--outline" loading="{{feedbackSending}}" bindtap="submitFeedback">提交反馈</button>
+      </view>
+      <text wx:if="{{userRole === 'family_user' && feedbackSent}}" class="feedback-thanks">感谢你的反馈。</text>
+      <button wx:if="{{userRole === 'family_user'}}" class="btn btn--text" bindtap="home">返回家庭中心</button>
+    </view>
+
+    <view wx:elif="{{response.access === 'legacy'}}" class="page report__body">
+      <view class="report__intro"><text class="report__quote">“</text><text>{{response.legacy.summary.narrative}}</text></view>
+      <view class="report-section"><text class="report-section__number">01</text><text class="report-section__label">CURRENT STAGE</text><text class="report-section__title">{{response.legacy.summary.currentStage}}</text></view>
+      <view class="report-section"><text class="report-section__number">02</text><text class="report-section__label">STRENGTH & RISK</text><text class="report-section__title">{{response.legacy.summary.strength}}</text><view class="report-highlight"><text>潜在挑战</text><text>{{response.legacy.summary.potentialChallenge}}</text></view></view>
+      <view class="report-section"><text class="report-section__number">03</text><text class="report-section__label">SUGGESTED DIRECTION</text><text class="report-section__copy">{{response.legacy.recommendation.suggestedDirection}}</text></view>
+      <view class="action-card"><text class="action-card__label">NEXT 30 DAYS</text><text class="action-card__title">下一步行动</text><text class="action-card__copy">{{response.legacy.recommendation.nextAction}}</text></view>
+      <view class="report-note">历史免费洞察会继续保留，不会被误标为已购买的新版完整报告。</view>
+      <view wx:if="{{userRole === 'family_user'}}" class="form-actions"><button class="btn btn--outline" bindtap="contact">联系顾问</button><button class="btn btn--text" bindtap="home">返回家庭中心</button></view>
+    </view>
+
+    <view wx:else class="page report__body report-locked">
+      <text class="h2">当前仅可查看免费预览</text>
+      <text class="muted">{{response.preview.profileSummary}}</text>
+      <button wx:if="{{userRole === 'family_user'}}" class="btn btn--primary" bindtap="unlock">前往预览并解锁完整报告</button>
+    </view>
+
+    <view wx:if="{{agentManagementVisible}}" class="page agent-management-entry">
+      <text class="h3">AI 数据管理</text>
+      <text class="muted">当前不能继续解读，但仍可发现并删除原有会话或撤回专项同意。</text>
+      <button class="btn btn--outline" bindtap="manageAgent">管理 AI 对话</button>
+    </view>
+  </block>
+</view>

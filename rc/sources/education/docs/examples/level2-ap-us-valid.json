@@ -1,0 +1,61 @@
+{
+  "fixtureId": "LEVEL2_AP_US_VALID_V1",
+  "questionnaireVersion": "education_growth_discovery_v1.0.0-rc1",
+  "educationSystem": "AP_US",
+  "create": {
+    "method": "POST",
+    "path": "/v1/students/{studentId}/education-assessments",
+    "headers": { "Idempotency-Key": "example-ap-us-create-001" },
+    "body": {
+      "assessmentKind": "STUDENT_GROWTH_DISCOVERY",
+      "sourceAssessmentId": "{completedLevel1AssessmentId}",
+      "sourceEntry": "LEVEL_1_RESULT",
+      "educationSystem": "AP_US",
+      "respondent": "STUDENT",
+      "assent": {
+        "scope": "STUDENT_ASSESSMENT_ASSENT",
+        "copyVersion": "student_assent_growth_discovery_v1.0.0-rc1",
+        "locale": "zh-CN",
+        "studentConfirmed": true
+      }
+    }
+  },
+  "draft": {
+    "method": "PUT",
+    "path": "/v1/assessments/{assessmentId}/draft",
+    "body": {
+      "revision": 1,
+      "educationSystem": "AP_US",
+      "clientSaveToken": "example-ap-us-save-001",
+      "answers": {
+        "EGD01": "CONFIRM_STUDENT_SELF",
+        "EGD02": "UPPER_SECONDARY",
+        "EGD03": "AP_US",
+        "EGD04": "2027",
+        "EGD05": ["HONG_KONG"],
+        "EGD06": ["FOUNDATION"],
+        "EGD07": "CONSISTENT_STRONG",
+        "EGD08": ["ENGLISH_ELA"],
+        "EGD09": ["ENGLISH_ELA"],
+        "EGD10": "DECOMPOSE_CONDITIONS",
+        "EGD11": "RARELY",
+        "EGD12": "PLAN_AND_REVIEW",
+        "EGD13": "ATTRIBUTE_AND_RETRY",
+        "EGD14": ["TEACHER_EXPLANATION"],
+        "EGD15": ["SCIENCE"],
+        "EGD16": "SUSTAINED_OUTPUT",
+        "EGD17": ["FOUNDATION_GAP"],
+        "EGD18": "SUBJECT_DIAGNOSIS",
+        "EGD19": ["MAINLAND_TERTIARY_DIPLOMA"],
+        "AP02": "MOSTLY_STANDARD",
+        "AP03": ["ENGLISH_ELA"]
+      }
+    }
+  },
+  "submit": {
+    "method": "POST",
+    "path": "/v1/assessments/{assessmentId}/submit",
+    "headers": { "Idempotency-Key": "example-ap-us-submit-001" },
+    "body": { "revision": 2 }
+  }
+}

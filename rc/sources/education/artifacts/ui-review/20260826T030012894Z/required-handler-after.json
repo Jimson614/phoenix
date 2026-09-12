@@ -1,0 +1,763 @@
+{
+  "phase": "after",
+  "generatedAt": "2026-08-26T07:17:24.249Z",
+  "pages": [
+    {
+      "path": "pages/admin-families/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindtap",
+          "handler": "logout"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "search"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "open"
+        }
+      ],
+      "dataAttributes": [
+        {
+          "attribute": "data-id",
+          "value": "{{item.id}}"
+        }
+      ]
+    },
+    {
+      "path": "pages/admin-family/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindtap",
+          "handler": "openReport"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "inputNote"
+        },
+        {
+          "attribute": "bindchange",
+          "handler": "pickStatus"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "addNote"
+        }
+      ],
+      "dataAttributes": [
+        {
+          "attribute": "data-id",
+          "value": "{{item.id}}"
+        }
+      ]
+    },
+    {
+      "path": "pages/advisor-request/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindchange",
+          "handler": "pickTopic"
+        },
+        {
+          "attribute": "bindchange",
+          "handler": "pickTime"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "input"
+        },
+        {
+          "attribute": "bindchange",
+          "handler": "toggleConsent"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "submit"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "done"
+        }
+      ],
+      "dataAttributes": []
+    },
+    {
+      "path": "pages/agent-chat/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindtap",
+          "handler": "retry"
+        },
+        {
+          "attribute": "bindchange",
+          "handler": "consentChange"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "startConversation"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "resumeRunPolling"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "draftInput"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "send"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "withdrawConsent"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "deleteConversation"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "deleteConversation"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "backToReport"
+        }
+      ],
+      "dataAttributes": [
+        {
+          "attribute": "data-id",
+          "value": "{{item.conversationId}}"
+        }
+      ]
+    },
+    {
+      "path": "pages/assessment-analysis/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindchange",
+          "handler": "consentChange"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "startAnalysis"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "resumePolling"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "back"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "retryAnalysis"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "back"
+        }
+      ],
+      "dataAttributes": []
+    },
+    {
+      "path": "pages/compass-preview/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindtap",
+          "handler": "retry"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "startStudentAssessment"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "home"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "purchase"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "openGrowthReport"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "retry"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "openFreeAnalysis"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "purchase"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "retry"
+        }
+      ],
+      "dataAttributes": []
+    },
+    {
+      "path": "pages/compass-questionnaire/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindtap",
+          "handler": "exitQuestionnaire"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "retry"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "exitQuestionnaire"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "choose"
+        },
+        {
+          "attribute": "bindchange",
+          "handler": "updateMatrixRange"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "removeMatrixRow"
+        },
+        {
+          "attribute": "bindchange",
+          "handler": "addMatrixRow"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "previous"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "next"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "retry"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "choose"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "typeAnswer"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "previous"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "next"
+        }
+      ],
+      "dataAttributes": [
+        {
+          "attribute": "data-id",
+          "value": "{{question.id}}"
+        },
+        {
+          "attribute": "data-code",
+          "value": "{{option.code}}"
+        },
+        {
+          "attribute": "data-id",
+          "value": "{{question.id}}"
+        },
+        {
+          "attribute": "data-row",
+          "value": "{{rowIndex}}"
+        },
+        {
+          "attribute": "data-id",
+          "value": "{{question.id}}"
+        },
+        {
+          "attribute": "data-row",
+          "value": "{{rowIndex}}"
+        },
+        {
+          "attribute": "data-id",
+          "value": "{{question.id}}"
+        },
+        {
+          "attribute": "data-question",
+          "value": "{{qIndex}}"
+        },
+        {
+          "attribute": "data-option",
+          "value": "{{oIndex}}"
+        },
+        {
+          "attribute": "data-question",
+          "value": "{{qIndex}}"
+        }
+      ]
+    },
+    {
+      "path": "pages/compass/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindtap",
+          "handler": "retry"
+        },
+        {
+          "attribute": "bindchange",
+          "handler": "consentChange"
+        },
+        {
+          "attribute": "catchtap",
+          "handler": "showPrivacy"
+        },
+        {
+          "attribute": "catchtap",
+          "handler": "showTerms"
+        },
+        {
+          "attribute": "bindchange",
+          "handler": "guardianChange"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "showPrivacy"
+        },
+        {
+          "attribute": "bindchange",
+          "handler": "assentChange"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "start"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "openReport"
+        }
+      ],
+      "dataAttributes": [
+        {
+          "attribute": "data-id",
+          "value": "{{item.id}}"
+        },
+        {
+          "attribute": "data-assessment-id",
+          "value": "{{item.assessment_id}}"
+        },
+        {
+          "attribute": "data-access",
+          "value": "{{item.entitled ? "
+        }
+      ]
+    },
+    {
+      "path": "pages/family-edit/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindinput",
+          "handler": "input"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "input"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "input"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "input"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "input"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "save"
+        }
+      ],
+      "dataAttributes": [
+        {
+          "attribute": "data-field",
+          "value": "family_name"
+        },
+        {
+          "attribute": "data-field",
+          "value": "parent_name"
+        },
+        {
+          "attribute": "data-field",
+          "value": "phone"
+        },
+        {
+          "attribute": "data-field",
+          "value": "location"
+        },
+        {
+          "attribute": "data-field",
+          "value": "goal"
+        }
+      ]
+    },
+    {
+      "path": "pages/home/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindtap",
+          "handler": "retry"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "goNext"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "goStudent"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "goReport"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "goNext"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "goCompass"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "goAdvisor"
+        }
+      ],
+      "dataAttributes": []
+    },
+    {
+      "path": "pages/mine/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindtap",
+          "handler": "editFamily"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "addStudent"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "compass"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "advisor"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "openOrder"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "withdrawAiConsent"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "withdrawFeishuConsent"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "withdrawAdvisorConsent"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "withdrawStudentAssent"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "withdrawCoreConsent"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "logout"
+        }
+      ],
+      "dataAttributes": [
+        {
+          "attribute": "data-id",
+          "value": "{{item.orderId}}"
+        }
+      ]
+    },
+    {
+      "path": "pages/payment-result/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindtap",
+          "handler": "refresh"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "openReport"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "retryPayment"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "refresh"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "home"
+        }
+      ],
+      "dataAttributes": []
+    },
+    {
+      "path": "pages/report/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindtap",
+          "handler": "retry"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "retry"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "unlock"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "openPdf"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "openPaidAnalysis"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "openAgent"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "contact"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "chooseRating"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "toggleFeedbackTag"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "feedbackInput"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "submitFeedback"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "home"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "manageAgent"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "retry"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "retry"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "openPdf"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "openPaidAnalysis"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "openAgent"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "contact"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "chooseRating"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "toggleFeedbackTag"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "feedbackInput"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "submitFeedback"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "home"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "contact"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "home"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "unlock"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "manageAgent"
+        }
+      ],
+      "dataAttributes": [
+        {
+          "attribute": "data-rating",
+          "value": "{{item}}"
+        },
+        {
+          "attribute": "data-index",
+          "value": "{{index}}"
+        },
+        {
+          "attribute": "data-rating",
+          "value": "{{item}}"
+        },
+        {
+          "attribute": "data-index",
+          "value": "{{index}}"
+        }
+      ]
+    },
+    {
+      "path": "pages/student-edit/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindinput",
+          "handler": "input"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "input"
+        },
+        {
+          "attribute": "bindchange",
+          "handler": "pickGender"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "input"
+        },
+        {
+          "attribute": "bindchange",
+          "handler": "pickSystem"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "input"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "input"
+        },
+        {
+          "attribute": "bindinput",
+          "handler": "input"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "save"
+        }
+      ],
+      "dataAttributes": [
+        {
+          "attribute": "data-field",
+          "value": "name"
+        },
+        {
+          "attribute": "data-field",
+          "value": "age"
+        },
+        {
+          "attribute": "data-field",
+          "value": "school"
+        },
+        {
+          "attribute": "data-field",
+          "value": "grade"
+        },
+        {
+          "attribute": "data-field",
+          "value": "interest"
+        },
+        {
+          "attribute": "data-field",
+          "value": "goal"
+        }
+      ]
+    },
+    {
+      "path": "pages/timeline/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindtap",
+          "handler": "goHome"
+        }
+      ],
+      "dataAttributes": []
+    },
+    {
+      "path": "pages/welcome/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindtap",
+          "handler": "start"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "start"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "advisorLogin"
+        }
+      ],
+      "dataAttributes": []
+    }
+  ]
+}

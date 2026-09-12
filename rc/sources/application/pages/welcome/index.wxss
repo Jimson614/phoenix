@@ -1,0 +1,256 @@
+.welcome {
+  background:
+    radial-gradient(circle at 82% 12%, rgba(221, 189, 125, .24), transparent 30%),
+    linear-gradient(165deg, #fffdf9 0%, #fcf8f4 60%, #f8f0e5 100%);
+  box-sizing: border-box;
+  color: var(--navy);
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 0 44rpx 32rpx;
+  position: relative;
+}
+
+.welcome__glow {
+  border-radius: 50%;
+  opacity: .38;
+  pointer-events: none;
+  position: absolute;
+}
+
+.welcome__glow--one {
+  background: radial-gradient(circle, rgba(221, 189, 125, .28), transparent 68%);
+  height: 520rpx;
+  right: -260rpx;
+  top: 160rpx;
+  width: 520rpx;
+}
+
+.welcome__glow--two {
+  background: radial-gradient(circle, rgba(183, 129, 34, .1), transparent 70%);
+  bottom: 120rpx;
+  height: 420rpx;
+  left: -260rpx;
+  width: 420rpx;
+}
+
+.welcome__feather {
+  opacity: .2;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+}
+
+.welcome__feather--top {
+  height: 640rpx;
+  right: -200rpx;
+  top: 40rpx;
+  transform: rotate(22deg);
+  width: 430rpx;
+}
+
+.welcome__feather--bottom {
+  bottom: -280rpx;
+  height: 660rpx;
+  left: -200rpx;
+  transform: rotate(190deg);
+  width: 440rpx;
+}
+
+.welcome__top,
+.welcome__hero,
+.orbit,
+.welcome__actions,
+.welcome__footer {
+  position: relative;
+  z-index: 1;
+}
+
+.welcome__top {
+  align-items: center;
+  box-sizing: content-box;
+  display: flex;
+  padding-bottom: 12rpx;
+}
+
+.welcome__hero {
+  margin: 64rpx auto 0;
+  max-width: 650rpx;
+  text-align: center;
+}
+
+.welcome__eyebrow {
+  color: var(--gold-deep);
+  display: block;
+  font-size: 20rpx;
+  font-weight: 650;
+  letter-spacing: 5rpx;
+}
+
+.welcome__title {
+  color: var(--navy);
+  display: block;
+  font-family: var(--font-display);
+  font-size: 60rpx;
+  font-weight: 700;
+  line-height: 1.38;
+  margin-top: 24rpx;
+  white-space: pre-line;
+}
+
+.welcome__title::after {
+  background: linear-gradient(90deg, transparent, var(--gold-decor), transparent);
+  content: "";
+  display: block;
+  height: 1rpx;
+  margin: 30rpx auto 0;
+  width: 210rpx;
+}
+
+.welcome__subtitle {
+  color: var(--ink-secondary);
+  display: block;
+  font-size: 25rpx;
+  line-height: 1.82;
+  margin-top: 28rpx;
+  white-space: pre-line;
+}
+
+.orbit {
+  height: 330rpx;
+  margin: 30rpx auto 22rpx;
+  width: 540rpx;
+}
+
+.orbit__ring {
+  border: 1rpx solid rgba(183, 129, 34, .23);
+  border-radius: 50%;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.orbit__ring--outer {
+  height: 288rpx;
+  width: 500rpx;
+}
+
+.orbit__ring--inner {
+  border-style: dashed;
+  height: 228rpx;
+  width: 396rpx;
+}
+
+.orbit__compass {
+  height: 206rpx;
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 206rpx;
+}
+
+.orbit__label {
+  background: rgba(255, 253, 249, .92);
+  border: 1rpx solid var(--line-strong);
+  border-radius: 999rpx;
+  box-shadow: 0 8rpx 24rpx rgba(71, 48, 21, .07);
+  color: var(--gold-deep);
+  font-family: var(--font-display);
+  font-size: 23rpx;
+  min-width: 74rpx;
+  padding: 11rpx 18rpx;
+  position: absolute;
+  text-align: center;
+}
+
+.orbit__label--one {
+  left: 4rpx;
+  top: 136rpx;
+}
+
+.orbit__label--two {
+  right: 56rpx;
+  top: 16rpx;
+}
+
+.orbit__label--three {
+  bottom: 4rpx;
+  right: 58rpx;
+}
+
+.welcome__actions {
+  margin: 8rpx auto 0;
+  max-width: 650rpx;
+}
+
+.welcome__login {
+  background: transparent;
+  color: var(--gold-deep);
+  font-size: 25rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  margin-top: 12rpx;
+}
+
+.welcome__login::after {
+  border: 0;
+}
+
+.welcome__privacy {
+  color: var(--muted);
+  display: block;
+  font-size: 21rpx;
+  line-height: 1.6;
+  margin-top: 12rpx;
+  text-align: center;
+}
+
+.welcome__footer {
+  color: var(--subtle);
+  font-size: 20rpx;
+  margin: 30rpx auto 0;
+  min-height: 88rpx;
+  padding-top: 24rpx;
+  text-align: center;
+}
+
+@media (max-width: 360px) {
+  .welcome {
+    padding-left: 32rpx;
+    padding-right: 32rpx;
+  }
+
+  .welcome__hero {
+    margin-top: 38rpx;
+  }
+
+  .welcome__title {
+    font-size: 50rpx;
+  }
+
+  .welcome__subtitle {
+    font-size: 23rpx;
+  }
+
+  .orbit {
+    height: 292rpx;
+    width: 470rpx;
+  }
+
+  .orbit__ring--outer {
+    height: 252rpx;
+    width: 440rpx;
+  }
+
+  .orbit__ring--inner {
+    height: 204rpx;
+    width: 350rpx;
+  }
+
+  .orbit__compass {
+    height: 180rpx;
+    width: 180rpx;
+  }
+}

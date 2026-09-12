@@ -1,0 +1,28 @@
+<view class="questionnaire page--paper">
+  <view class="questionnaire__top">
+    <view class="progress"><view class="progress__fill" style="width: {{progress}}%;"></view></view>
+    <view class="row row--between questionnaire__meta"><text>STEP {{stepIndex + 1}} / {{steps.length}}</text><text>{{student.name}}</text></view>
+  </view>
+
+  <view class="questionnaire__body">
+    <text class="eyebrow">EDUCATION COMPASS</text>
+    <text class="h1 questionnaire__title">{{current.title}}</text>
+    <text class="muted questionnaire__hint">{{current.hint}}</text>
+
+    <view wx:for="{{current.questions}}" wx:key="key" wx:for-index="qIndex" class="question">
+      <text class="question__label">{{item.label}}</text>
+      <view wx:if="{{item.type === 'single' || item.type === 'multi'}}" class="question__options">
+        <view wx:for="{{item.options}}" wx:key="text" wx:for-index="oIndex" class="option {{item.selected ? 'option--selected' : ''}}" data-question="{{qIndex}}" data-option="{{oIndex}}" bindtap="choose">
+          <text>{{item.text}}</text><text class="option__check">{{item.selected ? '✓' : ''}}</text>
+        </view>
+      </view>
+      <textarea wx:if="{{item.type === 'text'}}" class="textarea question__textarea" value="{{item.value}}" placeholder="{{item.placeholder}}" maxlength="300" data-question="{{qIndex}}" bindinput="typeAnswer"></textarea>
+    </view>
+  </view>
+
+  <view class="questionnaire__actions">
+    <button class="questionnaire__back" disabled="{{submitting}}" bindtap="previous">{{stepIndex ? '上一步' : '退出'}}</button>
+    <button class="btn btn--primary questionnaire__next" loading="{{submitting}}" disabled="{{submitting}}" bindtap="next">{{stepIndex === steps.length - 1 ? '生成成长洞察' : '继续'}}</button>
+  </view>
+  <view class="safe-bottom"></view>
+</view>

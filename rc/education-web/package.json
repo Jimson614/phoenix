@@ -1,0 +1,39 @@
+{
+  "name": "phoenix-family-os-mini-program-mvp",
+  "version": "0.5.0",
+  "private": true,
+  "description": "Phoenix Family OS WeChat Mini Program MVP V0.5.0 with Education Compass Level 1 and Level 2 flows, dual AI analysis, WeChat Pay and opt-in Feishu customer profile mirror",
+  "scripts": {
+    "dev": "next dev --webpack --hostname 127.0.0.1 --port 4311",
+    "build": "next build --webpack",
+    "start": "next start --hostname 127.0.0.1 --port 4311",
+    "lint": "eslint app src next.config.ts vitest.config.mts eslint.config.mjs postcss.config.mjs",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test:web": "vitest run --configLoader runner"
+  },
+  "dependencies": {
+    "next": "16.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.5",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.1",
+    "jsdom": "^30.0.1",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "packageManager": "pnpm@11.19.0"
+}

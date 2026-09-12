@@ -1,0 +1,9 @@
+# Frozen artifacts and migration checksums are hashes of their approved Git bytes.
+# Keep those bytes stable on Windows; never relax the hash checks themselves.
+docs/product/freeze/**/*.json text eol=lf
+docs/product/freeze/**/*.md text eol=lf
+docs/product/freeze/**/*.sha256 text eol=lf
+server/migrations/*.sql text eol=lf
+server/migrations/rollback/*.sql text eol=lf
+package-lock.json text eol=lf
+server/package-lock.json text eol=lf

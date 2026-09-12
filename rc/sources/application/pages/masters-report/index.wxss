@@ -1,0 +1,30 @@
+.masters-report { min-height: 100vh; }
+.masters-report__page { padding-bottom: calc(80rpx + env(safe-area-inset-bottom)); }
+.masters-report__topbar { align-items: center; display: flex; justify-content: space-between; }
+.masters-report__topbar .btn { font-size: 24rpx; margin-left: -14rpx; }
+.masters-report__heading { margin: 50rpx 0 28rpx; }
+.masters-report__heading .h1 { display: block; margin-top: 12rpx; }
+.masters-report__heading .muted { margin-top: 10rpx; }
+.report-summary .body { margin-top: 14rpx; }
+.report-strengths { margin-top: 20rpx; }
+.report-strengths .h2, .candidate-panel .h2 { display: block; }
+.report-columns { display: flex; gap: 20rpx; margin-top: 18rpx; }
+.report-columns > view { background: var(--ivory-warm); border-radius: var(--radius-md); flex: 1; min-width: 0; padding: 18rpx; }
+.report-column__title { color: var(--gold-deep); display: block; font-size: 22rpx; font-weight: 650; }
+.report-line { color: var(--ink-secondary); display: block; font-size: 24rpx; line-height: 1.65; margin-top: 14rpx; }
+.candidate-panel { margin-top: 20rpx; }
+.candidate { border-top: 1rpx solid var(--line); margin-top: 20rpx; padding-top: 20rpx; }
+.candidate__title, .candidate__meta, .candidate__body, .candidate__risk { display: block; }
+.candidate__title { color: var(--navy); font-size: 26rpx; font-weight: 650; line-height: 1.5; }
+.candidate__meta { color: var(--muted); font-size: 20rpx; margin-top: 7rpx; }
+.candidate__body, .candidate__risk { color: var(--ink-secondary); font-size: 22rpx; line-height: 1.55; margin-top: 9rpx; }
+.candidate__risk { color: var(--danger); }
+.report-export { margin-top: 20rpx; }
+.report-export .muted { margin-top: 9rpx; }
+.report-export__actions .btn { font-size: 23rpx; margin-top: 16rpx; width: 100%; }
+
+@media (max-width: 360px) {
+  .masters-report__page { padding-left: 28rpx; padding-right: 28rpx; }
+  .report-columns { display: block; }
+  .report-columns > view + view { margin-top: 12rpx; }
+}

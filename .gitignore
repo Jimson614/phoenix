@@ -52,3 +52,7 @@ Thumbs.db
 /askwise/pnpm_tmp/
 /askwise/tmp_write_probe/
 /askwise/probe_root_write.txt
+
+# Local-only RC preview state
+/rc/.runtime/
+/rc/education-web/.next/

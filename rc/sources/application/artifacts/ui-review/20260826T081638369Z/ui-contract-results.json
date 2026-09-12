@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-08-26T09:59:41.910Z",
+  "status": "PASS",
+  "results": [
+    {
+      "command": "node tests/validate-ui-contract.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "stdout": "✓ UI route contract: 16 ordered pages, 3 tab paths and lazy loading preserved\n✓ UI interaction contract: required WXML handlers and data-* bindings preserved\n✓ UI V2 screen contract: seven screen hooks, Level 2/report/Askwise gates and Consent controls preserved\n✓ UI share contract: native sharing is limited to preview/report and exposes only the generic welcome entry\n✓ UI safety contract: dynamic presentation facts, native-only assets, privacy controls and raster budgets verified\n✓ UI WXSS contract: compiler compatibility, 44px targets, safe fixed bars, selected state and narrow layouts verified\n✓ UI spacing contract: non-root content cannot force large viewport-height blanks\n✓ UI release contract: demo admin pages remain excluded and package lockfiles are unchanged",
+      "stderr": "",
+      "spawnError": null
+    },
+    {
+      "command": "node tests/validate-release-build.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "stdout": "✓ release size budget: 1609056/1835008 bytes; brand+UI 1148126/1250000 bytes\n✓ release Mini Program modules: relative requires resolve and no JSON is loaded as CommonJS\n✓ remote release boundary: no demo generator, local DB, server source, tourist AppID or admin demo pages",
+      "stderr": "",
+      "spawnError": null
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+<view class="payment-result page--paper">
+  <image class="payment-result__feather payment-result__feather--top" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+  <image class="payment-result__feather payment-result__feather--bottom" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+  <view class="payment-result__brand">
+    <image class="payment-result__brand-logo" src="/assets/brand/phoenix-nova-logo-primary.png" mode="widthFix" aria-label="Phoenix Nova" />
+    <view class="payment-result__brand-product"><image src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" /><text>EDUCATION COMPASS™</text></view>
+  </view>
+  <view class="payment-result__card payment-result__card--{{view.tone}}">
+    <image class="payment-result__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+    <view class="payment-result__mark">{{view.mark}}</view>
+    <text class="h1 payment-result__title">{{view.title}}</text>
+    <text class="muted payment-result__message">{{view.message}}</text>
+    <text wx:if="{{order}}" class="payment-result__order">订单号 {{order.outTradeNo}} · {{order.amountLabel}}</text>
+  </view>
+
+  <view wx:if="{{checking}}" class="checking"><text>正在向服务端核验订单，请勿重复支付…</text></view>
+  <view wx:if="{{error}}" class="checking checking--error"><text>{{error}}</text><button class="btn btn--outline" bindtap="refresh">重新查询</button></view>
+
+  <view class="payment-result__actions">
+    <button wx:if="{{order.status === 'PAID'}}" class="btn btn--primary" bindtap="openReport">查看完整报告</button>
+    <button wx:elif="{{order.status === 'FAILED' || order.status === 'CANCELLED' || order.status === 'EXPIRED' || order.status === 'CREATED'}}" class="btn btn--primary" bindtap="retryPayment">返回预览</button>
+    <button wx:if="{{order.status === 'PENDING' || order.status === 'PAYING' || !order}}" class="btn btn--outline" loading="{{checking}}" bindtap="refresh">刷新支付状态</button>
+    <button class="btn btn--text" bindtap="home">返回家庭中心</button>
+  </view>
+  <text class="payment-result__note">小程序不会根据 wx.requestPayment 的客户端回调自行标记已支付；这里只展示服务端核验结果。</text>
+</view>

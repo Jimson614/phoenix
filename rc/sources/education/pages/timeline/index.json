@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "家庭时间线",
+  "enablePullDownRefresh": true,
+  "backgroundColor": "#FAF5EC",
+  "usingComponents": { "brand-mark": "/components/brand-mark/index" }
+}

@@ -1,0 +1,511 @@
+{
+  "schemaVersion": "phoenix_local_test_evidence_v1",
+  "generatedAt": "2026-08-25T10:39:04.175Z",
+  "status": "PASS",
+  "scope": "Education Compass V0.5.0 Level 1 and Level 2 local verification",
+  "suites": [
+    {
+      "commandId": "release-secret-scan",
+      "category": "security",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 164,
+      "tap": {
+        "tests": null,
+        "pass": null,
+        "fail": null,
+        "cancelled": null,
+        "skipped": null,
+        "todo": null,
+        "durationMs": null,
+        "cases": []
+      },
+      "structuredResult": {
+        "status": "PASS",
+        "findings": 0
+      }
+    },
+    {
+      "commandId": "server-build",
+      "category": "build",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 3855,
+      "tap": {
+        "tests": null,
+        "pass": null,
+        "fail": null,
+        "cancelled": null,
+        "skipped": null,
+        "todo": null,
+        "durationMs": null,
+        "cases": []
+      },
+      "structuredResult": null
+    },
+    {
+      "commandId": "server-typecheck",
+      "category": "build",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 3453,
+      "tap": {
+        "tests": null,
+        "pass": null,
+        "fail": null,
+        "cancelled": null,
+        "skipped": null,
+        "todo": null,
+        "durationMs": null,
+        "cases": []
+      },
+      "structuredResult": null
+    },
+    {
+      "commandId": "client-tests",
+      "category": "test",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 2018,
+      "tap": {
+        "tests": null,
+        "pass": null,
+        "fail": null,
+        "cancelled": null,
+        "skipped": null,
+        "todo": null,
+        "durationMs": null,
+        "cases": []
+      },
+      "structuredResult": null
+    },
+    {
+      "commandId": "server-tests",
+      "category": "test",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 5822,
+      "tap": {
+        "tests": 81,
+        "pass": 81,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "durationMs": 1182.4126,
+        "cases": [
+          {
+            "status": "PASS",
+            "name": "Agent enqueue uses report-before-conversation PostgreSQL lock ordering"
+          },
+          {
+            "status": "PASS",
+            "name": "migration baselines stay immutable and Agent schema has no plaintext or response ID columns"
+          },
+          {
+            "status": "PASS",
+            "name": "Agent paid-report flow encrypts content, runs asynchronously, and exposes only trusted source DTOs"
+          },
+          {
+            "status": "PASS",
+            "name": "free submitted assessment creates one recoverable analysis without an entitlement and excludes PII/free text"
+          },
+          {
+            "status": "PASS",
+            "name": "paid report one-shot analysis is entitlement-gated, PII-minimized, and does not consume follow-up quota"
+          },
+          {
+            "status": "PASS",
+            "name": "free analysis fails closed for draft, 69 percent, revoked guardian consent, and consent revoked after enqueue"
+          },
+          {
+            "status": "PASS",
+            "name": "local and provider moderation block before model generation without consuming a successful reply"
+          },
+          {
+            "status": "PASS",
+            "name": "paid follow-up never forwards report module free text and unsafe source metadata fails closed"
+          },
+          {
+            "status": "PASS",
+            "name": "refund removes content access but preserves owner management, consent withdrawal, and deletion"
+          },
+          {
+            "status": "PASS",
+            "name": "idempotency is conflict-safe and three successful replies are cumulative across conversations"
+          },
+          {
+            "status": "PASS",
+            "name": "claim is exclusive and conversation cancellation fences a late worker result"
+          },
+          {
+            "status": "PASS",
+            "name": "ineligible reports never create Agent conversations or call the provider"
+          },
+          {
+            "status": "PASS",
+            "name": "OpenAI provider sends strict stateless Responses requests and retries only once"
+          },
+          {
+            "status": "PASS",
+            "name": "OpenAI refusal, incomplete, malformed JSON, output moderation, and timeout use stable errors"
+          },
+          {
+            "status": "PASS",
+            "name": "Agent configuration fails closed and preserves the three-reply product boundary"
+          },
+          {
+            "status": "PASS",
+            "name": "content-key rotation does not change keyed idempotency or report-context digests"
+          },
+          {
+            "status": "PASS",
+            "name": "cancellation fences a claimed run so a late worker result is discarded"
+          },
+          {
+            "status": "PASS",
+            "name": "HTTP Agent contract uses flat strict consent, returns 202 runs, and extends full/preview reports"
+          },
+          {
+            "status": "PASS",
+            "name": "23-field questionnaire contract matches the client contract and preserves 69/70/100 answers"
+          },
+          {
+            "status": "PASS",
+            "name": "paid Compass kill switch defaults off and rejects invalid configuration"
+          },
+          {
+            "status": "PASS",
+            "name": "production config pins verified TLS database and exact public WeChat callback origins"
+          },
+          {
+            "status": "PASS",
+            "name": "draft round-trip, 69 gate, and pre-charge six-module QA lock"
+          },
+          {
+            "status": "PASS",
+            "name": "placeholder catalog, failed QA, and report generation failure all block ordering"
+          },
+          {
+            "status": "PASS",
+            "name": "prepay rechecks guardian consent and active product after order creation"
+          },
+          {
+            "status": "PASS",
+            "name": "server query reconciliation is throttled, recovers a missing callback, and closes expired NOTPAY orders"
+          },
+          {
+            "status": "PASS",
+            "name": "3990 payment callback is idempotent and only delivers the already-QA-passed report"
+          },
+          {
+            "status": "PASS",
+            "name": "forged transaction fields and cross-user resource access never grant paid content"
+          },
+          {
+            "status": "PASS",
+            "name": "admin refund is RBAC-protected, idempotent, and revokes report entitlement once"
+          },
+          {
+            "status": "PASS",
+            "name": "synchronous refund success revokes access even when the webhook is lost"
+          },
+          {
+            "status": "PASS",
+            "name": "a success webhook racing the provider response cannot be downgraded to PROCESSING"
+          },
+          {
+            "status": "PASS",
+            "name": "durable refund reconciliation revokes access when the final webhook is lost"
+          },
+          {
+            "status": "PASS",
+            "name": "refund reconciliation replays an intent after a crash before the provider request"
+          },
+          {
+            "status": "PASS",
+            "name": "file adapter persists isolated state and migration matches production model"
+          },
+          {
+            "status": "PASS",
+            "name": "signed freeze sources match the approved SHA-256 manifest"
+          },
+          {
+            "status": "PASS",
+            "name": "L1 and all seven L2 routes expose frozen IDs, digests, markers, and no scoring"
+          },
+          {
+            "status": "PASS",
+            "name": "validator rejects unknown IDs, wrong types, exclusive conflicts, and PII"
+          },
+          {
+            "status": "PASS",
+            "name": "validator enforces the current-year window and exact subject-range matrix schema"
+          },
+          {
+            "status": "PASS",
+            "name": "system switch preserves compatible common answers and removes old/incompatible branch data"
+          },
+          {
+            "status": "PASS",
+            "name": "L1 readiness produces the four frozen routes"
+          },
+          {
+            "status": "PASS",
+            "name": "L2 builds all six discovery outputs with traceable evidence and no score"
+          },
+          {
+            "status": "PASS",
+            "name": "L2 preserves UNKNOWN and excludes prohibited conclusion language outside the disclaimer"
+          },
+          {
+            "status": "PASS",
+            "name": "Askwise handoff remains a validated RESERVED DTO with networking disabled"
+          },
+          {
+            "status": "PASS",
+            "name": "Level 3 remains an entry-only reservation with no questionnaire, payment, or pressure trigger"
+          },
+          {
+            "status": "PASS",
+            "name": "V0.5 real HTTP flow preserves revisions, payment authority, owner isolation and one entitlement"
+          },
+          {
+            "status": "PASS",
+            "name": "IB uses the common bank and returns SYSTEM_BANK_PENDING without leaking the locked report"
+          },
+          {
+            "status": "PASS",
+            "name": "V0.5 consent grants are reusable while active and withdrawal fences draft, result and submit"
+          },
+          {
+            "status": "PASS",
+            "name": "V0.5 Feishu mirror requires both gates, uses only profile allowlists, and fences withdrawal retries"
+          },
+          {
+            "status": "PASS",
+            "name": "V0.5 Free and Paid Agent serializers emit no PII, raw answers, or internal IDs and keep the frozen structure"
+          },
+          {
+            "status": "PASS",
+            "name": "V0.5 Paid Agent rejects a legacy entitlement and queues only the matching Growth Discovery SKU"
+          },
+          {
+            "status": "PASS",
+            "name": "Feishu integration is opt-in and enabled configuration fails closed"
+          },
+          {
+            "status": "PASS",
+            "name": "Feishu client caches tenant token and coalesces concurrent token requests"
+          },
+          {
+            "status": "PASS",
+            "name": "Feishu client rejects HTTP 200 responses whose provider code is non-zero"
+          },
+          {
+            "status": "PASS",
+            "name": "Feishu client classifies provider throttling as retryable and respects retry-after"
+          },
+          {
+            "status": "PASS",
+            "name": "Feishu client creates missing records and updates known records"
+          },
+          {
+            "status": "PASS",
+            "name": "Feishu client paginates field metadata for schema preflight"
+          },
+          {
+            "status": "PASS",
+            "name": "Customer profile mirror contracts are exact runtime-frozen allowlists"
+          },
+          {
+            "status": "PASS",
+            "name": "Customer pseudonyms are stable across service instances and separated by environment"
+          },
+          {
+            "status": "PASS",
+            "name": "Feishu reconciliation projects only pseudonymous operational fields and skips unchanged records"
+          },
+          {
+            "status": "PASS",
+            "name": "Customer profile mirror updates existing rows and keeps stable pseudonyms"
+          },
+          {
+            "status": "PASS",
+            "name": "Customer profile fields are mirrored only when the explicit sensitive-field flag is enabled"
+          },
+          {
+            "status": "PASS",
+            "name": "Enabled customer profile mirror rejects formula prefixes and oversized values before egress"
+          },
+          {
+            "status": "PASS",
+            "name": "Persisted retry payload with an unknown customer field fails closed before Feishu egress"
+          },
+          {
+            "status": "PASS",
+            "name": "Turning the customer profile flag off discards a frozen sensitive retry body"
+          },
+          {
+            "status": "PASS",
+            "name": "Feishu schema preflight validates all remote field names, primary fields and types"
+          },
+          {
+            "status": "PASS",
+            "name": "Profile schema requires sensitive columns only when the explicit profile flag is enabled"
+          },
+          {
+            "status": "PASS",
+            "name": "Feishu schema drift fails closed for the mirror without touching Phoenix data"
+          },
+          {
+            "status": "PASS",
+            "name": "Feishu reconciliation records a retryable failure and respects its next-attempt delay"
+          },
+          {
+            "status": "PASS",
+            "name": "Feishu unknown-result retry reuses its persisted UUID and frozen request bytes"
+          },
+          {
+            "status": "PASS",
+            "name": "Authenticated customer profile APIs persist to the Phoenix store contract then feed the optional Feishu mirror"
+          },
+          {
+            "status": "PASS",
+            "name": "Feishu management endpoints require admin role and expose no credentials"
+          },
+          {
+            "status": "PASS",
+            "name": "profile sync and assessment draft GET round-trip over frozen HTTP contract"
+          },
+          {
+            "status": "PASS",
+            "name": "admin refund endpoint enforces RBAC and Idempotency-Key"
+          },
+          {
+            "status": "PASS",
+            "name": "HTTP rate limiter emits stable 429 error envelope"
+          },
+          {
+            "status": "PASS",
+            "name": "webhook ingress rejects unsigned bodies before consuming a processing slot and sets short server deadlines"
+          },
+          {
+            "status": "PASS",
+            "name": "logout revokes the presented <TOKEN> before local token disposal"
+          },
+          {
+            "status": "PASS",
+            "name": "canonical API v3 message keeps exact bytes and final LF"
+          },
+          {
+            "status": "PASS",
+            "name": "API v3 provider signs exact request, verifies response, and signs mini-program params"
+          },
+          {
+            "status": "PASS",
+            "name": "NOTPAY query accepts the official response shape without optional payer or amount"
+          },
+          {
+            "status": "PASS",
+            "name": "refund request uses validated reason and query/refund responses are signature-verified"
+          },
+          {
+            "status": "PASS",
+            "name": "callback verifies raw bytes before AES-GCM decrypt and rejects tampering"
+          },
+          {
+            "status": "PASS",
+            "name": "official-shape AES-256-GCM vector decrypts and tag changes fail closed"
+          }
+        ]
+      },
+      "structuredResult": null
+    },
+    {
+      "commandId": "openapi-and-examples",
+      "category": "contract",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 113,
+      "tap": {
+        "tests": null,
+        "pass": null,
+        "fail": null,
+        "cancelled": null,
+        "skipped": null,
+        "todo": null,
+        "durationMs": null,
+        "cases": []
+      },
+      "structuredResult": {
+        "status": "PASS",
+        "suite": "education-docs",
+        "openapiOperations": 19,
+        "validExamples": 8,
+        "invalidExamples": 4
+      }
+    },
+    {
+      "commandId": "education-http-smoke",
+      "category": "smoke",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 402,
+      "tap": {
+        "tests": null,
+        "pass": null,
+        "fail": null,
+        "cancelled": null,
+        "skipped": null,
+        "todo": null,
+        "durationMs": null,
+        "cases": []
+      },
+      "structuredResult": {
+        "status": "PASS",
+        "mode": "LOCAL_HTTP_MOCK",
+        "externalCalls": 0,
+        "checkpoints": [
+          "health",
+          "profile",
+          "level1-ready",
+          "level2-locked-no-leak",
+          "mock-payment-authority",
+          "level2-ready"
+        ]
+      }
+    }
+  ],
+  "externalValidation": [
+    {
+      "id": "postgresql-schema",
+      "status": "BLOCKED_EXTERNAL",
+      "reason": "EDUCATION_TEST_DATABASE_URL is not configured; no database connection was attempted"
+    },
+    {
+      "id": "wechat-pay-live",
+      "status": "BLOCKED_EXTERNAL"
+    },
+    {
+      "id": "openai-agent-live",
+      "status": "BLOCKED_EXTERNAL"
+    },
+    {
+      "id": "feishu-bitable-live",
+      "status": "BLOCKED_EXTERNAL"
+    },
+    {
+      "id": "wechat-devtools-manual",
+      "status": "BLOCKED_MANUAL"
+    }
+  ],
+  "sourceChangedDuringRun": false,
+  "migrationChangedDuringRun": false,
+  "bindings": {
+    "freezeSha256": "9884503DA89A61F1DFC78FF97F429FDE210D240B30764D099105DD7C8A100B2D",
+    "migrationAggregateSha256": "DBDCDDA40BB8995BC65CED72A6F7D867F55ED1F270AE5C3F437DB238DDDA703D",
+    "sourceBeforeSha256": "13D8DC6272A11134529CD61F311BA70301799FF5FE99C472A9930C3CFB5826B8",
+    "sourceAfterSha256": "13D8DC6272A11134529CD61F311BA70301799FF5FE99C472A9930C3CFB5826B8"
+  }
+}

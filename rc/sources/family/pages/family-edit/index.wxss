@@ -1,0 +1,5 @@
+.profile-title { display: block; margin-top: 18rpx; }
+.profile-intro { display: block; margin-top: 18rpx; }
+.form-section { margin-top: 44rpx; }
+.privacy-note { align-items: flex-start; background: #f6f0e5; border-radius: 18rpx; color: #766d62; display: flex; font-size: 22rpx; line-height: 1.6; margin-top: 36rpx; padding: 22rpx; }
+.privacy-note__mark { color: #b78a37; font-size: 32rpx; margin-right: 14rpx; }

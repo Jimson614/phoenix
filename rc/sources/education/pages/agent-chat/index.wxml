@@ -1,0 +1,124 @@
+<view class="agent-page page--paper">
+  <image class="agent-page__feather agent-page__feather--top" src="/assets/ui/feather-champagne.png" mode="aspectFit" aria-hidden="true" />
+  <image class="agent-page__feather agent-page__feather--bottom" src="/assets/ui/feather-champagne.png" mode="aspectFit" aria-hidden="true" />
+  <view class="agent-hero">
+    <image class="agent-hero__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+    <text class="eyebrow">PHOENIX EDUCATION AGENT</text>
+    <text class="agent-hero__title">已购完整报告 AI 追问</text>
+    <text class="agent-hero__copy">这是完整报告的多轮追问入口，不是免费测评分析。{{safetyNotice}}</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="agent-state">
+    <image class="agent-state__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+    <text class="h3">正在核验报告权益与同意状态…</text>
+  </view>
+  <view wx:elif="{{error}}" class="agent-state agent-state--error">
+    <text class="agent-state__error-mark">!</text>
+    <text class="h3">AI 解读暂时不可用</text>
+    <text class="muted">{{error}}</text>
+    <button class="btn btn--outline" bindtap="retry">重新加载</button>
+  </view>
+
+  <block wx:else>
+    <view wx:if="{{!eligible}}" class="page agent-body">
+      <view class="panel unavailable-card">
+        <text class="h3">当前不能继续 AI 解读</text>
+        <text class="muted">只有完整报告已支付、READY、DELIVERED、通过 QA、权益与专项同意都有效时，服务端才允许读取正文或继续提问。</text>
+        <text wx:if="{{runMessage}}" class="status-copy">{{runMessage}}</text>
+      </view>
+    </view>
+
+    <view wx:elif="{{!conversationId}}" class="page agent-body">
+      <view class="panel consent-card">
+        <text class="h2">开启前请由学生与监护人分别确认</text>
+        <view class="consent-list">
+          <text>• AI 只解释本次已购报告，不修改问卷、报告、价格或权益。</text>
+          <text>• 不保证录取，不提供医疗、心理、法律或财务结论。</text>
+          <text>• 不输入姓名、电话、邮箱、学校、证件或详细地址。</text>
+          <text>• 每份报告最多 {{maxRepliesPerReport}} 个成功回复，可随时撤回同意并删除对话。</text>
+        </view>
+        <text class="muted">我同意将去标识化的结构化测评结果发送给受控 AI 服务作解释。AI 不会决定核心结果，也不得生成诊断、排名、录取概率或无来源事实。我可以不启用或之后撤回该功能。</text>
+        <checkbox-group bindchange="consentChange" class="consent-check">
+          <label><checkbox value="student" color="#b78a37"/><text>我是学生本人，已理解并同意本次 AI 报告解读。</text></label>
+          <label><checkbox value="guardian" color="#b78a37"/><text>我是该家庭的合资格监护人，已阅读并确认本次 AI 分析授权。</text></label>
+        </checkbox-group>
+        <button class="btn btn--primary" loading="{{starting}}" disabled="{{!consentAccepted || starting}}" bindtap="startConversation">同意并开启解读</button>
+      </view>
+    </view>
+
+    <view wx:else class="agent-conversation">
+      <view class="quota-bar">
+        <text>本报告剩余 {{remainingReplies}} / {{maxRepliesPerReport}} 次成功回复</text>
+        <text class="status">{{consentActive ? '专项同意有效' : '同意已撤回'}}</text>
+      </view>
+
+      <scroll-view class="message-list" scroll-y="true">
+        <view wx:if="{{historyLoading}}" class="history-loading">正在读取经服务端授权的历史消息…</view>
+        <view wx:if="{{!historyLoading && !messages.length}}" class="conversation-empty">
+          <view class="conversation-empty__emblem">
+            <image class="conversation-empty__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+            <text class="conversation-empty__mark">✦</text>
+          </view>
+          <text class="h3">可以这样问</text>
+          <text>“报告里的优势，接下来三个月怎样转成行动？”</text>
+          <text>“主路线和备选路线的差别是什么？”</text>
+        </view>
+
+        <view wx:for="{{messages}}" wx:key="id" class="message message--{{item.role === 'USER' ? 'user' : 'assistant'}}">
+          <text class="message__role">{{item.role === 'USER' ? '我的问题' : 'Phoenix AI 解读'}}</text>
+          <text wx:if="{{item.role === 'USER'}}" class="message__answer">{{item.content}}</text>
+          <block wx:elif="{{item.reply}}">
+            <text class="message__answer">{{item.reply.answer}}</text>
+            <view wx:if="{{item.reply.keyPoints.length}}" class="reply-block">
+              <text class="reply-block__title">关键理解</text>
+              <text wx:for="{{item.reply.keyPoints}}" wx:key="*this">• {{item}}</text>
+            </view>
+            <view wx:if="{{item.reply.nextSteps.length}}" class="reply-block reply-block--action">
+              <text class="reply-block__title">下一步</text>
+              <text wx:for="{{item.reply.nextSteps}}" wx:key="*this">{{index + 1}}. {{item}}</text>
+            </view>
+            <view wx:if="{{item.reply.limitations.length}}" class="reply-block reply-block--limits">
+              <text class="reply-block__title">限制说明</text>
+              <text wx:for="{{item.reply.limitations}}" wx:key="*this">• {{item}}</text>
+            </view>
+            <view wx:if="{{item.reply.sources.length}}" class="trusted-sources">
+              <text class="reply-block__title">可信来源</text>
+              <view wx:for="{{item.reply.sources}}" wx:key="alias" wx:for-item="source" class="trusted-source">
+                <text class="trusted-source__alias">{{source.alias}}</text>
+                <view><text class="trusted-source__name">{{source.name}}</text><text wx:if="{{source.detail}}" class="trusted-source__detail">{{source.detail}}</text></view>
+              </view>
+            </view>
+            <text wx:if="{{item.reply.safety.requiresGuardianAttention}}" class="guardian-attention">此回复需要监护人重点关注；如存在立即危险，请联系可信成年人及当地紧急服务。</text>
+          </block>
+        </view>
+      </scroll-view>
+
+      <view wx:if="{{runMessage}}" class="run-state run-state--{{runStatus}}">
+        <text>{{runMessage}}</text>
+        <button wx:if="{{pollLimitReached}}" class="run-refresh" bindtap="resumeRunPolling">刷新处理状态</button>
+      </view>
+
+      <view class="composer">
+        <textarea class="composer__input" value="{{draft}}" maxlength="{{maxMessageChars}}" disabled="{{sending || runId || !consentActive}}" placeholder="只询问这份报告中的画像、方向、路线或行动…" bindinput="draftInput"></textarea>
+        <view class="composer__meta"><text>{{messageChars}} / {{maxMessageChars}}</text><text>不在本机长期保存对话正文</text></view>
+        <button class="btn btn--primary" loading="{{sending || runId}}" disabled="{{!canSend}}" bindtap="send">{{runId ? '正在解读' : '发送问题'}}</button>
+      </view>
+
+      <view class="conversation-actions">
+        <button class="btn btn--outline" bindtap="withdrawConsent">撤回 AI 同意</button>
+        <button class="btn btn--text danger" bindtap="deleteConversation">删除这段对话</button>
+      </view>
+    </view>
+
+    <view wx:if="{{conversations.length}}" class="page management-card">
+      <text class="h3">AI 数据管理</text>
+      <text class="muted">退款或撤权后仍可发现并删除无权读取正文的会话。</text>
+      <view wx:for="{{conversations}}" wx:key="conversationId" class="management-row">
+        <view><text>{{item.status}} · {{item.consentStatus || '同意状态以服务端为准'}}</text><text class="management-row__id">{{item.createdAt || '历史会话'}}</text></view>
+        <button class="management-delete" data-id="{{item.conversationId}}" bindtap="deleteConversation">删除</button>
+      </view>
+    </view>
+    <button class="btn btn--text back-button" bindtap="backToReport">返回报告</button>
+  </block>
+  <view class="safe-bottom"></view>
+</view>

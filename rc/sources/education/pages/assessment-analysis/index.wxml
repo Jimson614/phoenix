@@ -1,0 +1,79 @@
+<view class="analysis-page page--paper">
+  <image class="analysis-page__feather analysis-page__feather--top" src="/assets/ui/feather-champagne.png" mode="aspectFit" aria-hidden="true" />
+  <image class="analysis-page__feather analysis-page__feather--bottom" src="/assets/ui/feather-champagne.png" mode="aspectFit" aria-hidden="true" />
+  <view class="analysis-hero">
+    <image class="analysis-hero__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+    <text class="eyebrow">{{copy.eyebrow}}</text>
+    <text class="analysis-hero__title">{{copy.title}}</text>
+    <text class="analysis-hero__copy">免费测评分析与已购报告分析是不同内容层级；所有正文都只从 Phoenix 服务端按权限返回。</text>
+  </view>
+
+  <view wx:if="{{phase === 'CONSENT'}}" class="page analysis-body">
+    <view class="panel consent-card">
+      <text class="h2">首次分析前请由学生与监护人分别确认</text>
+      <view class="consent-list">
+        <text>• {{copy.consentLead}}</text>
+        <text>• 内容会由 Phoenix 可信后端转交获批准的 AI 服务处理；不在小程序本地长期保存分析正文。</text>
+        <text>• 请勿输入或补充姓名、电话、邮箱、学校、证件或详细地址。</text>
+        <text>• AI 结果仅供家庭规划参考，不保证录取，不提供医疗、心理、法律或财务结论。</text>
+      </view>
+      <text class="muted">我同意将去标识化的结构化测评结果发送给受控 AI 服务作解释。AI 不会决定核心结果，也不得生成诊断、排名、录取概率或无来源事实。我可以不启用或之后撤回该功能。</text>
+      <checkbox-group bindchange="consentChange" class="consent-check">
+        <label><checkbox value="student" color="#b78a37"/><text>我是学生本人，已理解并同意本次 AI 分析。</text></label>
+        <label><checkbox value="guardian" color="#b78a37"/><text>我是该家庭的合资格监护人，已阅读并确认本次 AI 分析授权。</text></label>
+      </checkbox-group>
+      <button class="btn btn--primary" loading="{{starting}}" disabled="{{!consentAccepted || starting}}" bindtap="startAnalysis">同意并开始{{mode === 'paid' ? '已购报告' : '免费测评'}}分析</button>
+    </view>
+  </view>
+
+  <view wx:elif="{{phase === 'LOADING' || phase === 'RUNNING' || phase === 'PENDING'}}" class="analysis-state">
+    <view class="analysis-state__emblem">
+      <image class="analysis-state__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+      <text class="analysis-state__mark">✦</text>
+    </view>
+    <text class="h3">{{phase === 'LOADING' ? '正在查询最近结果' : (phase === 'PENDING' ? '分析仍在处理中' : '正在安全分析')}}</text>
+    <text class="muted">{{statusMessage}}</text>
+    <button wx:if="{{pollLimitReached}}" class="btn btn--outline" bindtap="resumePolling">刷新处理状态</button>
+  </view>
+
+  <view wx:elif="{{phase === 'RESULT' && reply}}" class="page analysis-body">
+    <view class="result-card">
+      <image class="result-card__feather" src="/assets/ui/feather-champagne.png" mode="aspectFit" aria-hidden="true" />
+      <text class="result-card__label">{{mode === 'paid' ? '完整已购报告 AI 总分析' : '免费有限测评分析'}}</text>
+      <text class="result-card__answer">{{reply.answer}}</text>
+
+      <view wx:if="{{reply.keyPoints.length}}" class="result-block">
+        <text class="result-block__title">关键理解</text>
+        <text wx:for="{{reply.keyPoints}}" wx:key="*this">• {{item}}</text>
+      </view>
+      <view wx:if="{{reply.nextSteps.length}}" class="result-block result-block--action">
+        <text class="result-block__title">下一步</text>
+        <text wx:for="{{reply.nextSteps}}" wx:key="*this">{{index + 1}}. {{item}}</text>
+      </view>
+      <view wx:if="{{reply.limitations.length}}" class="result-block result-block--limits">
+        <text class="result-block__title">限制说明</text>
+        <text wx:for="{{reply.limitations}}" wx:key="*this">• {{item}}</text>
+      </view>
+      <view wx:if="{{reply.sources.length}}" class="trusted-sources">
+        <text class="result-block__title">可信来源</text>
+        <view wx:for="{{reply.sources}}" wx:key="alias" wx:for-item="source" class="trusted-source">
+          <text class="trusted-source__alias">{{source.alias}}</text>
+          <view><text class="trusted-source__name">{{source.name}}</text><text wx:if="{{source.detail}}" class="trusted-source__detail">{{source.detail}}</text></view>
+        </view>
+      </view>
+      <text wx:if="{{reply.safety.requiresGuardianAttention}}" class="guardian-attention">此结果需要监护人重点关注；如存在立即危险，请联系可信成年人及当地紧急服务。</text>
+    </view>
+    <view class="boundary-card"><text>{{copy.boundary}}</text></view>
+    <button class="btn btn--primary" bindtap="back">{{mode === 'paid' ? '返回已购报告' : '返回免费预览'}}</button>
+  </view>
+
+  <view wx:else class="analysis-state analysis-state--error">
+    <text class="analysis-state__mark">!</text>
+    <text class="h3">{{phase === 'BLOCKED' ? '服务端已安全阻止本次分析' : '本次分析暂不可用'}}</text>
+    <text class="muted">{{statusMessage}}</text>
+    <button class="btn btn--outline" bindtap="retryAnalysis">重新确认后再试</button>
+    <button class="btn btn--text" bindtap="back">返回上一页</button>
+  </view>
+
+  <view class="safe-bottom"></view>
+</view>

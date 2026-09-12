@@ -1,0 +1,16 @@
+.mine-hero { align-items: center; background: linear-gradient(150deg, #12283e, #0d1b2a); color: #fff; display: flex; flex-direction: column; padding: 72rpx 34rpx 46rpx; }
+.mine-hero__avatar { align-items: center; background: #e5cc92; border: 8rpx solid rgba(255,255,255,.12); border-radius: 50%; color: #0d1b2a; display: flex; font-family: serif; font-size: 42rpx; height: 110rpx; justify-content: center; width: 110rpx; }
+.mine-hero__name { font-size: 34rpx; font-weight: 650; margin-top: 20rpx; }
+.mine-hero__family { color: rgba(255,255,255,.58); font-size: 22rpx; margin-top: 8rpx; }
+.mine-stats { border-top: 1rpx solid rgba(255,255,255,.12); display: flex; margin-top: 34rpx; padding-top: 28rpx; width: 100%; }
+.mine-stats view { display: flex; flex: 1; flex-direction: column; text-align: center; }
+.mine-stats view + view { border-left: 1rpx solid rgba(255,255,255,.12); }
+.mine-stats text:first-child { color: #e3c980; font-family: serif; font-size: 35rpx; }
+.mine-stats text:last-child { color: rgba(255,255,255,.52); font-size: 20rpx; margin-top: 6rpx; }
+.mine-body { padding-top: 14rpx; }
+.mine-menu__item { align-items: center; border-bottom: 1rpx solid #e7dece; color: #0d1b2a; display: flex; font-weight: 600; justify-content: space-between; min-height: 104rpx; }
+.data-note { background: #f3ecdf; border-radius: 24rpx; margin-top: 36rpx; padding: 26rpx; }
+.data-note__title, .data-note__copy { display: block; }
+.data-note__title { color: #8e692b; font-size: 22rpx; font-weight: 650; }
+.data-note__copy { color: #6d6861; font-size: 22rpx; line-height: 1.75; margin-top: 10rpx; }
+.mine-logout { margin-top: 30rpx; }

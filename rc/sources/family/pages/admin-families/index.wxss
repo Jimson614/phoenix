@@ -1,0 +1,16 @@
+.advisor-list__header { align-items: flex-end; display: flex; justify-content: space-between; padding: 36rpx 34rpx 28rpx; }
+.advisor-list__title { color: #0d1b2a; display: block; font-family: serif; font-size: 37rpx; font-weight: 700; margin-top: 7rpx; }
+.advisor-list__logout { color: #8e806f; font-size: 22rpx; padding-bottom: 5rpx; }
+.advisor-list__summary { background: linear-gradient(150deg, #10263b, #0d1b2a); color: #fff; padding: 40rpx 36rpx; }
+.advisor-list__number { color: #e2c77e; font-family: serif; font-size: 55rpx; }
+.advisor-list__summary-label { font-size: 24rpx; margin-left: 10rpx; }
+.advisor-list__summary-note { color: rgba(255,255,255,.5); display: block; font-size: 21rpx; margin-top: 8rpx; }
+.advisor-list__body { padding-top: 28rpx; }
+.advisor-search { background: #fff; border: 1rpx solid #e7dece; border-radius: 999rpx; height: 82rpx; padding: 0 28rpx; }
+.family-list { margin-top: 26rpx; }
+.family-row { border-bottom: 1rpx solid #e7dece; padding: 28rpx 4rpx; }
+.family-row__top, .family-row__bottom { align-items: center; display: flex; justify-content: space-between; }
+.family-row__name { color: #0d1b2a; font-family: serif; font-size: 32rpx; font-weight: 700; }
+.family-row__meta { color: #6f7479; display: block; font-size: 22rpx; margin-top: 11rpx; }
+.family-row__bottom { color: #a27a35; font-size: 20rpx; margin-top: 18rpx; }
+.empty-copy { display: block; margin-top: 12rpx; }

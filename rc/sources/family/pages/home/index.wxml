@@ -1,0 +1,103 @@
+<view class="home">
+  <view
+    class="home__header"
+    style="padding-top: {{navigation.statusBarHeight}}px; padding-right: {{navigation.menuButtonSafeWidth}}px; min-height: {{navigation.navigationBarHeight}}px;"
+  >
+    <brand-mark compact="{{navigation.compactHeader}}" />
+    <text class="home__hello">你好，{{user.name || '新家庭'}}</text>
+  </view>
+
+  <view wx:if="{{!family}}" class="onboarding">
+    <text class="eyebrow">MY FAMILY GROWTH CENTER</text>
+    <text class="onboarding__title">从了解家庭开始，
+慢慢找到下一步。</text>
+    <text class="onboarding__copy">这里不是服务清单，而是一份会随家庭一起成长的长期档案。</text>
+    <view class="onboarding__progress">
+      <view class="onboarding__progress-fill" style="width: {{progress}}%;"></view>
+    </view>
+    <button class="btn btn--gold" bindtap="goNext">{{nextStep.title}}</button>
+  </view>
+
+  <block wx:else>
+    <view class="family-hero">
+      <text class="family-hero__label">家庭成长中心</text>
+      <text class="family-hero__name">{{family.family_name}}</text>
+      <text class="family-hero__goal">“{{family.goal || '在每个重要阶段，做更适合家庭的选择。'}}”</text>
+      <view class="family-hero__meta">
+        <text>{{family.location || '地点待完善'}}</text>
+        <text class="family-hero__dot">·</text>
+        <text>{{students.length}} 位孩子</text>
+      </view>
+    </view>
+
+    <view class="page home__body">
+      <view class="child-line" bindtap="goStudent">
+        <view class="child-line__avatar">{{studentInitial}}</view>
+        <view class="grow">
+          <text class="child-line__label">孩子状态</text>
+          <text class="child-line__name">{{primaryStudent ? primaryStudent.name : '添加孩子档案'}}</text>
+          <text wx:if="{{primaryStudent}}" class="child-line__stage">{{stage}}</text>
+        </view>
+        <text class="chevron">›</text>
+      </view>
+
+      <view class="insight-block" bindtap="goReport">
+        <view class="section-head">
+          <view>
+            <text class="eyebrow">LATEST AI INSIGHT</text>
+            <text class="insight-block__title">最近的成长洞察</text>
+          </view>
+          <text class="insight-block__mark">✦</text>
+        </view>
+        <text class="insight-block__copy">{{latestReport ? latestReport.summary.narrative : '完成 Education Compass 后，这里会出现属于孩子的成长洞察。'}}</text>
+        <text class="insight-block__link">{{latestReport ? '查看完整报告' : '开始第一次探索'}} →</text>
+      </view>
+
+      <view class="next-block" bindtap="goNext">
+        <text class="next-block__label">下一步</text>
+        <text class="next-block__title">{{nextStep.title}}</text>
+        <text class="next-block__note">{{nextStep.note}}</text>
+        <view class="next-block__line"><view style="width: {{progress}}%;"></view></view>
+      </view>
+
+      <view class="home-links">
+        <view class="home-link" bindtap="goCompass">
+          <text class="home-link__number">01</text><text class="home-link__title">Education Compass</text><text class="chevron">›</text>
+        </view>
+        <view class="home-link" bindtap="goAdvisor">
+          <text class="home-link__number">02</text><text class="home-link__title">联系 Phoenix 顾问</text><text class="chevron">›</text>
+        </view>
+      </view>
+
+      <view class="partner-section">
+        <view class="section-head partner-section__head">
+          <view>
+            <text class="eyebrow">PARTNER EXPERIENCE</text>
+            <text class="partner-section__title">联合成长计划</text>
+          </view>
+          <text class="partner-section__index">01</text>
+        </view>
+        <view class="partner-card" bindtap="goPartnerExperience" hover-class="partner-card--pressed" hover-stay-time="120">
+          <view class="partner-card__orbit partner-card__orbit--one"></view>
+          <view class="partner-card__orbit partner-card__orbit--two"></view>
+          <view class="partner-card__wave">
+            <view wx:for="{{[1,2,3,4,5,6,7,8,9]}}" wx:key="*this" class="partner-card__wave-line partner-card__wave-line--{{index}}"></view>
+          </view>
+          <view class="partner-card__content">
+            <view class="partner-card__top"><text>艺术成长</text><text>PREVIEW</text></view>
+            <text class="partner-card__name">{{partnerExperience.projectName}}</text>
+            <text class="partner-card__english">{{partnerExperience.englishName}}</text>
+            <text class="partner-card__copy">从声音、表达与创作中，发现孩子独特的成长方向。</text>
+            <view class="partner-card__tags">
+              <text wx:for="{{partnerExperience.tags}}" wx:key="*this">{{item}}</text>
+            </view>
+            <view class="partner-card__footer">
+              <view><text class="partner-card__collab">{{partnerExperience.collaborationLabel}}</text><text class="partner-card__experience">联合体验</text></view>
+              <view class="partner-card__action"><text>开始探索</text><text>↗</text></view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

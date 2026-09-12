@@ -1,0 +1,4 @@
+{
+  "desc": "Phoenix Family OS MVP pages",
+  "rules": [{ "action": "disallow", "page": "*" }]
+}

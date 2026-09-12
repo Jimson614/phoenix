@@ -1,0 +1,12 @@
+.advisor-title { display: block; margin-top: 18rpx; white-space: pre-line; }
+.advisor-copy { display: block; margin-top: 18rpx; }
+.advisor-profile { align-items: center; background: #f5eee2; border-radius: 24rpx; display: flex; margin: 38rpx 0 12rpx; padding: 24rpx; }
+.advisor-profile__avatar { align-items: center; background: #0d1b2a; border-radius: 50%; color: #e1c57e; display: flex; font-family: serif; font-size: 35rpx; height: 78rpx; justify-content: center; margin-right: 20rpx; width: 78rpx; }
+.advisor-profile__title, .advisor-profile__subtitle { display: block; }
+.advisor-profile__title { color: #0d1b2a; font-size: 27rpx; font-weight: 650; }
+.advisor-profile__subtitle { color: #77716a; font-size: 21rpx; margin-top: 6rpx; }
+.success { padding-top: 160rpx; text-align: center; }
+.success__mark { align-items: center; background: #0d1b2a; border: 8rpx solid #e8dac0; border-radius: 50%; color: #e3c77e; display: flex; font-size: 45rpx; height: 120rpx; justify-content: center; margin: 0 auto 38rpx; width: 120rpx; }
+.success__title, .success__copy { display: block; }
+.success__copy { margin-top: 20rpx; }
+.success__btn { margin-top: 50rpx; }

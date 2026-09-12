@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "policyVersion": "FAMILY_CORE_POLICY_V1",
+  "status": "FOUNDER_APPROVED",
+  "approvedAt": "2026-09-10T15:44:44+08:00",
+  "decider": "Jimson / Founder",
+  "scope": "SYNTHETIC_SANDBOX_REFERENCE_ENFORCEMENT_ONLY",
+  "defaultDecision": "DENY",
+  "releaseGates": {
+    "production": "NO_GO",
+    "realData": "NO_GO",
+    "publicIndexing": "NO_GO",
+    "databaseMigration": "NO_GO",
+    "healthPullRequests12And13": "HOLD"
+  },
+  "legalParameters": {
+    "status": "PENDING",
+    "required": [
+      "guardian_evidence_allowlist_by_jurisdiction",
+      "guardian_authority_precedence_and_dispute_rules",
+      "consent_purpose_codes_and_approved_copy",
+      "age_capacity_thresholds_and_exceptions",
+      "withdrawal_deletion_and_derived_data_rules",
+      "retention_schedule_and_legal_hold_authority",
+      "entitlement_grace_refund_and_reconciliation_rules",
+      "operator_roles_and_maximum_duration",
+      "identity_merge_evidence_and_appeal_rules",
+      "data_export_requester_delivery_sla_and_retention"
+    ]
+  },
+  "policies": [
+    {
+      "id": "GUA-001",
+      "area": "GUARDIAN_AUTHORITY_ESTABLISHMENT",
+      "enforcement": "DENY_UNLESS_VERIFIED_ACCOUNT_APPROVED_EVIDENCE_AND_AUTHORIZED_MANUAL_REVIEW",
+      "failureMode": "REJECT_AND_CREATE_REVIEW_CASE"
+    },
+    {
+      "id": "GUA-002",
+      "area": "MULTIPLE_GUARDIANS_AND_DISPUTES",
+      "enforcement": "DENY_HIGH_RISK_ACTION_UNLESS_ALL_APPLICABLE_RULES_AND_SECOND_REVIEWER_PASS",
+      "failureMode": "SUSPEND_ACTION_AND_DISCLOSE_NOTHING_NEW"
+    },
+    {
+      "id": "CON-001",
+      "area": "CONSENT_PURPOSE_AND_VERSION",
+      "enforcement": "DENY_WITHOUT_MATCHING_ACTIVE_IMMUTABLE_PURPOSE_SPECIFIC_RECEIPT",
+      "failureMode": "DENY_PROCESSING_OR_SHARING"
+    },
+    {
+      "id": "CON-002",
+      "area": "AGE_AND_CAPACITY",
+      "enforcement": "TREAT_UNKNOWN_OR_CONFLICTING_CAPACITY_AS_MINOR_AND_DENY_ELEVATED_PROCESSING",
+      "failureMode": "QUARANTINE_WITH_NO_ELEVATED_PROCESSING"
+    },
+    {
+      "id": "CON-003",
+      "area": "CONSENT_WITHDRAWAL",
+      "enforcement": "DENY_NEW_COVERED_PROCESSING_AFTER_WITHDRAWAL_AND_RETRY_REVOCATION",
+      "failureMode": "DENY_FUTURE_REQUESTS_AND_SURFACE_REVOCATION_FAILURES"
+    },
+    {
+      "id": "RET-001",
+      "area": "RETENTION",
+      "enforcement": "DENY_REAL_DATA_STORAGE_AND_RETENTION_JOBS_UNTIL_LEGAL_SCHEDULE_APPROVED",
+      "failureMode": "POLICY_HOLD"
+    },
+    {
+      "id": "ENT-001",
+      "area": "ENTITLEMENT_AUTHORITY",
+      "enforcement": "FAMILY_CORE_LEDGER_ONLY_DENY_MISSING_EXPIRED_SUSPENDED_CONFLICTING_OR_STALE",
+      "failureMode": "DENY_ACCESS"
+    },
+    {
+      "id": "ENT-002",
+      "area": "MULTI_FAMILY_CONTEXT",
+      "enforcement": "DENY_WITHOUT_ONE_EXPLICIT_SERVER_REVALIDATED_FAMILY_CONTEXT",
+      "failureMode": "REJECT_AMBIGUOUS_OR_UNAUTHORIZED_CONTEXT"
+    },
+    {
+      "id": "OPS-001",
+      "area": "ADVISOR_AND_OPERATOR_ACCESS",
+      "enforcement": "DENY_WITHOUT_LEAST_PRIVILEGE_ASSIGNMENT_PURPOSE_TIME_WINDOW_AND_AUDIT",
+      "failureMode": "DENY_ACCESS"
+    },
+    {
+      "id": "BRK-001",
+      "area": "BREAK_GLASS",
+      "enforcement": "DISABLED",
+      "failureMode": "NO_EMERGENCY_SUPERUSER_PATH"
+    },
+    {
+      "id": "ID-001",
+      "area": "IDENTITY_CONFLICT_AND_MERGE",
+      "enforcement": "NEVER_AUTO_MERGE_WEAK_IDENTIFIERS_REQUIRE_QUARANTINE_DUAL_REVIEW_AND_REVERSIBLE_SPLIT",
+      "failureMode": "KEEP_IDENTITIES_SEPARATE_AND_DENY_CROSS_RECORD_ACCESS"
+    },
+    {
+      "id": "XDS-001",
+      "area": "CROSS_DOMAIN_SHARING",
+      "enforcement": "VERSIONED_ALLOWLIST_AUTHENTICATED_ADAPTER_MINIMUM_FIELDS_CONSENT_ENTITLEMENT_IDEMPOTENCY_AUDIT",
+      "failureMode": "DENY_UNLISTED_FIELD_PURPOSE_CONSUMER_OR_STALE_AUTHORITY"
+    },
+    {
+      "id": "XDS-002",
+      "area": "HEALTH_SCOPE",
+      "enforcement": "EXCLUDED",
+      "failureMode": "HOLD_ALL_HEALTH_FIELDS_ROUTES_ENTITLEMENTS_AND_UI"
+    },
+    {
+      "id": "DSR-001",
+      "area": "DATA_ACCESS_AND_EXPORT",
+      "enforcement": "DENY_UNLESS_REQUESTER_AUTHORITY_SCOPE_ENCRYPTED_DELIVERY_EXPIRY_PROVENANCE_AND_AUDIT_PASS",
+      "failureMode": "DENY_AMBIGUOUS_REQUESTER_OR_SCOPE"
+    }
+  ],
+  "crossDomain": {
+    "directDatabaseAccess": false,
+    "allowedTransports": [
+      "AUTHENTICATED_API",
+      "AUTHENTICATED_ADAPTER"
+    ],
+    "consumers": {
+      "EDUCATION": {
+        "allowedFields": [
+          "subject_id",
+          "family_id",
+          "membership_role",
+          "membership_status",
+          "entitlement_code",
+          "entitlement_status",
+          "entitlement_effective_interval",
+          "consent_receipt_reference",
+          "consent_purpose",
+          "consent_version",
+          "consent_status",
+          "consent_effective_time",
+          "request_correlation_id"
+        ]
+      },
+      "IDENTITY": {
+        "allowedFields": [
+          "subject_id",
+          "family_id",
+          "membership_relationship",
+          "membership_status",
+          "guardian_relationship_status",
+          "guardian_relationship_scope",
+          "identity_conflict_case_reference",
+          "identity_conflict_case_status",
+          "consent_receipt_reference"
+        ]
+      },
+      "WEALTH": {
+        "allowedFields": [
+          "subject_id",
+          "family_id",
+          "selected_family_context",
+          "entitlement_summary",
+          "consent_receipt_reference",
+          "request_correlation_id"
+        ]
+      }
+    },
+    "inboundToCore": {
+      "allowedFields": [
+        "idempotent_event_id",
+        "producer",
+        "event_type",
+        "event_version",
+        "subject_id",
+        "family_id",
+        "minimal_decision_metadata",
+        "occurred_time",
+        "request_correlation_id"
+      ],
+      "directMutation": false
+    },
+    "health": {
+      "status": "HOLD",
+      "allowedFields": [],
+      "allowedRoutes": [],
+      "allowedEntitlements": [],
+      "allowedUi": []
+    }
+  }
+}

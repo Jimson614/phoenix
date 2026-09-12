@@ -1,0 +1,105 @@
+<view class="mine-page">
+  <image class="mine-feather" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+
+  <view class="page mine-topbar">
+    <brand-mark />
+    <text class="mine-topbar__label">MY FAMILY OS</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="page mine-loading" aria-busy="true">
+    <view class="mine-loading__avatar"></view>
+    <view class="mine-loading__line mine-loading__line--title"></view>
+    <view class="mine-loading__line"></view>
+    <view class="mine-loading__card">
+      <view></view><view></view><view></view>
+    </view>
+    <text>正在读取家庭账户…</text>
+  </view>
+
+  <block wx:else>
+    <view class="page mine-hero-wrap">
+      <view class="mine-hero">
+        <view class="mine-hero__halo" aria-hidden="true"></view>
+        <view class="mine-hero__avatar">{{user.initial}}</view>
+        <text class="mine-hero__eyebrow">FAMILY ACCOUNT</text>
+        <text class="mine-hero__name">{{user.name || '家庭用户'}}</text>
+        <text class="mine-hero__family">{{family ? family.family_name : '尚未建立家庭档案'}}</text>
+        <view class="mine-stats">
+          <view><text>{{studentCount}}</text><text>孩子档案</text></view>
+          <view><text>{{reportCount}}</text><text>报告与预览</text></view>
+          <view><text>{{unlockedReportCount}}</text><text>已解锁</text></view>
+        </view>
+      </view>
+    </view>
+
+    <view class="page mine-body">
+      <view class="mine-section-head">
+        <view><text class="eyebrow">FAMILY SERVICES</text><text class="h2 mine-section-title">家庭中心</text></view>
+        <text class="mine-section-head__mark" aria-hidden="true">✦</text>
+      </view>
+
+      <view class="mine-menu">
+        <view class="mine-menu__item" role="button" aria-label="家庭资料" bindtap="editFamily">
+          <view class="mine-menu__icon" aria-hidden="true">家</view>
+          <view class="mine-menu__copy"><text>家庭资料</text><text>查看与完善家庭基本信息</text></view>
+          <text class="chevron">›</text>
+        </view>
+        <view class="mine-menu__item" role="button" aria-label="添加孩子档案" bindtap="addStudent">
+          <view class="mine-menu__icon" aria-hidden="true">子</view>
+          <view class="mine-menu__copy"><text>添加孩子档案</text><text>为不同孩子保留独立成长记录</text></view>
+          <text class="chevron">›</text>
+        </view>
+        <view class="mine-menu__item" role="button" aria-label="Education Compass" bindtap="compass">
+          <view class="mine-menu__icon" aria-hidden="true">罗</view>
+          <view class="mine-menu__copy"><text>Education Compass</text><text>进入教育罗盘与成长发现</text></view>
+          <text class="chevron">›</text>
+        </view>
+        <view class="mine-menu__item" role="button" aria-label="联系 Phoenix 顾问" bindtap="advisor">
+          <view class="mine-menu__icon" aria-hidden="true">顾</view>
+          <view class="mine-menu__copy"><text>联系 Phoenix 顾问</text><text>仅在授权后发起家庭支持</text></view>
+          <text class="chevron">›</text>
+        </view>
+      </view>
+
+      <view class="mine-orders">
+        <view class="section-head">
+          <view><text class="eyebrow">RECENT ORDERS</text><text class="h3 mine-orders__title">本机最近订单</text></view>
+          <text class="mine-count">{{orderCount}} 笔</text>
+        </view>
+        <view wx:if="{{recentOrders.length}}">
+          <view wx:for="{{recentOrders}}" wx:key="orderId" class="mine-order" data-id="{{item.orderId}}" role="button" bindtap="openOrder">
+            <view class="mine-order__mark" aria-hidden="true">◇</view>
+            <view class="mine-order__copy"><text class="mine-order__title">Education Compass 完整报告</text><text class="mine-order__meta">{{item.amountLabel}} · {{item.statusLabel}}</text></view>
+            <text class="chevron">›</text>
+          </view>
+        </view>
+        <view wx:else class="mine-empty-row">
+          <text class="mine-empty-row__mark" aria-hidden="true">◇</text>
+          <view><text>暂无订单记录</text><text>完成学生问卷后，可自主选择是否付款解锁报告。</text></view>
+        </view>
+      </view>
+
+      <view wx:if="{{isV05 && primaryStudent}}" class="consent-panel">
+        <view class="consent-panel__header">
+          <view class="consent-panel__shield" aria-hidden="true">◇</view>
+          <view class="grow"><text class="eyebrow">PRIVACY CONTROL</text><text class="h3 consent-panel__title">授权与撤回</text></view>
+          <text class="consent-panel__independent">独立管理</text>
+        </view>
+        <text class="consent-panel__note">当前管理：{{primaryStudent.name || '未填写姓名的学生档案'}}。各项授权互相独立，可分别撤回。</text>
+        <view wx:if="{{consentBusy}}" class="consent-panel__busy" aria-busy="true"><text>正在处理撤回请求，请稍候…</text></view>
+        <button class="consent-action" disabled="{{consentBusy}}" bindtap="withdrawAiConsent"><text>撤回 AI 分析授权</text><text aria-hidden="true">→</text></button>
+        <button class="consent-action" disabled="{{consentBusy}}" bindtap="withdrawFeishuConsent"><text>停止飞书资料镜像</text><text aria-hidden="true">→</text></button>
+        <button class="consent-action" disabled="{{consentBusy}}" bindtap="withdrawAdvisorConsent"><text>撤回顾问联系授权</text><text aria-hidden="true">→</text></button>
+        <button class="consent-action consent-action--critical" disabled="{{consentBusy}}" bindtap="withdrawStudentAssent"><text>撤回学生本人测评同意</text><text aria-hidden="true">→</text></button>
+        <button class="consent-action consent-action--critical" disabled="{{consentBusy}}" bindtap="withdrawCoreConsent"><text>撤回核心测评授权</text><text aria-hidden="true">→</text></button>
+      </view>
+
+      <view class="data-note">
+        <view class="data-note__mark" aria-hidden="true">✦</view>
+        <view><text class="data-note__title">家庭数据原则</text><text class="data-note__copy">家庭档案、成长洞察与关系历史共同组成 Family OS。付费状态以服务端微信支付通知为准；任何专家协作都必须经过家庭授权。</text></view>
+      </view>
+
+      <button class="btn btn--text mine-logout" bindtap="logout">退出登录</button>
+    </view>
+  </block>
+</view>

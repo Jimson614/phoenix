@@ -1,0 +1,376 @@
+{
+  "phase": "before",
+  "generatedAt": "2026-08-26T03:01:34.986Z",
+  "files": [
+    {
+      "path": "app.json",
+      "bytes": 1184,
+      "sha256": "d276dd9591a5a50531be9d1572af917f49177659146745f1aa556a93126e49bb"
+    },
+    {
+      "path": "app.wxss",
+      "bytes": 3607,
+      "sha256": "763d90dc910e8e4609241ea81eb6767783bcb73d3f73aeea318bde61bc37ea3b"
+    },
+    {
+      "path": "assets/brand/phoenix-nova-icon-light.png",
+      "bytes": 27093,
+      "sha256": "7af26e93599057a1b1d8d23a25fc76a3d73cc386ef61eb68280a1433905622b7"
+    },
+    {
+      "path": "assets/brand/phoenix-nova-icon-primary.png",
+      "bytes": 35166,
+      "sha256": "76fbd87f8ccfca75dd26ef657b30e9c100c48738fadb5b11dd6a4fb4b0925289"
+    },
+    {
+      "path": "assets/brand/phoenix-nova-logo-light.png",
+      "bytes": 95539,
+      "sha256": "aeb1e6dd729143b91f0f5108f3ee88a39d44a1d967d177f6a7f8e167c312f24b"
+    },
+    {
+      "path": "assets/brand/phoenix-nova-logo-primary.png",
+      "bytes": 114538,
+      "sha256": "4b3b4d43155916e55590e16764907c04abbf436a0704cd909e30e245c8cd51cf"
+    },
+    {
+      "path": "components/brand-mark/index.js",
+      "bytes": 124,
+      "sha256": "50d70e1ff0a27e72b1f34a1cfec7932d06b3cdbb0be7db5bbc9acd4513d8310c"
+    },
+    {
+      "path": "components/brand-mark/index.json",
+      "bytes": 22,
+      "sha256": "e7b657f5a4b032a68e9e084639b3a5564ce552896d269c3f8c4463bf7a7fa3b5"
+    },
+    {
+      "path": "components/brand-mark/index.wxml",
+      "bytes": 832,
+      "sha256": "470939203270fa05cf4ca7aea82c51b895c4691c0b883f319c2b55777fa4d35c"
+    },
+    {
+      "path": "components/brand-mark/index.wxss",
+      "bytes": 895,
+      "sha256": "48e1f4a240d82f5ee5099ac19d8db1f55e5dbac6bfbd21d5242b3888032926b1"
+    },
+    {
+      "path": "pages/admin-families/index.js",
+      "bytes": 1835,
+      "sha256": "a9bd87f93b727578d246059bef91d26a3fd193420f8c922c2201d0a588b64fe8"
+    },
+    {
+      "path": "pages/admin-families/index.json",
+      "bytes": 79,
+      "sha256": "69ce21cf237208067e48e33786d7f10ea8ac1d4d6e75027e58ecccfa9e6249d8"
+    },
+    {
+      "path": "pages/admin-families/index.wxml",
+      "bytes": 1626,
+      "sha256": "3b5ec8301e12a9fd0bd875ee507f7e70403d9d69987aa827bc4b59e13f2a439b"
+    },
+    {
+      "path": "pages/admin-families/index.wxss",
+      "bytes": 1415,
+      "sha256": "8dd3de92b1e84bc0ad7449d8d6ce38849f856685ef076255b2582645718449be"
+    },
+    {
+      "path": "pages/admin-family/index.js",
+      "bytes": 2247,
+      "sha256": "c3eb1bca222529827de13996e62a6930abe66faa8cb60ea00ddf680f5443f08d"
+    },
+    {
+      "path": "pages/admin-family/index.json",
+      "bytes": 45,
+      "sha256": "8f24df124d3b80ec1b1a28ee386539b4e592be54aa9b607329fddd5b5083463a"
+    },
+    {
+      "path": "pages/admin-family/index.wxml",
+      "bytes": 3443,
+      "sha256": "6a651b6b690ff9f1782c6b0f815f844b641853bcd31fddc351e90575c291eb6b"
+    },
+    {
+      "path": "pages/admin-family/index.wxss",
+      "bytes": 2422,
+      "sha256": "aa75ba5c2032cf5d4fb03fc7de67d53b1e8d24ea543cfb39fb208a27f232669f"
+    },
+    {
+      "path": "pages/advisor-request/index.js",
+      "bytes": 2762,
+      "sha256": "5e6583684d83f32feb44a385ccfb28cd3a61d040e03b7d3c1357d7b6a59f497f"
+    },
+    {
+      "path": "pages/advisor-request/index.json",
+      "bytes": 54,
+      "sha256": "e3287ab5988392ac16055ecbf45261f6cec25d01e04937f88b59ce599a2b8b38"
+    },
+    {
+      "path": "pages/advisor-request/index.wxml",
+      "bytes": 2577,
+      "sha256": "02a9a863938ed584ba82c771b4c4551ef03b29dc0343a92ff91a81f85acff57e"
+    },
+    {
+      "path": "pages/advisor-request/index.wxss",
+      "bytes": 1397,
+      "sha256": "ac7e1b50986ef5eb718242bd23db2dda4c52dd49ce0634725a75a2d385006877"
+    },
+    {
+      "path": "pages/agent-chat/index.js",
+      "bytes": 13409,
+      "sha256": "6cee21cb2a5f942ac71ae1d7c81fc0416bad5771044d1b158d8f504a83fbbe3c"
+    },
+    {
+      "path": "pages/agent-chat/index.json",
+      "bytes": 57,
+      "sha256": "c9a01a84bc509aeaef5da1f81331bcee35ab7d76ee95a44189ae532708be0125"
+    },
+    {
+      "path": "pages/agent-chat/index.wxml",
+      "bytes": 7535,
+      "sha256": "23f7027a2d661d7b10cd757983f013469bfe873f3c3863bc7e29782513685343"
+    },
+    {
+      "path": "pages/agent-chat/index.wxss",
+      "bytes": 5376,
+      "sha256": "e21e9f39fb91d36b366e74ad1f49e2bdf83b5c2dcd8fc0a24719e3990ad40401"
+    },
+    {
+      "path": "pages/assessment-analysis/index.js",
+      "bytes": 10400,
+      "sha256": "41cbc3b80ddc5f215f92895f55c786599a237ee22bd9a5ce9bf78756e433527d"
+    },
+    {
+      "path": "pages/assessment-analysis/index.json",
+      "bytes": 50,
+      "sha256": "1ac32d4d1ed7e48518adff583be6618da34ffdcfd0d2097609bd512567aa7e9e"
+    },
+    {
+      "path": "pages/assessment-analysis/index.wxml",
+      "bytes": 4881,
+      "sha256": "ec630a6aed251ee5779744ccd8fea536182bb4b110355410e74464e2339785dd"
+    },
+    {
+      "path": "pages/assessment-analysis/index.wxss",
+      "bytes": 3038,
+      "sha256": "59cbcc8a72ccc59ca730bd34ff17040eb2ee6f04138c60855de0b7262e15e6b4"
+    },
+    {
+      "path": "pages/compass-preview/index.js",
+      "bytes": 11932,
+      "sha256": "18da7195026e1b699856dcab365a58d89c5fbcdbe3425b3ad91545e6496c3098"
+    },
+    {
+      "path": "pages/compass-preview/index.json",
+      "bytes": 45,
+      "sha256": "b21bc7cf3619281306b0e89662935472e4e30581ccde87fa9ea542415605eb4a"
+    },
+    {
+      "path": "pages/compass-preview/index.wxml",
+      "bytes": 7751,
+      "sha256": "c63e4e4c216bc70f90e9568cc67898d305932e6701ec08bdea33204231a76b24"
+    },
+    {
+      "path": "pages/compass-preview/index.wxss",
+      "bytes": 6828,
+      "sha256": "8938b04bac620df8f9398cdbfcf8bd2b39921740c9fd4743ac5be68864fc144c"
+    },
+    {
+      "path": "pages/compass-questionnaire/index.js",
+      "bytes": 22731,
+      "sha256": "842cf9131d002b9ed1977fd2518d034a4377df0edd35a4513cf6e97de4823147"
+    },
+    {
+      "path": "pages/compass-questionnaire/index.json",
+      "bytes": 50,
+      "sha256": "740142399ccdafc4e0b1cfecff33e9350d2e8022bedc7ed4be8779d4ca82b3cf"
+    },
+    {
+      "path": "pages/compass-questionnaire/index.wxml",
+      "bytes": 7295,
+      "sha256": "dd626bb71918b7c68d36c37c63c7d55ccc3140bd8a0d9e4dc022d4c91d36f783"
+    },
+    {
+      "path": "pages/compass-questionnaire/index.wxss",
+      "bytes": 4365,
+      "sha256": "775c036a8b785b38c69346875d6fad40d758eefa9f7987248894a8e88e93ffb6"
+    },
+    {
+      "path": "pages/compass/index.js",
+      "bytes": 10829,
+      "sha256": "42174e137bf8f94f40fd606285011bbf500b1800368a3a9e68b7dee9fae8dfe1"
+    },
+    {
+      "path": "pages/compass/index.json",
+      "bytes": 50,
+      "sha256": "740142399ccdafc4e0b1cfecff33e9350d2e8022bedc7ed4be8779d4ca82b3cf"
+    },
+    {
+      "path": "pages/compass/index.wxml",
+      "bytes": 6413,
+      "sha256": "094071bc390d37c6907e9f23f4006853f7022a1a4b1b7096e7fe8513810001d5"
+    },
+    {
+      "path": "pages/compass/index.wxss",
+      "bytes": 3958,
+      "sha256": "4ce904c967804a6878df6741e74c60798d70c7d28356c09bd6a2caef3844ec0d"
+    },
+    {
+      "path": "pages/family-edit/index.js",
+      "bytes": 2024,
+      "sha256": "bb85a45e1f6f098cbe54f199cde738e59994fb167eb56090442bf678e456b1ae"
+    },
+    {
+      "path": "pages/family-edit/index.json",
+      "bytes": 45,
+      "sha256": "20446ec116cab509a6e56bb2d358799fbb9ef3a74445d4bd772a109de01e5b4b"
+    },
+    {
+      "path": "pages/family-edit/index.wxml",
+      "bytes": 2005,
+      "sha256": "3b7ca6081bc062c31e4d8c6c2a005ece2338742451630e20c5842a15b38fb347"
+    },
+    {
+      "path": "pages/family-edit/index.wxss",
+      "bytes": 412,
+      "sha256": "8a0a93065ec0ece07d557b27482cb7ad64d55e524f76de4295d4c95547185bc9"
+    },
+    {
+      "path": "pages/home/index.js",
+      "bytes": 13122,
+      "sha256": "cb6dfcf56f27577bbe3ecb300cc7ad9af0457a174ea0998bb585d29fc0cb1631"
+    },
+    {
+      "path": "pages/home/index.json",
+      "bytes": 105,
+      "sha256": "991a30eab1fde37869e86e4842d13e350d6ad6f397644505d8ee6359de502b7c"
+    },
+    {
+      "path": "pages/home/index.wxml",
+      "bytes": 3735,
+      "sha256": "c307be8d4d807b9ad775f37b3c9436af63e1a0b656710f0327c64058f1d70c53"
+    },
+    {
+      "path": "pages/home/index.wxss",
+      "bytes": 4304,
+      "sha256": "8fa0d075481d7dbe6bbc913f9aa8414f4f8a8af335821f2fafaf0ab35956e57f"
+    },
+    {
+      "path": "pages/mine/index.js",
+      "bytes": 5164,
+      "sha256": "2dc96c935e80b00524e716ec2ac732ee798bccceef558ae62ddf41a9293a1d6e"
+    },
+    {
+      "path": "pages/mine/index.json",
+      "bytes": 49,
+      "sha256": "b63f58bfea42107962d333b3e9d0093f061776b94dede6b1f9e2e43029d5570f"
+    },
+    {
+      "path": "pages/mine/index.wxml",
+      "bytes": 3094,
+      "sha256": "031d306d0846ba2a7b3b3e105c4dc5507d2565f26fbf34ff5320dd2e76e7fcdb"
+    },
+    {
+      "path": "pages/mine/index.wxss",
+      "bytes": 2598,
+      "sha256": "5298236d76754d26d0bd4e24334f2f5a63662f7d97482c572b98d8aa3b00dc80"
+    },
+    {
+      "path": "pages/payment-result/index.js",
+      "bytes": 2922,
+      "sha256": "d05542a691900b674a4de48082bf07a1e6a54284ebd3fc3ac3f4d1840568b9b3"
+    },
+    {
+      "path": "pages/payment-result/index.json",
+      "bytes": 45,
+      "sha256": "9c90f5cc778c8a1a98321926a9ead270b813f0c9fd196a31b07a91f622fc11dc"
+    },
+    {
+      "path": "pages/payment-result/index.wxml",
+      "bytes": 1550,
+      "sha256": "f0cc37106d164767c403461a3c273edaa1412ac1bea0bb44dbfcf8e56a45b66c"
+    },
+    {
+      "path": "pages/payment-result/index.wxss",
+      "bytes": 1243,
+      "sha256": "50cd7e05b2989176fcc9bd3505eb3122833aa1fe96cc1883c25ca711676a3e32"
+    },
+    {
+      "path": "pages/report/index.js",
+      "bytes": 14204,
+      "sha256": "3d3a9b26fd5488550256f82f70fddc999e388be76f83d96a08eb19b5114f2862"
+    },
+    {
+      "path": "pages/report/index.json",
+      "bytes": 51,
+      "sha256": "76b64637682f9951d7cb9f363dfc574f1ce4b382be5c4736475277f92bf8175e"
+    },
+    {
+      "path": "pages/report/index.wxml",
+      "bytes": 13543,
+      "sha256": "1e8ba2f947c73eb46e105aa643d7a533e06cfdd4584b9a273d7889139c73b1ea"
+    },
+    {
+      "path": "pages/report/index.wxss",
+      "bytes": 7280,
+      "sha256": "b39f3c0a6b7293a5aaf661b0681c2c504f56c4addaf60df43e58e247f463d739"
+    },
+    {
+      "path": "pages/student-edit/index.js",
+      "bytes": 3209,
+      "sha256": "8c63e938bc3785a98f72c7d4f2217c24a9e821c6211ed80052d889488861cf5e"
+    },
+    {
+      "path": "pages/student-edit/index.json",
+      "bytes": 45,
+      "sha256": "ad827ffccd1d2b67ae69355eb3e68137d53a1b761fca7221df0d716074c4d32c"
+    },
+    {
+      "path": "pages/student-edit/index.wxml",
+      "bytes": 2575,
+      "sha256": "2ea28f1c8913a54b0c276d526c879b6030a84214c109c0fadf73bfd633244f6d"
+    },
+    {
+      "path": "pages/student-edit/index.wxss",
+      "bytes": 299,
+      "sha256": "278ff1caecd769fc879bd700aa48d5e691de06b9bbd5f8d3f00a443d97ba304d"
+    },
+    {
+      "path": "pages/timeline/index.js",
+      "bytes": 1659,
+      "sha256": "52195a6394e19f6d48c94a01b7f657bf1a0bbef75b5a81a629190bbb4fc06d09"
+    },
+    {
+      "path": "pages/timeline/index.json",
+      "bytes": 79,
+      "sha256": "a48c7c008fba53a3dcfa579204c1f9c48f9d34cf6d4d750ddc31658b1fd2481d"
+    },
+    {
+      "path": "pages/timeline/index.wxml",
+      "bytes": 1388,
+      "sha256": "48adfa93e5067cc1f464f103d36a5dadb531bdba2778898627ddb4358e536d7c"
+    },
+    {
+      "path": "pages/timeline/index.wxss",
+      "bytes": 1168,
+      "sha256": "48feab678cee9c97d63b87823625a0a45ef508a851abf6a64f7dd14c54014d28"
+    },
+    {
+      "path": "pages/welcome/index.js",
+      "bytes": 1237,
+      "sha256": "f3c3aa89e3add0e9a21f41253280c5bb28f7a446a7cc451f151046a89c650ec5"
+    },
+    {
+      "path": "pages/welcome/index.json",
+      "bytes": 105,
+      "sha256": "991a30eab1fde37869e86e4842d13e350d6ad6f397644505d8ee6359de502b7c"
+    },
+    {
+      "path": "pages/welcome/index.wxml",
+      "bytes": 1672,
+      "sha256": "087c53637ff34d95059b2c69f2314cacb4fa693f8a60d38406702f032b415ab4"
+    },
+    {
+      "path": "pages/welcome/index.wxss",
+      "bytes": 2524,
+      "sha256": "899b76938e8f2d27269596b498690410c86ea3af050219f50d736fdcce502a4d"
+    }
+  ]
+}

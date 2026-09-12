@@ -1,0 +1,21 @@
+<view class="page page--paper student-page">
+  <image class="profile-feather" src="/assets/ui/feather-champagne.png" mode="aspectFit" aria-hidden="true" />
+  <view class="profile-hero">
+    <image class="profile-hero__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" />
+    <text class="eyebrow">CHILD PROFILE</text>
+    <text class="h1 profile-title">看见孩子此刻的样子</text>
+    <text class="muted profile-intro">不急着定义未来，先从真实的阶段、兴趣与想法开始。</text>
+  </view>
+
+  <view class="form-grid">
+    <view class="field form-grid__wide"><text class="field__label">孩子姓名 <text class="field__required">*</text></text><input class="input" value="{{form.name}}" placeholder="姓名或昵称" data-field="name" bindinput="input" /></view>
+    <view class="field"><text class="field__label">年龄 <text class="field__required">*</text></text><input class="input" type="number" value="{{form.age}}" placeholder="岁" data-field="age" bindinput="input" /></view>
+    <view class="field"><text class="field__label">性别</text><picker mode="selector" range="{{genders}}" value="{{genderIndex}}" bindchange="pickGender"><view class="picker {{!form.gender ? 'placeholder' : ''}}">{{form.gender || '请选择'}}</view></picker></view>
+    <view class="field form-grid__wide"><text class="field__label">当前学校 <text class="field__required">*</text></text><input class="input" value="{{form.school}}" placeholder="学校名称" data-field="school" bindinput="input" /></view>
+    <view class="field"><text class="field__label">课程体系</text><picker mode="selector" range="{{systems}}" value="{{systemIndex}}" bindchange="pickSystem"><view class="picker {{!form.education_system ? 'placeholder' : ''}}">{{form.education_system || '请选择'}}</view></picker></view>
+    <view class="field"><text class="field__label">当前年级 <text class="field__required">*</text></text><input class="input" value="{{form.grade}}" placeholder="例如：Year 10" data-field="grade" bindinput="input" /></view>
+    <view class="field form-grid__wide"><text class="field__label">兴趣与喜欢做的事</text><textarea class="textarea" value="{{form.interest}}" maxlength="200" placeholder="例如：音乐、搭建、阅读、足球……" data-field="interest" bindinput="input"></textarea></view>
+    <view class="field form-grid__wide"><text class="field__label">对未来的初步想法</text><textarea class="textarea" value="{{form.goal}}" maxlength="200" placeholder="可以是孩子的想法，也可以是家庭正在探索的方向。" data-field="goal" bindinput="input"></textarea></view>
+  </view>
+  <view class="form-actions"><button class="btn btn--primary" loading="{{saving}}" disabled="{{loading}}" bindtap="save">保存并进入 Education Compass</button></view>
+</view>

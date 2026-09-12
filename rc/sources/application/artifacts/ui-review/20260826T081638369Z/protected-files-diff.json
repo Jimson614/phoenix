@@ -1,0 +1,556 @@
+{
+  "generatedAt": "2026-08-26T09:59:41.923Z",
+  "status": "PASS",
+  "immutableChecks": {
+    "signedFreeze": "UNCHANGED",
+    "existingMigrations": "UNCHANGED",
+    "packageLockfiles": "UNCHANGED"
+  },
+  "migration": "none",
+  "changes": [
+    {
+      "path": "docs/openapi/education-compass-v0.5.0.openapi.yaml",
+      "change": "CHANGED",
+      "before": {
+        "path": "docs/openapi/education-compass-v0.5.0.openapi.yaml",
+        "bytes": 60087,
+        "sha256": "ec652911622abce628688c830791eb9475fb085e1b6eb8beb96699e542ad6fcb"
+      },
+      "after": {
+        "path": "docs/openapi/education-compass-v0.5.0.openapi.yaml",
+        "bytes": 64751,
+        "sha256": "0722bff3d79f4d0e80a372078944d0bda1f4df2a30bc2f4fd26a929734263301"
+      }
+    },
+    {
+      "path": "models/education-compass-questionnaire.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "models/education-compass-questionnaire.js",
+        "bytes": 16687,
+        "sha256": "fc575a05276a0e85d8f1ec46767eaa7323073e6eb53cc5dea4794fc4088b5447"
+      },
+      "after": {
+        "path": "models/education-compass-questionnaire.js",
+        "bytes": 18023,
+        "sha256": "2c5aef9c1c4bb2ac499f21c727041acb101c0f0862147ec6f80ed1051e628b03"
+      }
+    },
+    {
+      "path": "pages/advisor-request/index.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "pages/advisor-request/index.js",
+        "bytes": 2762,
+        "sha256": "5e6583684d83f32feb44a385ccfb28cd3a61d040e03b7d3c1357d7b6a59f497f"
+      },
+      "after": {
+        "path": "pages/advisor-request/index.js",
+        "bytes": 4139,
+        "sha256": "01b83c9d7ff439cb1b4cd4cb3983d780904f698a29e5647c2633c9cff22a712a"
+      }
+    },
+    {
+      "path": "pages/assessment-analysis/index.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "pages/assessment-analysis/index.js",
+        "bytes": 10400,
+        "sha256": "41cbc3b80ddc5f215f92895f55c786599a237ee22bd9a5ce9bf78756e433527d"
+      },
+      "after": {
+        "path": "pages/assessment-analysis/index.js",
+        "bytes": 10395,
+        "sha256": "61e3dc61e529254578c083820d84a6294225639da711771f046684e55268a946"
+      }
+    },
+    {
+      "path": "pages/compass-preview/index.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "pages/compass-preview/index.js",
+        "bytes": 11932,
+        "sha256": "18da7195026e1b699856dcab365a58d89c5fbcdbe3425b3ad91545e6496c3098"
+      },
+      "after": {
+        "path": "pages/compass-preview/index.js",
+        "bytes": 14147,
+        "sha256": "cf5c0a2de72da3adca7bf5aa1b5e1799cc8a4997c3236ad2efdc324c3ff94fb0"
+      }
+    },
+    {
+      "path": "pages/compass-questionnaire/index.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "pages/compass-questionnaire/index.js",
+        "bytes": 22731,
+        "sha256": "842cf9131d002b9ed1977fd2518d034a4377df0edd35a4513cf6e97de4823147"
+      },
+      "after": {
+        "path": "pages/compass-questionnaire/index.js",
+        "bytes": 24923,
+        "sha256": "dea4acc117665af137bd78230cdbea671edafce9aa4957f2a009685ed82d5446"
+      }
+    },
+    {
+      "path": "pages/compass/index.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "pages/compass/index.js",
+        "bytes": 12671,
+        "sha256": "a05294a1cdf9a7acab1fcd4b806671733db9e07d847d32aec0b475395cabe900"
+      },
+      "after": {
+        "path": "pages/compass/index.js",
+        "bytes": 13137,
+        "sha256": "ef36f3ce64907d367711e24c842f092cba10ec3cb0817c8fa6fa78a25937b8a6"
+      }
+    },
+    {
+      "path": "pages/home/index.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "pages/home/index.js",
+        "bytes": 13122,
+        "sha256": "cb6dfcf56f27577bbe3ecb300cc7ad9af0457a174ea0998bb585d29fc0cb1631"
+      },
+      "after": {
+        "path": "pages/home/index.js",
+        "bytes": 13182,
+        "sha256": "b22a01a6477f7473a0f1f0b970d00a0829654ddfab9f4a4ae1dad5a42a7eac84"
+      }
+    },
+    {
+      "path": "pages/report/index.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "pages/report/index.js",
+        "bytes": 14204,
+        "sha256": "3d3a9b26fd5488550256f82f70fddc999e388be76f83d96a08eb19b5114f2862"
+      },
+      "after": {
+        "path": "pages/report/index.js",
+        "bytes": 17901,
+        "sha256": "4f976d549f5084a675e61305f60735f827d7a0b8b3e7ed4e6c3eb3d669867ed1"
+      }
+    },
+    {
+      "path": "server/dist/src/domain/education-compass/contracts.d.ts",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/src/domain/education-compass/contracts.d.ts",
+        "bytes": 8359,
+        "sha256": "5718103d0e4bdef77499e6d5ac853e44600d1ba901a11be8f9c266fe58a22dc6"
+      },
+      "after": {
+        "path": "server/dist/src/domain/education-compass/contracts.d.ts",
+        "bytes": 8795,
+        "sha256": "07feaf7c10353112e31020b1c4cac0a9fe1e5799cd1bb57c42cd015edb84a72f"
+      }
+    },
+    {
+      "path": "server/dist/src/domain/education-compass/next-support.d.ts",
+      "change": "ADDED",
+      "before": null,
+      "after": {
+        "path": "server/dist/src/domain/education-compass/next-support.d.ts",
+        "bytes": 1475,
+        "sha256": "dd7be9ac69dda37aed0484c2358565daf5b4335580e823906e8e1f03ebea9647"
+      }
+    },
+    {
+      "path": "server/dist/src/domain/education-compass/next-support.js",
+      "change": "ADDED",
+      "before": null,
+      "after": {
+        "path": "server/dist/src/domain/education-compass/next-support.js",
+        "bytes": 2487,
+        "sha256": "33c270414ed13351f325172dbc38fbfd39f4505116055462cdb8d6a08ef5abe5"
+      }
+    },
+    {
+      "path": "server/dist/src/domain/education-compass/next-support.js.map",
+      "change": "ADDED",
+      "before": null,
+      "after": {
+        "path": "server/dist/src/domain/education-compass/next-support.js.map",
+        "bytes": 1775,
+        "sha256": "accbab8b17e1715bf4cbba5118d5e05498a7b98fc8ee123923a4b7c4fa780853"
+      }
+    },
+    {
+      "path": "server/dist/src/domain/education-compass/registry.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/src/domain/education-compass/registry.js",
+        "bytes": 20428,
+        "sha256": "d67a47d738758301675be24dee242a6dd758950a8fdd74d1d43593256b711616"
+      },
+      "after": {
+        "path": "server/dist/src/domain/education-compass/registry.js",
+        "bytes": 21194,
+        "sha256": "dd29346117192f2d8c627f0688318569b124f1b40e86d434f87be8c3b217813f"
+      }
+    },
+    {
+      "path": "server/dist/src/domain/education-compass/registry.js.map",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/src/domain/education-compass/registry.js.map",
+        "bytes": 17543,
+        "sha256": "e706917e5bb7cc9dfc3a999af50ae16aaea1bdff501e98d8573cc96b05503cce"
+      },
+      "after": {
+        "path": "server/dist/src/domain/education-compass/registry.js.map",
+        "bytes": 18055,
+        "sha256": "f6df47604231eb8c4292e4cc53c66fd3ecf0ee2946935ba3ece62c8f7db48cd8"
+      }
+    },
+    {
+      "path": "server/dist/src/http/app.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/src/http/app.js",
+        "bytes": 27103,
+        "sha256": "0b27f440210cf4d3ae55e8e413c609c90e93e8924c0578f7bce360a8ac78c3a7"
+      },
+      "after": {
+        "path": "server/dist/src/http/app.js",
+        "bytes": 27473,
+        "sha256": "0656a428a8f94172b3ad2fc26ce8dd2553aa700ade2b84e8472dc09b60e7e1b3"
+      }
+    },
+    {
+      "path": "server/dist/src/http/app.js.map",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/src/http/app.js.map",
+        "bytes": 24464,
+        "sha256": "8e3aaf6dc633e04cfb26684aaa0d0dd8cf061d07dcdabb6e0f0ac8079ffe9939"
+      },
+      "after": {
+        "path": "server/dist/src/http/app.js.map",
+        "bytes": 24777,
+        "sha256": "9166e4ee14eafd9f91a2e4042f5b42d9dca8c4d46084b5c7364a7442dc92a557"
+      }
+    },
+    {
+      "path": "server/dist/src/services/profile-service.d.ts",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/src/services/profile-service.d.ts",
+        "bytes": 2462,
+        "sha256": "b7f75e89ad40b78cf294e7fbd0da6c91dd4a71fcfc0be90c3da9a0a08d5cece7"
+      },
+      "after": {
+        "path": "server/dist/src/services/profile-service.d.ts",
+        "bytes": 2488,
+        "sha256": "4e0f7bd3b6f855f2a38600fa9312e95f3668d4f417b20c090b0478a5bb5fa4f0"
+      }
+    },
+    {
+      "path": "server/dist/src/services/profile-service.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/src/services/profile-service.js",
+        "bytes": 17586,
+        "sha256": "3034c8baef0c1cc1115196f249bd7e34e8900b2d0bc9f87bf1a494a800188058"
+      },
+      "after": {
+        "path": "server/dist/src/services/profile-service.js",
+        "bytes": 22069,
+        "sha256": "e445f2d1bd8602debf7dc088ec5bbff1698a7e00e0a025c8166be799b4a60003"
+      }
+    },
+    {
+      "path": "server/dist/src/services/profile-service.js.map",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/src/services/profile-service.js.map",
+        "bytes": 15537,
+        "sha256": "0f3be1eb91665092468b5cc7e00040b398699beca42898df34a75f1606e63a75"
+      },
+      "after": {
+        "path": "server/dist/src/services/profile-service.js.map",
+        "bytes": 18476,
+        "sha256": "d3f3bf523302943d32909d567f7021daf68c24b4ff744823111ddee5882d0cd7"
+      }
+    },
+    {
+      "path": "server/dist/src/services/report-service.d.ts",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/src/services/report-service.d.ts",
+        "bytes": 1586,
+        "sha256": "1a5db01f157b26d0f2f9d3fa63b6cb2a7ab16481c5cfea7221c40e3bf43e25cf"
+      },
+      "after": {
+        "path": "server/dist/src/services/report-service.d.ts",
+        "bytes": 1836,
+        "sha256": "72a5d3384597b4e76bcb997268d157ce830959d51270a2e0e7154300ea514187"
+      }
+    },
+    {
+      "path": "server/dist/src/services/report-service.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/src/services/report-service.js",
+        "bytes": 8018,
+        "sha256": "87c5d4f0519bd68043c41d88cde2f5e013cd90a4b20cf1e3800ef459374f2386"
+      },
+      "after": {
+        "path": "server/dist/src/services/report-service.js",
+        "bytes": 9246,
+        "sha256": "306601cb30adccdf07abf06efb48326f7998511b673ec9ab04912fe0a6937478"
+      }
+    },
+    {
+      "path": "server/dist/src/services/report-service.js.map",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/src/services/report-service.js.map",
+        "bytes": 6638,
+        "sha256": "e989a88f3f8ff4d7be5d60378e15f633cfe37dd42c7b459a657c5fb3151515ca"
+      },
+      "after": {
+        "path": "server/dist/src/services/report-service.js.map",
+        "bytes": 7495,
+        "sha256": "7e7751b1e1c708e52dd6864e5b74fab64dfb1bf2e0cd9f689cd2b66fad843ed9"
+      }
+    },
+    {
+      "path": "server/dist/tests/agent.test.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/tests/agent.test.js",
+        "bytes": 56639,
+        "sha256": "a58d49530c9d5675c50522a747e2a1be931518ca79b97adc76fd623ef9cf5916"
+      },
+      "after": {
+        "path": "server/dist/tests/agent.test.js",
+        "bytes": 57215,
+        "sha256": "a234b16763d26dcfaca9b7c455d3e1081f6c1c5ff627a6ef15e88bcdba2a5144"
+      }
+    },
+    {
+      "path": "server/dist/tests/agent.test.js.map",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/tests/agent.test.js.map",
+        "bytes": 50191,
+        "sha256": "4f74c851a0d9f6d483cb5b0d57c6ca7305ceefebb80e8568cc7cc07e8e420639"
+      },
+      "after": {
+        "path": "server/dist/tests/agent.test.js.map",
+        "bytes": 50803,
+        "sha256": "407a6adab2d939b37e5acaebf9bae64c07221fd240243f75e332439131626e08"
+      }
+    },
+    {
+      "path": "server/dist/tests/education-contracts.test.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/tests/education-contracts.test.js",
+        "bytes": 20784,
+        "sha256": "1a808883b481c274c6c98c85c3fc592e826eacc5273f0ac85d1b78d1696a122c"
+      },
+      "after": {
+        "path": "server/dist/tests/education-contracts.test.js",
+        "bytes": 24247,
+        "sha256": "6b3a6387b8dd89d5def91de7f5f69e071e3894267473fae47a8ded0261ba5bb3"
+      }
+    },
+    {
+      "path": "server/dist/tests/education-contracts.test.js.map",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/tests/education-contracts.test.js.map",
+        "bytes": 17465,
+        "sha256": "21aee19028fdd42e006fbe0555f4772b316a24d723e404aa35389af607b1f116"
+      },
+      "after": {
+        "path": "server/dist/tests/education-contracts.test.js.map",
+        "bytes": 19967,
+        "sha256": "47699f756d0df1afa5ff4a7df2f3059b1ec9e06cc1c9aff77817a195d5509426"
+      }
+    },
+    {
+      "path": "server/dist/tests/education-http.test.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/tests/education-http.test.js",
+        "bytes": 42244,
+        "sha256": "bae7533affd1e9e0a19e0618cfb8713e926ee40b6a735e05d45625c3966c289f"
+      },
+      "after": {
+        "path": "server/dist/tests/education-http.test.js",
+        "bytes": 51720,
+        "sha256": "8647aada6af1e110214c9363170c55c7ecd7e19b4b0afa6124ed9652bf48e8ff"
+      }
+    },
+    {
+      "path": "server/dist/tests/education-http.test.js.map",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/dist/tests/education-http.test.js.map",
+        "bytes": 39219,
+        "sha256": "28ce05df7fd3d144db2b7ce24a9e199b0e3efb64a39b20da19b299d75fc589d2"
+      },
+      "after": {
+        "path": "server/dist/tests/education-http.test.js.map",
+        "bytes": 48158,
+        "sha256": "1c8f391455ab22c711780e4ec90b2bbeb96978f017b04151b66ea6887cd26312"
+      }
+    },
+    {
+      "path": "server/src/domain/education-compass/contracts.ts",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/src/domain/education-compass/contracts.ts",
+        "bytes": 7612,
+        "sha256": "44ebd5c33ee5768a1f4cc3cdd0cb5e9ff19076bb0add295cab8c2a3fa0f3af19"
+      },
+      "after": {
+        "path": "server/src/domain/education-compass/contracts.ts",
+        "bytes": 8023,
+        "sha256": "1b7fca2759df12c8150db0f76e9012a48befda0b385cc241b165f5ceeda2210e"
+      }
+    },
+    {
+      "path": "server/src/domain/education-compass/next-support.ts",
+      "change": "ADDED",
+      "before": null,
+      "after": {
+        "path": "server/src/domain/education-compass/next-support.ts",
+        "bytes": 3021,
+        "sha256": "296d20b74a4e52ca6863a0ece84049b686e22874ff10b5dbf4f4273f84553ddb"
+      }
+    },
+    {
+      "path": "server/src/domain/education-compass/registry.ts",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/src/domain/education-compass/registry.ts",
+        "bytes": 21691,
+        "sha256": "26a2009d48355054e1dd39e2c95e0ec0a71cbfb467ecf15457536fe7cc47e67e"
+      },
+      "after": {
+        "path": "server/src/domain/education-compass/registry.ts",
+        "bytes": 22464,
+        "sha256": "c93b60be8c347a8d695d2b50fcd5a792a5447dcca15409ba1177326bb7a3e25b"
+      }
+    },
+    {
+      "path": "server/src/http/app.ts",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/src/http/app.ts",
+        "bytes": 25135,
+        "sha256": "dc7a7e28bdf4a2f6c696984ed92f6d6026de053f84ec7a8b1cea84df71c9930f"
+      },
+      "after": {
+        "path": "server/src/http/app.ts",
+        "bytes": 25483,
+        "sha256": "74a41876e00348cadd0af2ae32ab574323b4c59c4ebeb3651b59acf982edc658"
+      }
+    },
+    {
+      "path": "server/src/services/profile-service.ts",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/src/services/profile-service.ts",
+        "bytes": 16748,
+        "sha256": "645506dd30b354fe1668701e31798848fbe9ad02c5ed6ec55761a172adf7557b"
+      },
+      "after": {
+        "path": "server/src/services/profile-service.ts",
+        "bytes": 20937,
+        "sha256": "c1f85b432992ffa62bf091db22dd8126fcca9842eb9e79aa9cd2a2e307493090"
+      }
+    },
+    {
+      "path": "server/src/services/report-service.ts",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/src/services/report-service.ts",
+        "bytes": 8286,
+        "sha256": "8c825754c02d92668d5a2ac40f5d6e876133902b7a27eb45b499d197da04e3a7"
+      },
+      "after": {
+        "path": "server/src/services/report-service.ts",
+        "bytes": 9591,
+        "sha256": "3fac7382f5e77f7287490ae9aeb7d93697081d2116fd2943854114c74bcf347c"
+      }
+    },
+    {
+      "path": "server/tests/agent.test.ts",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/tests/agent.test.ts",
+        "bytes": 52448,
+        "sha256": "479f72165e75b0512d877011ac5b99b85d8bc563d8f838621e7912e68c83ed20"
+      },
+      "after": {
+        "path": "server/tests/agent.test.ts",
+        "bytes": 52934,
+        "sha256": "a569c2f38638a342c212270e4e574ffaa45f90ca9e45e62bd9a326346bf520a7"
+      }
+    },
+    {
+      "path": "server/tests/education-contracts.test.ts",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/tests/education-contracts.test.ts",
+        "bytes": 18800,
+        "sha256": "52a846d8406b193376c62410471acc156fd6f79e8e94b1cf0fdfc453cc75c8f9"
+      },
+      "after": {
+        "path": "server/tests/education-contracts.test.ts",
+        "bytes": 21807,
+        "sha256": "52b1595eddc908fed5ab136f32d63af11ccfbf02515fa8a6ac40dc7758ef24ec"
+      }
+    },
+    {
+      "path": "server/tests/education-http.test.ts",
+      "change": "CHANGED",
+      "before": {
+        "path": "server/tests/education-http.test.ts",
+        "bytes": 37524,
+        "sha256": "778d0ea430e5c4c8ed34e82761a997980db1e2721da2a45d169dda00a633628d"
+      },
+      "after": {
+        "path": "server/tests/education-http.test.ts",
+        "bytes": 45942,
+        "sha256": "47cfb72793b5f633f18a95785ca01827423e6dcc89f877650ad33099c39589a2"
+      }
+    },
+    {
+      "path": "services/education-compass.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "services/education-compass.js",
+        "bytes": 13175,
+        "sha256": "efba567a2cad3165bf4105c31bfe4652b83e3ecd43c32cae84b78120ed93197a"
+      },
+      "after": {
+        "path": "services/education-compass.js",
+        "bytes": 13466,
+        "sha256": "d53fedec6f8d0b7588cb90a23447d75dd71a1356ed105eb0278623349b34b699"
+      }
+    },
+    {
+      "path": "services/family-data.js",
+      "change": "CHANGED",
+      "before": {
+        "path": "services/family-data.js",
+        "bytes": 8495,
+        "sha256": "2296d3bc5a16373ddf6cb5481aab7f982c7c5a9d0fd53f2b4f87782a7338923d"
+      },
+      "after": {
+        "path": "services/family-data.js",
+        "bytes": 8679,
+        "sha256": "3dbb4ea5c6d28aa5ed8a5acb8fb84804e9406598c24e3a2070acb88ef2198469"
+      }
+    }
+  ]
+}

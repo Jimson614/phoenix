@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "phoenix_local_verification_release_manifest_v1",
+  "generatedAt": "2026-08-25T10:39:04.175Z",
+  "artifactKind": "LOCAL_VERIFICATION_EVIDENCE",
+  "productVersion": "0.5.0",
+  "verificationStatus": "LOCAL_LEVEL1_LEVEL2_HTTP_MOCK_VERIFIED",
+  "releaseStatus": "NOT_A_RELEASE_CANDIDATE",
+  "deployableArtifactIncluded": false,
+  "verifiedCandidateZipIncluded": false,
+  "verifiedScope": [
+    "Level 1 local flow",
+    "Level 2 local locked/unlocked flow",
+    "local mock payment authority",
+    "local privacy boundary tests"
+  ],
+  "blockedScope": [
+    {
+      "id": "postgresql-schema",
+      "status": "BLOCKED_EXTERNAL",
+      "reason": "EDUCATION_TEST_DATABASE_URL is not configured; no database connection was attempted"
+    },
+    {
+      "id": "wechat-pay-live",
+      "status": "BLOCKED_EXTERNAL"
+    },
+    {
+      "id": "openai-agent-live",
+      "status": "BLOCKED_EXTERNAL"
+    },
+    {
+      "id": "feishu-bitable-live",
+      "status": "BLOCKED_EXTERNAL"
+    },
+    {
+      "id": "wechat-devtools-manual",
+      "status": "BLOCKED_MANUAL"
+    }
+  ],
+  "integrity": {
+    "freezeSha256": "9884503DA89A61F1DFC78FF97F429FDE210D240B30764D099105DD7C8A100B2D",
+    "migrationAggregateSha256": "DBDCDDA40BB8995BC65CED72A6F7D867F55ED1F270AE5C3F437DB238DDDA703D",
+    "sourceBeforeSha256": "13D8DC6272A11134529CD61F311BA70301799FF5FE99C472A9930C3CFB5826B8",
+    "sourceAfterSha256": "13D8DC6272A11134529CD61F311BA70301799FF5FE99C472A9930C3CFB5826B8",
+    "freezeBaselineMatch": true,
+    "historicalMigrationsUnchanged": true,
+    "sourceChangedDuringRun": false,
+    "migrationChangedDuringRun": false
+  },
+  "externalCallsPerformed": 0,
+  "notes": "This manifest describes redacted local evidence only. It does not authorize deployment or production use."
+}

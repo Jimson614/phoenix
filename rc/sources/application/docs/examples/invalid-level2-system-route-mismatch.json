@@ -1,0 +1,18 @@
+{
+  "fixtureId": "INVALID_LEVEL2_SYSTEM_ROUTE_MISMATCH",
+  "precondition": "The assessment was created with educationSystem DSE.",
+  "expectedStatus": 409,
+  "expectedErrorCode": "EDUCATION_SYSTEM_ROUTE_MISMATCH",
+  "request": {
+    "method": "PUT",
+    "path": "/v1/assessments/{assessmentId}/draft",
+    "body": {
+      "revision": 1,
+      "educationSystem": "DSE",
+      "clientSaveToken": "invalid-route-save-001",
+      "answers": {
+        "EGD03": "GAOKAO"
+      }
+    }
+  }
+}

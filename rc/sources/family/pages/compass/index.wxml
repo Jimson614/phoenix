@@ -1,0 +1,29 @@
+<view class="compass-page">
+  <view class="compass-hero">
+    <text class="eyebrow">EDUCATION COMPASS™</text>
+    <text class="compass-hero__title">不是替孩子决定方向，
+而是一起看清下一步。</text>
+    <text class="compass-hero__copy">Education Compass 会从成长阶段、优势、挑战和家庭期待出发，形成一份可继续行动的洞察。</text>
+    <view class="compass-hero__student">
+      <text class="compass-hero__avatar">{{student.initial}}</text>
+      <view><text class="compass-hero__name">{{student.name}}</text><text class="compass-hero__meta">{{student.school}} · {{student.grade}}</text></view>
+    </view>
+  </view>
+
+  <view class="page compass-body">
+    <view class="compass-path">
+      <view class="compass-path__item"><text>01</text><view><text>了解现在</text><text>兴趣、优势与当前挑战</text></view></view>
+      <view class="compass-path__item"><text>02</text><view><text>形成洞察</text><text>把零散信息连接成成长方向</text></view></view>
+      <view class="compass-path__item"><text>03</text><view><text>开始行动</text><text>获得未来 30 天的下一步建议</text></view></view>
+    </view>
+    <button class="btn btn--primary" bindtap="start">开始 Education Compass</button>
+    <text class="compass-time">约 5 分钟 · 回答没有标准答案</text>
+
+    <view wx:if="{{reports.length}}" class="history section">
+      <view class="section-head"><text class="h3">历史成长报告</text><text class="muted">{{reports.length}} 份</text></view>
+      <view wx:for="{{reports}}" wx:key="id" class="history__item" data-id="{{item.id}}" bindtap="openReport">
+        <view><text class="history__date">{{item.dateLabel}}</text><text class="history__title">{{item.summary.currentStage}}</text></view><text class="chevron">›</text>
+      </view>
+    </view>
+  </view>
+</view>

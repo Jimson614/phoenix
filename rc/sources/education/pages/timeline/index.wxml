@@ -1,0 +1,67 @@
+<view class="timeline-page">
+  <image class="timeline-feather" src="/assets/ui/feather-champagne.png" mode="widthFix" aria-hidden="true" />
+  <view class="timeline-orbit timeline-orbit--outer" aria-hidden="true"></view>
+  <view class="timeline-orbit timeline-orbit--inner" aria-hidden="true"></view>
+
+  <view class="page timeline-shell">
+    <view class="timeline-brand"><brand-mark /></view>
+
+    <view class="timeline-hero">
+      <view class="timeline-hero__compass" aria-hidden="true"><text>✦</text></view>
+      <text class="eyebrow">FAMILY GROWTH TIMELINE</text>
+      <text class="h1 timeline-title">成长，会被时间
+慢慢看见。</text>
+      <text class="muted timeline-copy">每一次测评、洞察与沟通，都会成为家庭关系历史中值得回看的坐标。</text>
+      <view class="timeline-hero__rule" aria-hidden="true"><view></view><text>◆</text><view></view></view>
+    </view>
+
+    <view wx:if="{{loading}}" class="timeline-state timeline-state--loading" aria-busy="true">
+      <view class="timeline-state__mark timeline-state__mark--loading" aria-hidden="true">✦</view>
+      <text class="h3 timeline-state__title">正在整理家庭成长记录</text>
+      <text class="muted timeline-state__copy">重要节点将按时间顺序呈现在这里</text>
+      <view class="timeline-skeleton" aria-hidden="true">
+        <view></view><view></view><view></view>
+      </view>
+    </view>
+
+    <view wx:elif="{{error}}" class="timeline-state timeline-state--error" role="alert">
+      <view class="timeline-state__mark timeline-state__mark--error" aria-hidden="true">!</view>
+      <text class="h3 timeline-state__title">时间线暂时不可用</text>
+      <text class="muted timeline-state__copy">{{error}}</text>
+      <text class="timeline-state__hint">下拉页面可重新加载</text>
+    </view>
+
+    <view wx:elif="{{events.length}}" class="timeline" aria-label="家庭成长时间线">
+      <view class="timeline__intro">
+        <text class="timeline__intro-label">成长坐标</text>
+        <text class="timeline__intro-count">共 {{events.length}} 条记录</text>
+      </view>
+      <view wx:for="{{events}}" wx:key="id" class="timeline__item">
+        <view class="timeline__rail" aria-hidden="true">
+          <view class="timeline__icon">{{item.meta.icon}}</view>
+          <view class="timeline__line"></view>
+        </view>
+        <view class="timeline__content">
+          <view class="timeline__meta">
+            <text class="timeline__label">{{item.meta.label}}</text>
+            <text class="timeline__date">{{item.dateLabel}}</text>
+          </view>
+          <text class="timeline__description">{{item.description}}</text>
+          <view class="timeline__content-mark" aria-hidden="true">✦</view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:else class="timeline-state timeline-state--empty">
+      <view class="timeline-state__mark" aria-hidden="true">◇</view>
+      <text class="h3 timeline-state__title">第一条记录正在等待你</text>
+      <text class="muted timeline-state__copy">建立家庭档案后，重要成长节点会自动保存在这里。</text>
+      <button class="btn timeline-state__button" bindtap="goHome">返回家庭中心 <text aria-hidden="true">→</text></button>
+    </view>
+
+    <view class="timeline-privacy">
+      <text class="timeline-privacy__icon" aria-hidden="true">◇</text>
+      <text>家庭记录仅按已授权范围展示</text>
+    </view>
+  </view>
+</view>

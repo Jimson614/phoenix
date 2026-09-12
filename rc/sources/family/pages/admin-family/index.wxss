@@ -1,0 +1,31 @@
+.admin-detail__hero { background: linear-gradient(150deg, #10263b, #0d1b2a); color: #fff; padding: 52rpx 36rpx 44rpx; }
+.admin-detail__name { display: block; font-family: serif; font-size: 48rpx; font-weight: 700; margin-top: 15rpx; }
+.admin-detail__meta { color: rgba(255,255,255,.58); display: block; font-size: 21rpx; margin-top: 10rpx; }
+.admin-detail__goal { color: #e0ca98; display: block; font-family: serif; font-size: 25rpx; line-height: 1.7; margin-top: 24rpx; }
+.admin-detail__body { padding-top: 8rpx; }
+.admin-section { border-bottom: 1rpx solid #e7dece; padding: 34rpx 0; }
+.student-row { align-items: center; display: flex; }
+.student-row + .student-row { margin-top: 20rpx; }
+.student-row__avatar { align-items: center; background: #eee2cb; border-radius: 50%; color: #8d682a; display: flex; height: 68rpx; justify-content: center; margin-right: 18rpx; width: 68rpx; }
+.student-row__name, .student-row__meta { display: block; }
+.student-row__name { color: #0d1b2a; font-weight: 650; }
+.student-row__meta { color: #777; font-size: 21rpx; margin-top: 5rpx; }
+.report-row { align-items: center; border-top: 1rpx solid #eee7dc; display: flex; justify-content: space-between; padding: 22rpx 0; }
+.report-row__date, .report-row__title { display: block; }
+.report-row__date { color: #a37b34; font-size: 19rpx; }
+.report-row__title { color: #0d1b2a; margin-top: 5rpx; }
+.request-card { background: #f7eee0; border-radius: 20rpx; padding: 24rpx; }
+.request-card + .request-card { margin-top: 14rpx; }
+.request-card__topic, .request-card__meta, .request-card__note { display: block; }
+.request-card__topic { color: #0d1b2a; font-weight: 650; }
+.request-card__meta { color: #956d2a; font-size: 20rpx; margin-top: 8rpx; }
+.request-card__note { color: #6d6861; font-size: 22rpx; line-height: 1.6; margin-top: 12rpx; }
+.note-form__textarea { margin-top: 20rpx; }
+.note-form__picker { margin: 14rpx 0; }
+.note-row { border-top: 1rpx solid #eee7dc; margin-top: 20rpx; padding-top: 20rpx; }
+.note-row__date { color: #999; font-size: 19rpx; }
+.note-row__copy { color: #444b50; display: block; font-size: 24rpx; line-height: 1.7; margin-top: 12rpx; }
+.event-row { border-left: 2rpx solid #d7c49c; margin: 20rpx 0 0 10rpx; padding-left: 20rpx; }
+.event-row__date, .event-row__copy { display: block; }
+.event-row__date { color: #9f7b3d; font-size: 18rpx; }
+.event-row__copy { color: #555; font-size: 23rpx; margin-top: 5rpx; }

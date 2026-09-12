@@ -1,0 +1,11 @@
+node_modules/
+miniprogram_npm/
+.DS_Store
+*.log
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+backend/data/
+.env
+.idea/
+.vscode/

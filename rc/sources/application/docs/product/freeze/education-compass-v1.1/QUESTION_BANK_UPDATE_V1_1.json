@@ -1,0 +1,188 @@
+{
+  "package_status": "FOUNDER_AUTHORIZED_INCREMENTAL_UPDATE",
+  "schema_version": "phoenix_question_bank_update_schema_v1",
+  "update_version": "education_compass_question_update_v1.1.0",
+  "base_question_bank": {
+    "relative_path": "docs/product/freeze/education-compass-v1-rc1/QUESTION_BANKS_V1_RC1.json",
+    "candidate_version": "education_compass_question_banks_v1.0.0-rc1",
+    "sha256": "EFAE34EE595FC5E4A2FE8B6C5B89B1F182625BF15518620AC475320E4FD978F9"
+  },
+  "resulting_candidate_version": "education_compass_question_banks_v1.1.0",
+  "questionnaire_versions": {
+    "level_1": "free_parent_compass_v1.1.0",
+    "level_2_common": "education_growth_discovery_v1.1.0"
+  },
+  "compatibility": {
+    "preserve_question_ids": true,
+    "preserve_answer_keys": true,
+    "preserve_existing_answer_codes": true,
+    "preserve_required_optional_partition": true,
+    "preserve_system_routes": true,
+    "preserve_scoring_mode": "NONE",
+    "existing_drafts": "Existing V1.0 drafts and submissions remain pinned to V1.0. Newly created assessments use V1.1; no historic draft is silently migrated."
+  },
+  "guardrails": {
+    "level_2_allowed_respondents": ["STUDENT"],
+    "budget_amount_collection": false,
+    "ib_other_mode": "COMMON_ONLY_FALLBACK",
+    "education_pathway_question": "EGD19_OPTIONAL_CONTEXT_ONLY",
+    "admission_or_outcome_claims": false
+  },
+  "level_1": {
+    "bank_version": "free_parent_compass_v1.1.0",
+    "question_overrides": [
+      {
+        "id": "FP02",
+        "label": "孩子目前主要学习哪一种教育体系／课程？"
+      },
+      {
+        "id": "FP03",
+        "label": "作为家长，你目前最希望先看清哪些教育问题？（最多 3 项）",
+        "option_label_overrides": [
+          { "code": "ACADEMIC_SUBJECTS", "label": "成绩与学科学习" },
+          { "code": "LEARNING_HABITS", "label": "学习习惯与方法" },
+          { "code": "LEARNING_MOTIVATION", "label": "学习动力与专注" },
+          { "code": "SUBJECT_SELECTION", "label": "选科或课程选择" },
+          { "code": "EDUCATION_PATH", "label": "升学路径了解" },
+          { "code": "SYSTEM_TRANSITION", "label": "教育体系衔接" },
+          { "code": "FAMILY_STUDENT_ALIGNMENT", "label": "家庭与孩子目标是否一致" }
+        ]
+      },
+      {
+        "id": "FP04",
+        "label": "你观察到孩子目前最明显的优势是什么？（最多 2 项）",
+        "option_label_overrides": [
+          { "code": "QUICK_UNDERSTANDING", "label": "理解速度较快" },
+          { "code": "INTEREST_CLARITY", "label": "兴趣方向较明确" }
+        ]
+      },
+      {
+        "id": "FP05",
+        "label": "你观察到孩子当前最需要突破的困难是什么？（最多 2 项）",
+        "option_label_overrides": [
+          { "code": "KNOWS_BUT_CANNOT_APPLY", "label": "掌握了但不会灵活运用" },
+          { "code": "SLOW_TASK_SPEED", "label": "完成任务或做题较慢" },
+          { "code": "STRESS_SIGNAL", "label": "情绪或压力影响学习状态" }
+        ]
+      },
+      {
+        "id": "FP06",
+        "label": "孩子是否愿意由本人完成下一步「学生成长发现」测评？"
+      },
+      {
+        "id": "FP07",
+        "label": "未来 1–3 年，你最希望孩子优先改善或准备哪些方向？（最多 2 项）"
+      },
+      {
+        "id": "FP08",
+        "label": "完成免费成长快照后，你希望下一步获得哪类支持？",
+        "option_label_overrides": [
+          { "code": "STUDENT_ASSESSMENT", "label": "让学生本人完成成长发现测评" },
+          { "code": "DEEP_ASSESSMENT_INFO", "label": "了解深度教育成长评估的适用方式" }
+        ]
+      }
+    ]
+  },
+  "level_2": {
+    "common_bank_version": "education_growth_discovery_v1.1.0",
+    "question_overrides": [
+      {
+        "id": "EGD01",
+        "label": "这份成长发现测评须由学生本人完成。请确认你正由学生本人阅读并选择答案。"
+      },
+      {
+        "id": "EGD02",
+        "label": "你现在处于哪个年级或学习阶段？"
+      },
+      {
+        "id": "EGD03",
+        "label": "你目前主要学习哪一种教育体系／课程？"
+      },
+      {
+        "id": "EGD04",
+        "label": "预计毕业或参加主要考试的年份是？"
+      },
+      {
+        "id": "EGD05",
+        "label": "目前考虑的学习、升学或发展地区有哪些？（最多 3 项）"
+      },
+      {
+        "id": "EGD06",
+        "label": "当前你最希望改善哪三件事？（最多 3 项）"
+      },
+      {
+        "id": "EGD07",
+        "label": "你如何看待自己最近的学习表现？",
+        "option_label_overrides": [
+          { "code": "MIXED", "label": "整体处于中等，或不同学科／任务差异较大" }
+        ]
+      },
+      {
+        "id": "EGD08",
+        "label": "你目前相对更有把握的学科有哪些？（最多 3 项）"
+      },
+      {
+        "id": "EGD09",
+        "label": "你目前最希望改善的学科有哪些？（最多 3 项）"
+      },
+      {
+        "id": "EGD10",
+        "label": "当遇到陌生题目或新的学习任务时，你通常会怎样开始？"
+      },
+      {
+        "id": "EGD11",
+        "label": "学过但在需要时想不起来的情况，最近出现得多吗？"
+      },
+      {
+        "id": "EGD12",
+        "label": "你通常怎样安排作业、复习或长期任务？"
+      },
+      {
+        "id": "EGD13",
+        "label": "当你发现错误时，通常会怎样处理？"
+      },
+      {
+        "id": "EGD14",
+        "label": "你觉得自己在哪些学习方式下更容易进入状态？"
+      },
+      {
+        "id": "EGD15",
+        "label": "你目前最愿意持续探索哪些兴趣方向？（最多 3 项）"
+      },
+      {
+        "id": "EGD16",
+        "label": "你是否有持续投入的活动、项目或作品？"
+      },
+      {
+        "id": "EGD17",
+        "label": "目前最影响你学习或下一步行动的因素有哪些？（最多 2 项）"
+      },
+      {
+        "id": "EGD18",
+        "label": "未来 30 天，你愿意先完成哪一项行动？"
+      },
+      {
+        "id": "EGD19",
+        "label": "你目前正在考虑哪些下一阶段学历路径？（选填，最多 3 项）"
+      }
+    ]
+  },
+  "presentation": {
+    "level_1": {
+      "experienceTitle": "免费家长教育罗盘",
+      "experienceEyebrow": "FREE · 3—5 分钟",
+      "experienceSummary": "帮助家长看清孩子当前最值得关注的教育信号。",
+      "respondentHint": "由家长／监护人填写；答案用于形成家庭教育成长快照。",
+      "completionOutcome": "完成后可查看 Family Education Snapshot，并决定是否邀请学生本人参加下一步测评。",
+      "primaryActionHint": "先完成免费成长快照"
+    },
+    "level_2": {
+      "experienceTitle": "¥39.90 学生成长发现",
+      "experienceEyebrow": "STUDENT · 15—20 分钟",
+      "experienceSummary": "从学习表现、学习过程、思维方式与兴趣方向发现当前成长关键点。",
+      "respondentHint": "仅限学生本人作答；家长可协助操作或解释，但不得代选答案。",
+      "completionOutcome": "先完成并提交测评；付款后解锁 Student Snapshot、Strength Signals、Learning Bottlenecks、Subject Focus、Growth Direction 与 30-Day Action Plan。",
+      "primaryActionHint": "先完成学生本人测评，再决定是否解锁完整报告"
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "generatedAt": "2026-08-26T09:59:41.926Z",
+  "screenshotsCaptured": 0,
+  "environments": {
+    "wechatDevTools": "BLOCKED_MANUAL",
+    "iosRealDevice": "BLOCKED_MANUAL",
+    "androidRealDevice": "BLOCKED_MANUAL"
+  },
+  "viewports": [
+    {
+      "width": 320,
+      "status": "BLOCKED_MANUAL",
+      "steps": [
+        "Open all seven data-ui-screen states with authoritative fixture data.",
+        "Verify no horizontal clipping, oversized blank block, fixed-bar overlap or safe-area collision.",
+        "Verify 44px tap targets, three-column Free result factors, selected checkmark and disabled/loading states.",
+        "Verify preview/report share opens only the generic welcome entry and exposes no IDs or result summary."
+      ]
+    },
+    {
+      "width": 360,
+      "status": "BLOCKED_MANUAL",
+      "steps": [
+        "Open all seven data-ui-screen states with authoritative fixture data.",
+        "Verify no horizontal clipping, oversized blank block, fixed-bar overlap or safe-area collision.",
+        "Verify 44px tap targets, three-column Free result factors, selected checkmark and disabled/loading states.",
+        "Verify preview/report share opens only the generic welcome entry and exposes no IDs or result summary."
+      ]
+    },
+    {
+      "width": 375,
+      "status": "BLOCKED_MANUAL",
+      "steps": [
+        "Open all seven data-ui-screen states with authoritative fixture data.",
+        "Verify no horizontal clipping, oversized blank block, fixed-bar overlap or safe-area collision.",
+        "Verify 44px tap targets, three-column Free result factors, selected checkmark and disabled/loading states.",
+        "Verify preview/report share opens only the generic welcome entry and exposes no IDs or result summary."
+      ]
+    },
+    {
+      "width": 390,
+      "status": "BLOCKED_MANUAL",
+      "steps": [
+        "Open all seven data-ui-screen states with authoritative fixture data.",
+        "Verify no horizontal clipping, oversized blank block, fixed-bar overlap or safe-area collision.",
+        "Verify 44px tap targets, three-column Free result factors, selected checkmark and disabled/loading states.",
+        "Verify preview/report share opens only the generic welcome entry and exposes no IDs or result summary."
+      ]
+    },
+    {
+      "width": 430,
+      "status": "BLOCKED_MANUAL",
+      "steps": [
+        "Open all seven data-ui-screen states with authoritative fixture data.",
+        "Verify no horizontal clipping, oversized blank block, fixed-bar overlap or safe-area collision.",
+        "Verify 44px tap targets, three-column Free result factors, selected checkmark and disabled/loading states.",
+        "Verify preview/report share opens only the generic welcome entry and exposes no IDs or result summary."
+      ]
+    }
+  ],
+  "note": "No screenshot pass is claimed until WeChat DevTools and real-device captures are added to screenshots/ and reviewed."
+}

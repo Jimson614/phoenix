@@ -1,0 +1,15 @@
+<view class="masters-list page--screen">
+  <view class="page masters-list__page">
+    <view class="masters-list__topbar"><button class="btn btn--text" bindtap="back">‹ 返回</button><text class="eyebrow">MY APPLICATION COMPASS</text></view>
+    <view wx:if="{{!enabled}}" class="ui-state"><text class="h3">香港硕士免费咨询暂未开放</text><text class="muted">当前不会读取咨询列表。</text></view>
+    <view wx:elif="{{!loggedIn}}" class="ui-state"><text class="h3">请先登录后继续</text><text class="muted">登录后可恢复本人咨询记录。</text><button class="btn btn--gold" loading="{{loginBusy}}" disabled="{{loginBusy}}" bindtap="login">登录并继续</button></view>
+    <block wx:elif="{{loggedIn}}">
+      <view class="masters-list__heading"><text class="eyebrow">CONSULTATIONS</text><text class="h1">我的申请咨询</text><text class="muted">只显示当前可信登录身份的咨询记录；附件和咨询报告仍按服务端权限返回。</text></view>
+      <view wx:if="{{loading}}" class="ui-state ui-state--short" aria-busy="true"><text class="h3">正在读取…</text></view>
+      <view wx:elif="{{!consultations.length}}" class="panel empty"><text class="empty__mark">◇</text><text class="h3">还没有咨询记录</text><text class="muted">可以先通过简短引导建立一份免费咨询。</text></view>
+      <view wx:else class="masters-list__items"><view wx:for="{{consultations}}" wx:key="id" class="panel consultation-row" data-id="{{item.id}}" bindtap="open"><view class="consultation-row__head"><text class="h3">香港硕士免费咨询</text><text class="status status--warm">{{item.statusLabel}}</text></view><text class="muted">目标入学：{{item.targetYear}} · 资料版本 {{item.version || item.profileVersion || 1}}</text><text class="consultation-row__date">{{item.updatedAt || '日期以服务端为准'}}</text><text class="chevron">›</text></view></view>
+      <button class="btn btn--gold masters-list__new" bindtap="newConsultation">建立新的免费咨询</button>
+      <view wx:if="{{error}}" class="masters-list__error">{{error}}<button class="btn btn--text" bindtap="retry">重新加载</button></view>
+    </block>
+  </view>
+</view>
