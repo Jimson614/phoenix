@@ -12,6 +12,7 @@ CREATE TABLE domain.compass_results (
   result_id uuid PRIMARY KEY,
   family_id text NOT NULL,
   subject_member_pk uuid NOT NULL,
+  subject_family_membership_id uuid NOT NULL,
   subject_id text NOT NULL,
   compass_type text NOT NULL CHECK (compass_type IN ('EDUCATION', 'IDENTITY', 'WEALTH')),
   source_service text NOT NULL,
@@ -21,8 +22,8 @@ CREATE TABLE domain.compass_results (
   result_schema_version text NOT NULL,
   status text NOT NULL CHECK (status IN ('COMPLETED', 'PARTIAL', 'INVALIDATED', 'SUPERSEDED')),
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-  FOREIGN KEY (family_id, subject_member_pk)
-    REFERENCES core.family_memberships(family_id, member_pk) ON DELETE RESTRICT,
+  FOREIGN KEY (subject_family_membership_id, family_id, subject_member_pk)
+    REFERENCES core.family_memberships(membership_id, family_id, member_pk) ON DELETE RESTRICT,
   UNIQUE (source_service, source_assessment_id)
 );
 
@@ -30,6 +31,7 @@ CREATE TABLE domain.journeys (
   journey_id uuid PRIMARY KEY,
   family_id text NOT NULL,
   subject_member_pk uuid NOT NULL,
+  subject_family_membership_id uuid NOT NULL,
   source_result_id uuid NOT NULL UNIQUE REFERENCES domain.compass_results(result_id) ON DELETE RESTRICT,
   consent_id uuid NOT NULL REFERENCES core.consents(consent_id) ON DELETE RESTRICT,
   journey_type text NOT NULL CHECK (journey_type IN ('EDUCATION', 'IDENTITY', 'WEALTH')),
@@ -37,14 +39,15 @@ CREATE TABLE domain.journeys (
   current_state text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-  FOREIGN KEY (family_id, subject_member_pk)
-    REFERENCES core.family_memberships(family_id, member_pk) ON DELETE RESTRICT
+  FOREIGN KEY (subject_family_membership_id, family_id, subject_member_pk)
+    REFERENCES core.family_memberships(membership_id, family_id, member_pk) ON DELETE RESTRICT
 );
 
 CREATE TABLE domain.timeline_events (
   event_id uuid PRIMARY KEY,
   family_id text NOT NULL,
   subject_member_pk uuid NOT NULL,
+  subject_family_membership_id uuid NOT NULL,
   journey_id uuid REFERENCES domain.journeys(journey_id) ON DELETE RESTRICT,
   consent_id uuid NOT NULL REFERENCES core.consents(consent_id) ON DELETE RESTRICT,
   event_type text NOT NULL CHECK (event_type IN (
@@ -68,8 +71,8 @@ CREATE TABLE domain.timeline_events (
   occurred_at timestamptz NOT NULL,
   recorded_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
-  FOREIGN KEY (family_id, subject_member_pk)
-    REFERENCES core.family_memberships(family_id, member_pk) ON DELETE RESTRICT,
+  FOREIGN KEY (subject_family_membership_id, family_id, subject_member_pk)
+    REFERENCES core.family_memberships(membership_id, family_id, member_pk) ON DELETE RESTRICT,
   UNIQUE (source_service, source_record_id, event_type, source_version)
 );
 
@@ -77,14 +80,15 @@ CREATE TABLE domain.blueprints (
   blueprint_id uuid PRIMARY KEY,
   family_id text NOT NULL,
   subject_member_pk uuid NOT NULL,
+  subject_family_membership_id uuid NOT NULL,
   journey_id uuid NOT NULL REFERENCES domain.journeys(journey_id) ON DELETE RESTRICT,
   consent_id uuid NOT NULL REFERENCES core.consents(consent_id) ON DELETE RESTRICT,
   blueprint_type text NOT NULL CHECK (blueprint_type IN ('EDUCATION', 'IDENTITY', 'WEALTH')),
   schema_version text NOT NULL,
   payload jsonb NOT NULL,
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-  FOREIGN KEY (family_id, subject_member_pk)
-    REFERENCES core.family_memberships(family_id, member_pk) ON DELETE RESTRICT,
+  FOREIGN KEY (subject_family_membership_id, family_id, subject_member_pk)
+    REFERENCES core.family_memberships(membership_id, family_id, member_pk) ON DELETE RESTRICT,
   UNIQUE (journey_id, schema_version)
 );
 
@@ -92,6 +96,7 @@ CREATE TABLE domain.adapter_traces (
   trace_id uuid PRIMARY KEY,
   family_id text NOT NULL,
   subject_member_pk uuid NOT NULL,
+  subject_family_membership_id uuid NOT NULL,
   source_system text NOT NULL,
   source_student_id text NOT NULL,
   source_assessment_id text NOT NULL,
@@ -100,8 +105,8 @@ CREATE TABLE domain.adapter_traces (
   journey_id uuid NOT NULL REFERENCES domain.journeys(journey_id) ON DELETE RESTRICT,
   trace_hash text NOT NULL CHECK (trace_hash ~ '^[0-9a-f]{64}$'),
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-  FOREIGN KEY (family_id, subject_member_pk)
-    REFERENCES core.family_memberships(family_id, member_pk) ON DELETE RESTRICT,
+  FOREIGN KEY (subject_family_membership_id, family_id, subject_member_pk)
+    REFERENCES core.family_memberships(membership_id, family_id, member_pk) ON DELETE RESTRICT,
   UNIQUE (source_system, source_assessment_id)
 );
 
@@ -167,6 +172,7 @@ DECLARE
   context_family text := core.current_family_id();
   resolved_student_id text;
   resolved_member_pk uuid;
+  resolved_family_membership_id uuid;
   resolved_mapping_id uuid;
   existing_result domain.compass_results%ROWTYPE;
   existing_journey_id uuid;
@@ -185,9 +191,12 @@ BEGIN
   END IF;
 
   resolved_student_id := core.resolve_active_mapping('EDUCATION_COMPASS', 'STUDENT', p_source_student_id);
-  SELECT s.member_pk, m.mapping_id
-    INTO resolved_member_pk, resolved_mapping_id
+  SELECT s.member_pk, sfm.family_membership_id, m.mapping_id
+    INTO resolved_member_pk, resolved_family_membership_id, resolved_mapping_id
   FROM core.students s
+  JOIN core.student_family_memberships sfm
+    ON sfm.student_id = s.student_id
+   AND sfm.student_member_pk = s.member_pk
   JOIN core.external_identity_mappings m
     ON m.entity_type = 'STUDENT'
    AND m.phoenix_core_id = s.student_id
@@ -195,7 +204,11 @@ BEGIN
    AND m.source_id = p_source_student_id
    AND m.status = 'ACTIVE'
   WHERE s.student_id = resolved_student_id
-    AND s.status = 'ACTIVE';
+    AND s.status = 'ACTIVE'
+    AND sfm.family_id = p_family_id
+    AND sfm.status = 'ACTIVE'
+    AND sfm.valid_from <= statement_timestamp()
+    AND (sfm.valid_until IS NULL OR sfm.valid_until > statement_timestamp());
 
   IF resolved_member_pk IS NULL THEN
     RAISE EXCEPTION USING ERRCODE = 'P0002', MESSAGE = 'STUDENT_MAPPING_NOT_RESOLVED';
@@ -248,29 +261,33 @@ BEGIN
   END IF;
 
   INSERT INTO domain.compass_results (
-    result_id, family_id, subject_member_pk, subject_id, compass_type,
+    result_id, family_id, subject_member_pk, subject_family_membership_id,
+    subject_id, compass_type,
     source_service, source_assessment_id, consent_id, result_payload_hash,
     result_schema_version, status
   ) VALUES (
-    p_result_id, p_family_id, resolved_member_pk, resolved_student_id, 'EDUCATION',
+    p_result_id, p_family_id, resolved_member_pk, resolved_family_membership_id,
+    resolved_student_id, 'EDUCATION',
     'EDUCATION_COMPASS', p_source_assessment_id, p_scoring_consent_id,
     p_result_payload_hash, 'SYNTHETIC_EDUCATION_RESULT_V1', 'COMPLETED'
   );
 
   INSERT INTO domain.journeys (
-    journey_id, family_id, subject_member_pk, source_result_id, consent_id,
+    journey_id, family_id, subject_member_pk, subject_family_membership_id,
+    source_result_id, consent_id,
     journey_type, journey_status, current_state
   ) VALUES (
-    p_journey_id, p_family_id, resolved_member_pk, p_result_id,
+    p_journey_id, p_family_id, resolved_member_pk, resolved_family_membership_id, p_result_id,
     p_longitudinal_consent_id, 'EDUCATION', 'SYNTHETIC_REVIEW', 'ASSESSMENT_COMPLETE'
   );
 
   INSERT INTO domain.timeline_events (
-    event_id, family_id, subject_member_pk, journey_id, consent_id, event_type,
+    event_id, family_id, subject_member_pk, subject_family_membership_id,
+    journey_id, consent_id, event_type,
     source_service, source_record_id, source_version, visibility,
     title_code, summary_code, occurred_at, metadata
   ) VALUES (
-    p_timeline_event_id, p_family_id, resolved_member_pk, p_journey_id,
+    p_timeline_event_id, p_family_id, resolved_member_pk, resolved_family_membership_id, p_journey_id,
     p_longitudinal_consent_id, 'COMPASS_ASSESSMENT_COMPLETED',
     'EDUCATION_COMPASS', p_source_assessment_id, 'SYNTHETIC_SOURCE_V1', 'FAMILY',
     'SYNTHETIC_EDUCATION_COMPLETE', 'SYNTHETIC_ONLY_NO_REAL_STUDENT',
@@ -278,19 +295,22 @@ BEGIN
   );
 
   INSERT INTO domain.blueprints (
-    blueprint_id, family_id, subject_member_pk, journey_id, consent_id,
+    blueprint_id, family_id, subject_member_pk, subject_family_membership_id,
+    journey_id, consent_id,
     blueprint_type, schema_version, payload
   ) VALUES (
-    p_blueprint_id, p_family_id, resolved_member_pk, p_journey_id,
+    p_blueprint_id, p_family_id, resolved_member_pk, resolved_family_membership_id, p_journey_id,
     p_longitudinal_consent_id, 'EDUCATION', 'SYNTHETIC_BLUEPRINT_V1',
     jsonb_build_object('state', 'SYNTHETIC_REVIEW', 'next_actions', jsonb_build_array('HUMAN_REVIEW'))
   );
 
   INSERT INTO domain.adapter_traces (
-    trace_id, family_id, subject_member_pk, source_system, source_student_id,
+    trace_id, family_id, subject_member_pk, subject_family_membership_id,
+    source_system, source_student_id,
     source_assessment_id, mapping_id, result_id, journey_id, trace_hash
   ) VALUES (
-    p_trace_id, p_family_id, resolved_member_pk, 'EDUCATION_COMPASS',
+    p_trace_id, p_family_id, resolved_member_pk, resolved_family_membership_id,
+    'EDUCATION_COMPASS',
     p_source_student_id, p_source_assessment_id, resolved_mapping_id,
     p_result_id, p_journey_id,
     md5(p_source_student_id || ':' || p_source_assessment_id || ':' || p_result_payload_hash) ||
@@ -316,6 +336,126 @@ BEGIN
     p_timeline_event_id, p_blueprint_id, p_trace_id;
 END;
 $$;
+
+ALTER TABLE core.members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.members FORCE ROW LEVEL SECURITY;
+ALTER TABLE core.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.users FORCE ROW LEVEL SECURITY;
+ALTER TABLE core.auth_identities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.auth_identities FORCE ROW LEVEL SECURITY;
+ALTER TABLE core.families ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.families FORCE ROW LEVEL SECURITY;
+ALTER TABLE core.family_memberships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.family_memberships FORCE ROW LEVEL SECURITY;
+ALTER TABLE core.students ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.students FORCE ROW LEVEL SECURITY;
+ALTER TABLE core.student_family_memberships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.student_family_memberships FORCE ROW LEVEL SECURITY;
+ALTER TABLE core.guardians ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.guardians FORCE ROW LEVEL SECURITY;
+ALTER TABLE core.guardian_student_relationships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.guardian_student_relationships FORCE ROW LEVEL SECURITY;
+ALTER TABLE core.consents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.consents FORCE ROW LEVEL SECURITY;
+ALTER TABLE core.consent_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.consent_events FORCE ROW LEVEL SECURITY;
+ALTER TABLE core.role_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.role_assignments FORCE ROW LEVEL SECURITY;
+ALTER TABLE core.external_identity_mappings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.external_identity_mappings FORCE ROW LEVEL SECURITY;
+ALTER TABLE core.identity_migration_candidates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.identity_migration_candidates FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY users_self_select ON core.users
+  FOR SELECT TO phoenix_core_app
+  USING (user_id = core.current_actor_user_id());
+
+CREATE POLICY auth_identities_self_select ON core.auth_identities
+  FOR SELECT TO phoenix_core_app
+  USING (user_id = core.current_actor_user_id());
+
+CREATE POLICY families_scoped_select ON core.families
+  FOR SELECT TO phoenix_core_app
+  USING (
+    family_id = core.current_family_id()
+    AND core.has_active_family_membership(core.current_actor_user_id(), family_id)
+  );
+
+CREATE POLICY family_memberships_scoped_select ON core.family_memberships
+  FOR SELECT TO phoenix_core_app
+  USING (
+    family_id = core.current_family_id()
+    AND core.has_active_family_membership(core.current_actor_user_id(), family_id)
+  );
+
+CREATE POLICY members_scoped_select ON core.members
+  FOR SELECT TO phoenix_core_app
+  USING (EXISTS (
+    SELECT 1
+    FROM core.family_memberships fm
+    WHERE fm.member_pk = members.member_pk
+      AND fm.family_id = core.current_family_id()
+      AND fm.status = 'ACTIVE'
+      AND fm.valid_from <= statement_timestamp()
+      AND (fm.valid_until IS NULL OR fm.valid_until > statement_timestamp())
+      AND core.has_active_family_membership(core.current_actor_user_id(), fm.family_id)
+  ));
+
+CREATE POLICY students_scoped_select ON core.students
+  FOR SELECT TO phoenix_core_app
+  USING (EXISTS (
+    SELECT 1
+    FROM core.student_family_memberships sfm
+    WHERE sfm.student_id = students.student_id
+      AND sfm.family_id = core.current_family_id()
+      AND sfm.status = 'ACTIVE'
+      AND sfm.valid_from <= statement_timestamp()
+      AND (sfm.valid_until IS NULL OR sfm.valid_until > statement_timestamp())
+      AND core.has_active_family_membership(core.current_actor_user_id(), sfm.family_id)
+  ));
+
+CREATE POLICY student_family_memberships_scoped_select ON core.student_family_memberships
+  FOR SELECT TO phoenix_core_app
+  USING (
+    family_id = core.current_family_id()
+    AND core.has_active_family_membership(core.current_actor_user_id(), family_id)
+  );
+
+CREATE POLICY guardians_self_select ON core.guardians
+  FOR SELECT TO phoenix_core_app
+  USING (user_id = core.current_actor_user_id());
+
+CREATE POLICY guardian_relationships_self_select ON core.guardian_student_relationships
+  FOR SELECT TO phoenix_core_app
+  USING (
+    family_id = core.current_family_id()
+    AND EXISTS (
+      SELECT 1 FROM core.guardians g
+      WHERE g.guardian_id = guardian_student_relationships.guardian_id
+        AND g.user_id = core.current_actor_user_id()
+    )
+  );
+
+CREATE POLICY consents_grantor_select ON core.consents
+  FOR SELECT TO phoenix_core_app
+  USING (
+    family_id = core.current_family_id()
+    AND granted_by_user_id = core.current_actor_user_id()
+    AND core.has_active_family_membership(core.current_actor_user_id(), family_id)
+  );
+
+CREATE POLICY consent_events_grantor_select ON core.consent_events
+  FOR SELECT TO phoenix_core_app
+  USING (EXISTS (
+    SELECT 1 FROM core.consents c
+    WHERE c.consent_id = consent_events.consent_id
+      AND c.family_id = core.current_family_id()
+      AND c.granted_by_user_id = core.current_actor_user_id()
+  ));
+
+CREATE POLICY role_assignments_self_select ON core.role_assignments
+  FOR SELECT TO phoenix_core_app
+  USING (user_id = core.current_actor_user_id());
 
 ALTER TABLE domain.compass_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE domain.compass_results FORCE ROW LEVEL SECURITY;
@@ -365,8 +505,15 @@ CREATE POLICY adapter_traces_family_select ON domain.adapter_traces
   ));
 
 GRANT USAGE ON SCHEMA domain TO phoenix_core_app;
+GRANT USAGE ON SCHEMA core TO phoenix_core_app;
+GRANT SELECT ON core.members, core.users, core.auth_identities, core.families,
+  core.family_memberships, core.students, core.student_family_memberships,
+  core.guardians, core.guardian_student_relationships, core.consents,
+  core.consent_events, core.role_assignments TO phoenix_core_app;
 GRANT SELECT ON domain.compass_results, domain.journeys, domain.timeline_events,
   domain.blueprints, domain.adapter_traces TO phoenix_core_app;
+GRANT EXECUTE ON FUNCTION core.authorize_student_access(uuid, text, text, text)
+  TO phoenix_core_app;
 GRANT EXECUTE ON FUNCTION domain.ingest_education_synthetic(
   text, text, text, uuid, uuid, text, uuid, uuid, uuid, uuid, uuid, uuid
 ) TO phoenix_core_app;

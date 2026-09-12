@@ -19,8 +19,10 @@ Proposed `core.consents` fields:
 | `data_subject_type` / `data_subject_id` | Whose data: User, Guardian, or Student |
 | `granted_by_user_id` | Authenticated actor who performed the action |
 | `granted_by_guardian_id` | Guardian authority where the subject is a minor |
+| `scope` | Independent processing/sharing boundary, including `ASKWISE_HANDOFF` |
 | `purpose_code` | Specific approved use; no bundled blanket purpose |
 | `policy_version` | Exact privacy/consent text version |
+| `document_version` / `document_hash` | Immutable version and hash of the document presented at grant time |
 | `locale` | Language presented |
 | `channel` | Web, Mini Program, operator-assisted, API, or migration evidence |
 | `status` | `GRANTED`, `WITHDRAWN`, `EXPIRED`, `REJECTED` |
@@ -39,7 +41,7 @@ Before processing:
 
 1. Resolve the Core subject and family.
 2. Verify the actor has authority over the subject at the time of consent.
-3. Match an active consent by exact `purpose_code` and `policy_version`.
+3. Match an active consent by exact `scope`, `purpose_code`, and recorded document evidence.
 4. Reject an expired or withdrawn record.
 5. Record the resulting consent reference on the assessment, referral, report delivery, or data-sharing action.
 
@@ -55,6 +57,9 @@ For a minor, `granted_by_guardian_id` and a valid guardian-to-student relationsh
 - `PRODUCT_ANALYTICS`
 - `MARKETING_COMMUNICATION`
 - `CROSS_SYSTEM_DATA_SHARING`
+
+`ASKWISE_HANDOFF` is an independent scope. Its initial purpose is
+`ASKWISE_ENROLL`; it is not implied by assessment or longitudinal-record consent.
 
 Purposes default to denied. Marketing and cross-system sharing must never be implied by assessment scoring consent.
 

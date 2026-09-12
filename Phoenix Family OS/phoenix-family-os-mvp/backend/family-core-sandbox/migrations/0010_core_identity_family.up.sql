@@ -61,9 +61,13 @@ CREATE TABLE core.family_memberships (
   valid_until timestamptz,
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   CHECK (valid_until IS NULL OR valid_until > valid_from),
-  UNIQUE (family_id, member_pk),
+  UNIQUE (family_id, member_pk, valid_from),
   UNIQUE (membership_id, family_id, member_pk)
 );
+
+CREATE UNIQUE INDEX family_memberships_one_active_idx
+  ON core.family_memberships (family_id, member_pk)
+  WHERE status = 'ACTIVE';
 
 CREATE TABLE core.students (
   student_id text PRIMARY KEY CHECK (student_id ~ '^stu_[0-9a-f]{32}$'),
@@ -72,6 +76,33 @@ CREATE TABLE core.students (
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   UNIQUE (student_id, member_pk)
 );
+
+CREATE TABLE core.student_family_memberships (
+  student_family_membership_id uuid PRIMARY KEY,
+  family_membership_id uuid NOT NULL,
+  family_id text NOT NULL REFERENCES core.families(family_id) ON DELETE RESTRICT,
+  student_id text NOT NULL,
+  student_member_pk uuid NOT NULL,
+  status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'SUSPENDED', 'ENDED')),
+  valid_from timestamptz NOT NULL,
+  valid_until timestamptz,
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  CHECK (valid_until IS NULL OR valid_until > valid_from),
+  FOREIGN KEY (student_id, student_member_pk)
+    REFERENCES core.students(student_id, member_pk) ON DELETE RESTRICT,
+  FOREIGN KEY (family_membership_id, family_id, student_member_pk)
+    REFERENCES core.family_memberships(membership_id, family_id, member_pk) ON DELETE RESTRICT,
+  UNIQUE (family_id, student_id, valid_from),
+  UNIQUE (student_family_membership_id, family_id, student_id, student_member_pk)
+);
+
+CREATE UNIQUE INDEX student_family_memberships_one_active_idx
+  ON core.student_family_memberships (family_id, student_id)
+  WHERE status = 'ACTIVE';
+
+CREATE INDEX student_family_memberships_student_idx
+  ON core.student_family_memberships (student_id, status);
 
 CREATE TABLE core.guardians (
   guardian_id text PRIMARY KEY CHECK (guardian_id ~ '^gdn_[0-9a-f]{32}$'),

@@ -1,6 +1,7 @@
 BEGIN;
 
 DROP TABLE IF EXISTS core.guardians CASCADE;
+DROP TABLE IF EXISTS core.student_family_memberships CASCADE;
 DROP TABLE IF EXISTS core.students CASCADE;
 DROP TABLE IF EXISTS core.family_memberships CASCADE;
 DROP TABLE IF EXISTS core.families CASCADE;

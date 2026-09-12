@@ -3,6 +3,7 @@ BEGIN;
 DROP FUNCTION IF EXISTS core.withdraw_guardian_authority(uuid, text, text, text, uuid) CASCADE;
 DROP FUNCTION IF EXISTS core.withdraw_consent(uuid, text, text, text, uuid, uuid) CASCADE;
 DROP FUNCTION IF EXISTS core.resolve_active_mapping(text, text, text) CASCADE;
+DROP FUNCTION IF EXISTS core.authorize_student_access(uuid, text, text, text) CASCADE;
 DROP FUNCTION IF EXISTS core.can_access_subject_record(text, uuid, uuid, text, text) CASCADE;
 DROP FUNCTION IF EXISTS core.has_active_consent(uuid, text, uuid, text) CASCADE;
 DROP FUNCTION IF EXISTS core.has_active_guardian_authority(text, text, uuid) CASCADE;

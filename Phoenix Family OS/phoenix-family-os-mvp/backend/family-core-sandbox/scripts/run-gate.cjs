@@ -205,6 +205,7 @@ const snapshotTables = [
   'core.families',
   'core.family_memberships',
   'core.students',
+  'core.student_family_memberships',
   'core.guardians',
   'core.guardian_student_relationships',
   'core.consents',
@@ -241,10 +242,16 @@ const fixtures = {
   familyB: 'fam_00000000000040008000000000000002',
   userA: 'usr_00000000000040008000000000000001',
   userB: 'usr_00000000000040008000000000000002',
+  memberA: '10000000-0000-4000-8000-000000000001',
+  memberB: '20000000-0000-4000-8000-000000000001',
+  studentA: 'stu_00000000000040008000000000000001',
+  studentB: 'stu_00000000000040008000000000000002',
   scoringConsentA: '15000000-0000-4000-8000-000000000001',
   longitudinalConsentA: '15000000-0000-4000-8000-000000000002',
+  askwiseConsentA: '15000000-0000-4000-8000-000000000003',
   scoringConsentB: '25000000-0000-4000-8000-000000000001',
   longitudinalConsentB: '25000000-0000-4000-8000-000000000002',
+  askwiseConsentB: '25000000-0000-4000-8000-000000000003',
 }
 
 function adapterCall(family, sourceStudent, sourceAssessment, scoringConsent, longitudinalConsent, ids, hash) {
@@ -358,6 +365,76 @@ try {
   assertEqual('fixtures contain synthetic labels only', query(primaryDatabase, `
     SELECT count(*) FROM core.families WHERE display_label NOT LIKE 'SYNTHETIC_%';
   `), 0)
+  assertEqual('authoritative Student-Family memberships exist', query(primaryDatabase, `
+    SELECT count(*) FROM core.student_family_memberships WHERE status = 'ACTIVE';
+  `), 2)
+
+  query(primaryDatabase, `
+    INSERT INTO core.family_memberships (
+      membership_id, family_id, member_pk, relationship_label,
+      status, valid_from, valid_until
+    ) VALUES (
+      '12000000-0000-4000-8000-000000000011',
+      '${fixtures.familyA}', '${fixtures.memberA}', 'SYNTHETIC_HISTORICAL_MEMBER',
+      'ENDED', '2025-01-01T00:00:00Z', '2025-12-31T00:00:00Z'
+    );
+  `)
+  assertEqual('historical family membership is retained alongside current membership', query(primaryDatabase, `
+    SELECT count(*) FROM core.family_memberships
+    WHERE family_id = '${fixtures.familyA}' AND member_pk = '${fixtures.memberA}';
+  `), 2)
+  expectSqlFailure(primaryDatabase, 'conflicting active family membership is rejected', `
+    INSERT INTO core.family_memberships (
+      membership_id, family_id, member_pk, relationship_label, status, valid_from
+    ) VALUES (
+      '12000000-0000-4000-8000-000000000012',
+      '${fixtures.familyA}', '${fixtures.memberA}', 'SYNTHETIC_DUPLICATE_ACTIVE',
+      'ACTIVE', '2026-09-10T00:00:00Z'
+    );
+  `, 'family_memberships_one_active_idx')
+
+  query(primaryDatabase, `
+    INSERT INTO core.guardian_student_relationships (
+      relationship_id, family_id, guardian_id, guardian_member_pk,
+      guardian_family_membership_id, student_id, student_member_pk,
+      student_family_membership_id, relationship_type, authority_status,
+      valid_from, valid_until, withdrawn_at
+    ) VALUES (
+      '13000000-0000-4000-8000-000000000011',
+      '${fixtures.familyA}', 'gdn_00000000000040008000000000000001',
+      '${fixtures.memberA}', '12000000-0000-4000-8000-000000000001',
+      '${fixtures.studentA}', '10000000-0000-4000-8000-000000000002',
+      '12500000-0000-4000-8000-000000000001', 'SYNTHETIC_HISTORICAL_GUARDIAN',
+      'WITHDRAWN', '2025-01-01T00:00:00Z', '2025-12-31T00:00:00Z',
+      '2025-12-31T00:00:00Z'
+    );
+  `)
+  assertEqual('historical guardian relationship is retained alongside current authority', query(primaryDatabase, `
+    SELECT count(*) FROM core.guardian_student_relationships
+    WHERE family_id = '${fixtures.familyA}' AND student_id = '${fixtures.studentA}';
+  `), 2)
+  expectSqlFailure(primaryDatabase, 'conflicting active guardian relationship is rejected', `
+    INSERT INTO core.guardian_student_relationships (
+      relationship_id, family_id, guardian_id, guardian_member_pk,
+      guardian_family_membership_id, student_id, student_member_pk,
+      student_family_membership_id, relationship_type, authority_status, valid_from
+    ) VALUES (
+      '13000000-0000-4000-8000-000000000012',
+      '${fixtures.familyA}', 'gdn_00000000000040008000000000000001',
+      '${fixtures.memberA}', '12000000-0000-4000-8000-000000000001',
+      '${fixtures.studentA}', '10000000-0000-4000-8000-000000000002',
+      '12500000-0000-4000-8000-000000000001', 'SYNTHETIC_DUPLICATE_ACTIVE',
+      'ACTIVE', '2026-09-10T00:00:00Z'
+    );
+  `, 'guardian_student_relationships_one_active_idx')
+
+  assertEqual('AskWise adapter preserves the existing four-argument contract', query(primaryDatabase, contextSql(
+    fixtures.userA,
+    fixtures.familyA,
+    "SELECT decision || '|' || reason_code FROM core.authorize_student_access(" +
+      "'" + fixtures.memberA + "', '" + fixtures.studentA +
+      "', 'ASKWISE_ENROLL', 'ASKWISE_HANDOFF');",
+  )), 'ALLOW|ALLOW')
 
   expectSqlFailure(primaryDatabase, 'test account promotion is denied', `
     SELECT core.promote_migration_candidate(
@@ -431,6 +508,15 @@ try {
   assertEqual('family A RLS sees one result', query(primaryDatabase, contextSql(
     fixtures.userA, fixtures.familyA, 'SELECT count(*) FROM domain.compass_results;',
   )), 1)
+  assertEqual('family A Core RLS sees only its selected family', query(primaryDatabase, contextSql(
+    fixtures.userA, fixtures.familyA, 'SELECT count(*) FROM core.families;',
+  )), 1)
+  assertEqual('family A Core RLS cannot switch to family B', query(primaryDatabase, contextSql(
+    fixtures.userA, fixtures.familyB, 'SELECT count(*) FROM core.families;',
+  )), 0)
+  assertEqual('family A Core RLS exposes only its own consent receipts', query(primaryDatabase, contextSql(
+    fixtures.userA, fixtures.familyA, 'SELECT count(*) FROM core.consents;',
+  )), 3)
   assertEqual('family B RLS sees one result', query(primaryDatabase, contextSql(
     fixtures.userB, fixtures.familyB, 'SELECT count(*) FROM domain.compass_results;',
   )), 1)
@@ -508,6 +594,21 @@ try {
   assertEqual('family B remains isolated and available', query(primaryDatabase, contextSql(
     fixtures.userB, fixtures.familyB, 'SELECT count(*) FROM domain.compass_results;',
   )), 1)
+  query(primaryDatabase, `
+    SELECT core.withdraw_consent(
+      '${fixtures.askwiseConsentA}', '${fixtures.userA}',
+      'SYNTHETIC_ASKWISE_WITHDRAWAL', 'withdraw-askwise-consent-test',
+      '87000000-0000-4000-8000-000000000003',
+      '88000000-0000-4000-8000-000000000003'
+    );
+  `)
+  assertEqual('AskWise consent withdrawal denies the next adapter decision', query(primaryDatabase, contextSql(
+    fixtures.userA,
+    fixtures.familyA,
+    "SELECT decision || '|' || reason_code FROM core.authorize_student_access(" +
+      "'" + fixtures.memberA + "', '" + fixtures.studentA +
+      "', 'ASKWISE_ENROLL', 'ASKWISE_HANDOFF');",
+  )), 'DENY|CONSENT_REQUIRED')
 
   evidence.backup.snapshot = snapshot(primaryDatabase)
   run(postgresCommand('pg_dump'), ['--format=custom', '--no-owner', '--no-acl', '--file', dumpPath, databaseUrl(primaryDatabase)])

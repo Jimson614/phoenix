@@ -1,5 +1,12 @@
 BEGIN;
 
+REVOKE EXECUTE ON FUNCTION core.authorize_student_access(uuid, text, text, text)
+  FROM phoenix_core_app;
+REVOKE ALL ON core.members, core.users, core.auth_identities, core.families,
+  core.family_memberships, core.students, core.student_family_memberships,
+  core.guardians, core.guardian_student_relationships, core.consents,
+  core.consent_events, core.role_assignments FROM phoenix_core_app;
+REVOKE USAGE ON SCHEMA core FROM phoenix_core_app;
 REVOKE ALL ON domain.compass_results, domain.journeys, domain.timeline_events,
   domain.blueprints, domain.adapter_traces FROM phoenix_core_app;
 REVOKE USAGE ON SCHEMA domain FROM phoenix_core_app;

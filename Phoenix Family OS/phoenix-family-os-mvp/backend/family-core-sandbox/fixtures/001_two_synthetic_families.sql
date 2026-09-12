@@ -65,6 +65,27 @@ INSERT INTO core.students (student_id, member_pk, status) VALUES
   ('stu_00000000000040008000000000000001', '10000000-0000-4000-8000-000000000002', 'ACTIVE'),
   ('stu_00000000000040008000000000000002', '20000000-0000-4000-8000-000000000002', 'ACTIVE');
 
+INSERT INTO core.student_family_memberships (
+  student_family_membership_id, family_membership_id, family_id,
+  student_id, student_member_pk, status, valid_from
+) VALUES
+  (
+    '12500000-0000-4000-8000-000000000001',
+    '12000000-0000-4000-8000-000000000002',
+    'fam_00000000000040008000000000000001',
+    'stu_00000000000040008000000000000001',
+    '10000000-0000-4000-8000-000000000002',
+    'ACTIVE', '2026-09-09T00:00:00Z'
+  ),
+  (
+    '22500000-0000-4000-8000-000000000001',
+    '22000000-0000-4000-8000-000000000002',
+    'fam_00000000000040008000000000000002',
+    'stu_00000000000040008000000000000002',
+    '20000000-0000-4000-8000-000000000002',
+    'ACTIVE', '2026-09-09T00:00:00Z'
+  );
+
 INSERT INTO core.guardians (guardian_id, member_pk, user_id, status) VALUES
   (
     'gdn_00000000000040008000000000000001',
@@ -79,15 +100,18 @@ INSERT INTO core.guardians (guardian_id, member_pk, user_id, status) VALUES
 
 INSERT INTO core.guardian_student_relationships (
   relationship_id, family_id, guardian_id, guardian_member_pk,
-  student_id, student_member_pk, relationship_type, authority_status, valid_from
+  guardian_family_membership_id, student_id, student_member_pk,
+  student_family_membership_id, relationship_type, authority_status, valid_from
 ) VALUES
   (
     '13000000-0000-4000-8000-000000000001',
     'fam_00000000000040008000000000000001',
     'gdn_00000000000040008000000000000001',
     '10000000-0000-4000-8000-000000000001',
+    '12000000-0000-4000-8000-000000000001',
     'stu_00000000000040008000000000000001',
     '10000000-0000-4000-8000-000000000002',
+    '12500000-0000-4000-8000-000000000001',
     'SYNTHETIC_GUARDIAN', 'ACTIVE', '2026-09-09T00:00:00Z'
   ),
   (
@@ -95,8 +119,10 @@ INSERT INTO core.guardian_student_relationships (
     'fam_00000000000040008000000000000002',
     'gdn_00000000000040008000000000000002',
     '20000000-0000-4000-8000-000000000001',
+    '22000000-0000-4000-8000-000000000001',
     'stu_00000000000040008000000000000002',
     '20000000-0000-4000-8000-000000000002',
+    '22500000-0000-4000-8000-000000000001',
     'SYNTHETIC_GUARDIAN', 'ACTIVE', '2026-09-09T00:00:00Z'
   );
 
@@ -106,12 +132,14 @@ INSERT INTO core.roles (role_code, description, status) VALUES
 INSERT INTO core.permissions (permission_code, description, risk_level) VALUES
   ('family.read', 'Read one explicitly scoped family', 'HIGH'),
   ('assessment.submit', 'Submit an assessment for an authorised subject', 'HIGH'),
-  ('timeline.append', 'Append a minimised timeline event', 'HIGH');
+  ('timeline.append', 'Append a minimised timeline event', 'HIGH'),
+  ('askwise.enroll', 'Authorize an AskWise student handoff', 'HIGH');
 
 INSERT INTO core.role_permissions (role_code, permission_code) VALUES
   ('PARENT', 'family.read'),
   ('PARENT', 'assessment.submit'),
-  ('PARENT', 'timeline.append');
+  ('PARENT', 'timeline.append'),
+  ('PARENT', 'askwise.enroll');
 
 INSERT INTO core.role_assignments (
   role_assignment_id, user_id, role_code, scope_type, scope_id,
@@ -131,17 +159,22 @@ INSERT INTO core.role_assignments (
   );
 
 INSERT INTO core.consents (
-  consent_id, family_id, subject_member_pk, granted_by_user_id,
-  granted_by_guardian_id, purpose_code, policy_version, locale, channel,
+  consent_id, family_id, subject_member_pk, subject_family_membership_id,
+  granted_by_user_id, granted_by_guardian_id, scope, purpose_code,
+  policy_version, document_version, document_hash, locale, channel,
   status, granted_at, effective_from, expires_at, evidence_hash
 ) VALUES
   (
     '15000000-0000-4000-8000-000000000001',
     'fam_00000000000040008000000000000001',
     '10000000-0000-4000-8000-000000000002',
+    '12000000-0000-4000-8000-000000000002',
     'usr_00000000000040008000000000000001',
     'gdn_00000000000040008000000000000001',
-    'ASSESSMENT_SCORING', 'SYNTHETIC_POLICY_V1', 'zh-Hans', 'SYNTHETIC_TEST',
+    'ASSESSMENT_SCORING', 'ASSESSMENT_SCORING',
+    'SYNTHETIC_POLICY_V1', 'SYNTHETIC_DOCUMENT_V1',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'zh-Hans', 'SYNTHETIC_TEST',
     'GRANTED', '2026-09-09T00:00:00Z', '2026-09-09T00:00:00Z',
     '2027-09-09T00:00:00Z',
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
@@ -150,9 +183,13 @@ INSERT INTO core.consents (
     '15000000-0000-4000-8000-000000000002',
     'fam_00000000000040008000000000000001',
     '10000000-0000-4000-8000-000000000002',
+    '12000000-0000-4000-8000-000000000002',
     'usr_00000000000040008000000000000001',
     'gdn_00000000000040008000000000000001',
-    'LONGITUDINAL_GROWTH_RECORD', 'SYNTHETIC_POLICY_V1', 'zh-Hans', 'SYNTHETIC_TEST',
+    'LONGITUDINAL_GROWTH_RECORD', 'LONGITUDINAL_GROWTH_RECORD',
+    'SYNTHETIC_POLICY_V1', 'SYNTHETIC_DOCUMENT_V1',
+    'abababababababababababababababababababababababababababababababab',
+    'zh-Hans', 'SYNTHETIC_TEST',
     'GRANTED', '2026-09-09T00:00:00Z', '2026-09-09T00:00:00Z',
     '2027-09-09T00:00:00Z',
     'abababababababababababababababababababababababababababababababab'
@@ -161,9 +198,13 @@ INSERT INTO core.consents (
     '25000000-0000-4000-8000-000000000001',
     'fam_00000000000040008000000000000002',
     '20000000-0000-4000-8000-000000000002',
+    '22000000-0000-4000-8000-000000000002',
     'usr_00000000000040008000000000000002',
     'gdn_00000000000040008000000000000002',
-    'ASSESSMENT_SCORING', 'SYNTHETIC_POLICY_V1', 'zh-Hans', 'SYNTHETIC_TEST',
+    'ASSESSMENT_SCORING', 'ASSESSMENT_SCORING',
+    'SYNTHETIC_POLICY_V1', 'SYNTHETIC_DOCUMENT_V1',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'zh-Hans', 'SYNTHETIC_TEST',
     'GRANTED', '2026-09-09T00:00:00Z', '2026-09-09T00:00:00Z',
     '2027-09-09T00:00:00Z',
     'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
@@ -172,12 +213,46 @@ INSERT INTO core.consents (
     '25000000-0000-4000-8000-000000000002',
     'fam_00000000000040008000000000000002',
     '20000000-0000-4000-8000-000000000002',
+    '22000000-0000-4000-8000-000000000002',
     'usr_00000000000040008000000000000002',
     'gdn_00000000000040008000000000000002',
-    'LONGITUDINAL_GROWTH_RECORD', 'SYNTHETIC_POLICY_V1', 'zh-Hans', 'SYNTHETIC_TEST',
+    'LONGITUDINAL_GROWTH_RECORD', 'LONGITUDINAL_GROWTH_RECORD',
+    'SYNTHETIC_POLICY_V1', 'SYNTHETIC_DOCUMENT_V1',
+    'bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc',
+    'zh-Hans', 'SYNTHETIC_TEST',
     'GRANTED', '2026-09-09T00:00:00Z', '2026-09-09T00:00:00Z',
     '2027-09-09T00:00:00Z',
     'bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc'
+  ),
+  (
+    '15000000-0000-4000-8000-000000000003',
+    'fam_00000000000040008000000000000001',
+    '10000000-0000-4000-8000-000000000002',
+    '12000000-0000-4000-8000-000000000002',
+    'usr_00000000000040008000000000000001',
+    'gdn_00000000000040008000000000000001',
+    'ASKWISE_HANDOFF', 'ASKWISE_ENROLL',
+    'SYNTHETIC_POLICY_V1', 'SYNTHETIC_ASKWISE_HANDOFF_V1',
+    'cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd',
+    'zh-Hans', 'SYNTHETIC_TEST',
+    'GRANTED', '2026-09-09T00:00:00Z', '2026-09-09T00:00:00Z',
+    '2027-09-09T00:00:00Z',
+    'cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd'
+  ),
+  (
+    '25000000-0000-4000-8000-000000000003',
+    'fam_00000000000040008000000000000002',
+    '20000000-0000-4000-8000-000000000002',
+    '22000000-0000-4000-8000-000000000002',
+    'usr_00000000000040008000000000000002',
+    'gdn_00000000000040008000000000000002',
+    'ASKWISE_HANDOFF', 'ASKWISE_ENROLL',
+    'SYNTHETIC_POLICY_V1', 'SYNTHETIC_ASKWISE_HANDOFF_V1',
+    'dededededededededededededededededededededededededededededededede',
+    'zh-Hans', 'SYNTHETIC_TEST',
+    'GRANTED', '2026-09-09T00:00:00Z', '2026-09-09T00:00:00Z',
+    '2027-09-09T00:00:00Z',
+    'dededededededededededededededededededededededededededededededede'
   );
 
 INSERT INTO core.consent_events (
@@ -206,22 +281,36 @@ INSERT INTO core.consent_events (
     '25000000-0000-4000-8000-000000000002', 'GRANTED',
     'usr_00000000000040008000000000000002',
     '{"fixture":"SYNTHETIC_ONLY"}', '2026-09-09T00:00:00Z'
+  ),
+  (
+    '16000000-0000-4000-8000-000000000003',
+    '15000000-0000-4000-8000-000000000003', 'GRANTED',
+    'usr_00000000000040008000000000000001',
+    '{"fixture":"SYNTHETIC_ONLY"}', '2026-09-09T00:00:00Z'
+  ),
+  (
+    '26000000-0000-4000-8000-000000000003',
+    '25000000-0000-4000-8000-000000000003', 'GRANTED',
+    'usr_00000000000040008000000000000002',
+    '{"fixture":"SYNTHETIC_ONLY"}', '2026-09-09T00:00:00Z'
   );
 
 INSERT INTO entitlement.service_entitlements (
-  entitlement_id, family_id, subject_member_pk, service_code,
+  entitlement_id, family_id, subject_member_pk, subject_family_membership_id, service_code,
   status, valid_from, valid_until
 ) VALUES
   (
     '17000000-0000-4000-8000-000000000001',
     'fam_00000000000040008000000000000001',
     '10000000-0000-4000-8000-000000000002',
+    '12000000-0000-4000-8000-000000000002',
     'EDUCATION_COMPASS', 'ACTIVE', '2026-09-09T00:00:00Z', '2027-09-09T00:00:00Z'
   ),
   (
     '27000000-0000-4000-8000-000000000001',
     'fam_00000000000040008000000000000002',
     '20000000-0000-4000-8000-000000000002',
+    '22000000-0000-4000-8000-000000000002',
     'EDUCATION_COMPASS', 'ACTIVE', '2026-09-09T00:00:00Z', '2027-09-09T00:00:00Z'
   );
 

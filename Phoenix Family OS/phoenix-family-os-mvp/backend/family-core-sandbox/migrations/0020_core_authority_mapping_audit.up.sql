@@ -5,8 +5,10 @@ CREATE TABLE core.guardian_student_relationships (
   family_id text NOT NULL,
   guardian_id text NOT NULL,
   guardian_member_pk uuid NOT NULL,
+  guardian_family_membership_id uuid NOT NULL,
   student_id text NOT NULL,
   student_member_pk uuid NOT NULL,
+  student_family_membership_id uuid NOT NULL,
   relationship_type text NOT NULL,
   authority_status text NOT NULL CHECK (authority_status IN ('ACTIVE', 'WITHDRAWN', 'EXPIRED', 'POLICY_HOLD')),
   valid_from timestamptz NOT NULL,
@@ -20,21 +22,36 @@ CREATE TABLE core.guardian_student_relationships (
     REFERENCES core.guardians(guardian_id, member_pk) ON DELETE RESTRICT,
   FOREIGN KEY (student_id, student_member_pk)
     REFERENCES core.students(student_id, member_pk) ON DELETE RESTRICT,
-  FOREIGN KEY (family_id, guardian_member_pk)
-    REFERENCES core.family_memberships(family_id, member_pk) ON DELETE RESTRICT,
-  FOREIGN KEY (family_id, student_member_pk)
-    REFERENCES core.family_memberships(family_id, member_pk) ON DELETE RESTRICT,
-  UNIQUE (family_id, guardian_id, student_id)
+  FOREIGN KEY (guardian_family_membership_id, family_id, guardian_member_pk)
+    REFERENCES core.family_memberships(membership_id, family_id, member_pk) ON DELETE RESTRICT,
+  FOREIGN KEY (
+    student_family_membership_id, family_id, student_id, student_member_pk
+  ) REFERENCES core.student_family_memberships(
+    student_family_membership_id, family_id, student_id, student_member_pk
+  ) ON DELETE RESTRICT,
+  UNIQUE (family_id, guardian_id, student_id, valid_from)
 );
+
+CREATE UNIQUE INDEX guardian_student_relationships_one_active_idx
+  ON core.guardian_student_relationships (family_id, guardian_id, student_id)
+  WHERE authority_status = 'ACTIVE';
 
 CREATE TABLE core.consents (
   consent_id uuid PRIMARY KEY,
   family_id text NOT NULL,
   subject_member_pk uuid NOT NULL,
+  subject_family_membership_id uuid NOT NULL,
   granted_by_user_id text NOT NULL REFERENCES core.users(user_id) ON DELETE RESTRICT,
   granted_by_guardian_id text REFERENCES core.guardians(guardian_id) ON DELETE RESTRICT,
+  scope text NOT NULL CHECK (scope IN (
+    'ASSESSMENT_SCORING',
+    'LONGITUDINAL_GROWTH_RECORD',
+    'ASKWISE_HANDOFF'
+  )),
   purpose_code text NOT NULL,
   policy_version text NOT NULL,
+  document_version text NOT NULL CHECK (btrim(document_version) <> ''),
+  document_hash text NOT NULL CHECK (document_hash ~ '^[0-9a-f]{64}$'),
   locale text NOT NULL,
   channel text NOT NULL,
   status text NOT NULL CHECK (status IN ('GRANTED', 'WITHDRAWN', 'EXPIRED', 'REJECTED')),
@@ -49,9 +66,13 @@ CREATE TABLE core.consents (
   updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   CHECK (expires_at IS NULL OR expires_at > effective_from),
   CHECK ((status = 'WITHDRAWN') = (withdrawn_at IS NOT NULL)),
-  FOREIGN KEY (family_id, subject_member_pk)
-    REFERENCES core.family_memberships(family_id, member_pk) ON DELETE RESTRICT
+  FOREIGN KEY (subject_family_membership_id, family_id, subject_member_pk)
+    REFERENCES core.family_memberships(membership_id, family_id, member_pk) ON DELETE RESTRICT
 );
+
+CREATE UNIQUE INDEX consents_one_active_scope_idx
+  ON core.consents (family_id, subject_member_pk, scope, purpose_code)
+  WHERE status = 'GRANTED';
 
 CREATE TABLE core.consent_events (
   consent_event_id uuid PRIMARY KEY,
@@ -143,14 +164,15 @@ CREATE TABLE entitlement.service_entitlements (
   entitlement_id uuid PRIMARY KEY,
   family_id text NOT NULL,
   subject_member_pk uuid NOT NULL,
+  subject_family_membership_id uuid NOT NULL,
   service_code text NOT NULL,
   status text NOT NULL CHECK (status IN ('ACTIVE', 'SUSPENDED', 'EXPIRED', 'POLICY_HOLD')),
   valid_from timestamptz NOT NULL,
   valid_until timestamptz,
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   CHECK (valid_until IS NULL OR valid_until > valid_from),
-  FOREIGN KEY (family_id, subject_member_pk)
-    REFERENCES core.family_memberships(family_id, member_pk) ON DELETE RESTRICT,
+  FOREIGN KEY (subject_family_membership_id, family_id, subject_member_pk)
+    REFERENCES core.family_memberships(membership_id, family_id, member_pk) ON DELETE RESTRICT,
   UNIQUE (family_id, subject_member_pk, service_code)
 );
 
@@ -355,6 +377,8 @@ AS $$
     JOIN core.guardian_student_relationships rel
       ON rel.guardian_id = g.guardian_id
      AND rel.guardian_member_pk = g.member_pk
+    JOIN core.student_family_memberships sfm
+      ON sfm.student_family_membership_id = rel.student_family_membership_id
     WHERE g.user_id = p_user_id
       AND g.status = 'ACTIVE'
       AND rel.family_id = p_family_id
@@ -362,6 +386,9 @@ AS $$
       AND rel.authority_status = 'ACTIVE'
       AND rel.valid_from <= statement_timestamp()
       AND (rel.valid_until IS NULL OR rel.valid_until > statement_timestamp())
+      AND sfm.status = 'ACTIVE'
+      AND sfm.valid_from <= statement_timestamp()
+      AND (sfm.valid_until IS NULL OR sfm.valid_until > statement_timestamp())
   );
 $$;
 
@@ -383,8 +410,10 @@ AS $$
     WHERE c.consent_id = p_consent_id
       AND c.family_id = p_family_id
       AND c.subject_member_pk = p_subject_member_pk
-      AND c.purpose_code = p_purpose_code
+      AND c.scope = p_purpose_code
       AND c.status = 'GRANTED'
+      AND btrim(c.document_version) <> ''
+      AND c.document_hash ~ '^[0-9a-f]{64}$'
       AND c.effective_from <= statement_timestamp()
       AND (c.expires_at IS NULL OR c.expires_at > statement_timestamp())
   );
@@ -430,6 +459,122 @@ BEGIN
   END IF;
 
   RETURN core.has_active_consent(p_consent_id, p_family_id, p_subject_member_pk, p_purpose_code);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION core.authorize_student_access(
+  p_member_id uuid,
+  p_student_id text,
+  p_action text,
+  p_required_scope text
+)
+RETURNS TABLE (
+  decision text,
+  reason_code text,
+  relationship_id uuid,
+  consent_id uuid
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = core, pg_temp
+AS $$
+DECLARE
+  actor_id text := core.current_actor_user_id();
+  context_family text := core.current_family_id();
+  subject_member uuid;
+  resolved_relationship_id uuid;
+  resolved_consent_id uuid;
+BEGIN
+  IF actor_id IS NULL OR context_family IS NULL THEN
+    RETURN QUERY SELECT 'DENY', 'CONTEXT_REQUIRED', NULL::uuid, NULL::uuid;
+    RETURN;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM core.users u
+    WHERE u.user_id = actor_id
+      AND u.member_pk = p_member_id
+      AND u.status = 'ACTIVE'
+  ) THEN
+    RETURN QUERY SELECT 'DENY', 'MEMBER_SESSION_MISMATCH', NULL::uuid, NULL::uuid;
+    RETURN;
+  END IF;
+  IF p_action <> 'ASKWISE_ENROLL' OR p_required_scope <> 'ASKWISE_HANDOFF' THEN
+    RETURN QUERY SELECT 'DENY', 'ACTION_SCOPE_MISMATCH', NULL::uuid, NULL::uuid;
+    RETURN;
+  END IF;
+  IF NOT core.has_active_family_membership(actor_id, context_family) THEN
+    RETURN QUERY SELECT 'DENY', 'NO_ACTIVE_FAMILY_MEMBERSHIP', NULL::uuid, NULL::uuid;
+    RETURN;
+  END IF;
+  IF NOT core.actor_has_permission(actor_id, context_family, 'askwise.enroll') THEN
+    RETURN QUERY SELECT 'DENY', 'PERMISSION_REQUIRED', NULL::uuid, NULL::uuid;
+    RETURN;
+  END IF;
+
+  SELECT s.member_pk
+    INTO subject_member
+  FROM core.students s
+  JOIN core.student_family_memberships sfm
+    ON sfm.student_id = s.student_id
+   AND sfm.student_member_pk = s.member_pk
+  WHERE s.student_id = p_student_id
+    AND s.status = 'ACTIVE'
+    AND sfm.family_id = context_family
+    AND sfm.status = 'ACTIVE'
+    AND sfm.valid_from <= statement_timestamp()
+    AND (sfm.valid_until IS NULL OR sfm.valid_until > statement_timestamp());
+
+  IF subject_member IS NULL THEN
+    RETURN QUERY SELECT 'DENY', 'STUDENT_FAMILY_MEMBERSHIP_REQUIRED', NULL::uuid, NULL::uuid;
+    RETURN;
+  END IF;
+
+  SELECT rel.relationship_id
+    INTO resolved_relationship_id
+  FROM core.guardian_student_relationships rel
+  JOIN core.guardians g
+    ON g.guardian_id = rel.guardian_id
+   AND g.member_pk = rel.guardian_member_pk
+  WHERE g.user_id = actor_id
+    AND g.status = 'ACTIVE'
+    AND rel.family_id = context_family
+    AND rel.student_id = p_student_id
+    AND rel.student_member_pk = subject_member
+    AND rel.authority_status = 'ACTIVE'
+    AND rel.valid_from <= statement_timestamp()
+    AND (rel.valid_until IS NULL OR rel.valid_until > statement_timestamp())
+  ORDER BY rel.valid_from DESC
+  LIMIT 1;
+
+  IF resolved_relationship_id IS NULL THEN
+    RETURN QUERY SELECT 'DENY', 'GUARDIAN_AUTHORITY_REQUIRED', NULL::uuid, NULL::uuid;
+    RETURN;
+  END IF;
+
+  SELECT c.consent_id
+    INTO resolved_consent_id
+  FROM core.consents c
+  WHERE c.family_id = context_family
+    AND c.subject_member_pk = subject_member
+    AND c.granted_by_user_id = actor_id
+    AND c.scope = p_required_scope
+    AND c.purpose_code = p_action
+    AND c.status = 'GRANTED'
+    AND c.withdrawn_at IS NULL
+    AND btrim(c.document_version) <> ''
+    AND c.document_hash ~ '^[0-9a-f]{64}$'
+    AND c.effective_from <= statement_timestamp()
+    AND (c.expires_at IS NULL OR c.expires_at > statement_timestamp())
+  ORDER BY c.granted_at DESC
+  LIMIT 1;
+
+  IF resolved_consent_id IS NULL THEN
+    RETURN QUERY SELECT 'DENY', 'CONSENT_REQUIRED', resolved_relationship_id, NULL::uuid;
+    RETURN;
+  END IF;
+
+  RETURN QUERY SELECT 'ALLOW', 'ALLOW', resolved_relationship_id, resolved_consent_id;
 END;
 $$;
 
@@ -554,7 +699,7 @@ $$;
 CREATE INDEX guardian_relationship_subject_idx
   ON core.guardian_student_relationships (family_id, student_member_pk, authority_status);
 CREATE INDEX consents_lookup_idx
-  ON core.consents (family_id, subject_member_pk, purpose_code, status);
+  ON core.consents (family_id, subject_member_pk, scope, purpose_code, status);
 CREATE INDEX role_assignments_lookup_idx
   ON core.role_assignments (user_id, scope_type, scope_id, status);
 CREATE INDEX mappings_target_idx
@@ -564,6 +709,7 @@ CREATE INDEX audit_family_time_idx
 
 REVOKE ALL ON FUNCTION core.promote_migration_candidate(uuid, text, text, uuid, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION core.resolve_active_mapping(text, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION core.authorize_student_access(uuid, text, text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION core.withdraw_consent(uuid, text, text, text, uuid, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION core.withdraw_guardian_authority(uuid, text, text, text, uuid) FROM PUBLIC;
 

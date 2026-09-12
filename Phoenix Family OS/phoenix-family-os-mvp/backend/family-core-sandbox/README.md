@@ -34,6 +34,13 @@ The policy gate uses Node.js only and requires no database:
 npm run family-core:policy
 ```
 
+The reconciliation check is also database-free. It verifies the physical
+schema contract and the four-argument AskWise adapter:
+
+```powershell
+npm run family-core:reconciliation
+```
+
 It validates the frozen machine-readable baseline and executes at least one deny path for every approved policy ID.
 
 The combined gate requires PostgreSQL client commands (`psql`, `createdb`, `dropdb`, `pg_dump`, and `pg_restore`) and a disposable PostgreSQL server. Supply connection values through the process environment; do not commit them.
@@ -71,7 +78,8 @@ Auth provider UUID
   -> core.users (adult account principal)
   -> core.members (internal adult/minor subject spine)
   -> core.family_memberships -> core.families
-  -> core.guardians -> core.guardian_student_relationships -> core.students
+  -> core.student_family_memberships -> core.students
+  -> core.guardians -> core.guardian_student_relationships
   -> core.consents + RBAC + entitlement
   -> domain.compass_results
   -> domain.journeys
