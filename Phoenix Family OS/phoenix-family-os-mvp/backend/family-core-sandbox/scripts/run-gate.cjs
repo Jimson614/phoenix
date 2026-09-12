@@ -244,14 +244,22 @@ const fixtures = {
   userB: 'usr_00000000000040008000000000000002',
   memberA: '10000000-0000-4000-8000-000000000001',
   memberB: '20000000-0000-4000-8000-000000000001',
+  studentMemberA: '10000000-0000-4000-8000-000000000002',
+  studentMemberB: '20000000-0000-4000-8000-000000000002',
   studentA: 'stu_00000000000040008000000000000001',
   studentB: 'stu_00000000000040008000000000000002',
+  askwiseSourceA: '101',
+  askwiseSourceB: '202',
   scoringConsentA: '15000000-0000-4000-8000-000000000001',
   longitudinalConsentA: '15000000-0000-4000-8000-000000000002',
   askwiseConsentA: '15000000-0000-4000-8000-000000000003',
   scoringConsentB: '25000000-0000-4000-8000-000000000001',
   longitudinalConsentB: '25000000-0000-4000-8000-000000000002',
   askwiseConsentB: '25000000-0000-4000-8000-000000000003',
+  askwiseEntitlementA: '17000000-0000-4000-8000-000000000002',
+  askwiseEntitlementB: '27000000-0000-4000-8000-000000000002',
+  askwiseMappingA: '52000000-0000-4000-8000-000000000001',
+  askwiseMappingB: '52000000-0000-4000-8000-000000000002',
 }
 
 function adapterCall(family, sourceStudent, sourceAssessment, scoringConsent, longitudinalConsent, ids, hash) {
@@ -262,6 +270,18 @@ function adapterCall(family, sourceStudent, sourceAssessment, scoringConsent, lo
     ${sqlLiteral(ids.timeline)}::uuid, ${sqlLiteral(ids.blueprint)}::uuid,
     ${sqlLiteral(ids.trace)}::uuid, ${sqlLiteral(ids.audit)}::uuid
   );`
+}
+
+function askwiseAuthorizationCall(member, sourceStudent, requestId, auditId) {
+  return `SELECT decision || '|' || reason_code
+    FROM core.authorize_student_access(
+      ${sqlLiteral(member)}::uuid,
+      ${sqlLiteral(sourceStudent)},
+      'ASKWISE_ENROLL',
+      'ASKWISE_HANDOFF',
+      ${sqlLiteral(requestId)},
+      ${sqlLiteral(auditId)}::uuid
+    );`
 }
 
 const adapterA = {
@@ -428,13 +448,141 @@ try {
     );
   `, 'guardian_student_relationships_one_active_idx')
 
-  assertEqual('AskWise adapter preserves the existing four-argument contract', query(primaryDatabase, contextSql(
+  expectSqlFailure(primaryDatabase, 'Guardian account cannot reference another Member', `
+    BEGIN;
+    INSERT INTO core.members (member_pk, member_kind)
+    VALUES ('99000000-0000-4000-8000-000000000001', 'ADULT');
+    INSERT INTO core.users (user_id, member_pk)
+    VALUES ('usr_99000000000040008000000000000001', '99000000-0000-4000-8000-000000000001');
+    UPDATE core.guardians
+    SET user_id = 'usr_99000000000040008000000000000001'
+    WHERE guardian_id = 'gdn_00000000000040008000000000000001';
+  `, 'guardians_user_member_fk')
+
+  assertEqual('Consent requires exact AskWise scope and purpose', query(primaryDatabase, `
+    SELECT
+      core.has_active_consent(
+        '${fixtures.askwiseConsentA}', '${fixtures.familyA}', '${fixtures.studentMemberA}',
+        'ASKWISE_HANDOFF', 'ASKWISE_ENROLL', '${fixtures.userA}'
+      )::text || '|' ||
+      core.has_active_consent(
+        '${fixtures.askwiseConsentA}', '${fixtures.familyA}', '${fixtures.studentMemberA}',
+        'ASKWISE_HANDOFF', 'ASSESSMENT_SCORING', '${fixtures.userA}'
+      )::text || '|' ||
+      core.has_active_consent(
+        '${fixtures.askwiseConsentA}', '${fixtures.familyA}', '${fixtures.studentMemberA}',
+        'ASSESSMENT_SCORING', 'ASKWISE_ENROLL', '${fixtures.userA}'
+      )::text;
+  `), 'true|false|false')
+
+  assertEqual('AskWise integration mappings resolve integer source IDs only through Core', query(primaryDatabase, `
+    SELECT count(*)
+    FROM core.external_identity_mappings
+    WHERE source_system = 'ASKWISE_SQLITE'
+      AND entity_type = 'STUDENT'
+      AND status = 'ACTIVE';
+  `), 2)
+
+  assertEqual('AskWise active mapping and entitlement allow is audited', query(primaryDatabase, contextSql(
     fixtures.userA,
     fixtures.familyA,
-    "SELECT decision || '|' || reason_code FROM core.authorize_student_access(" +
-      "'" + fixtures.memberA + "', '" + fixtures.studentA +
-      "', 'ASKWISE_ENROLL', 'ASKWISE_HANDOFF');",
+    askwiseAuthorizationCall(
+      fixtures.memberA,
+      fixtures.askwiseSourceA,
+      'askwise-allow-a',
+      '89000000-0000-4000-8000-000000000101',
+    ),
   )), 'ALLOW|ALLOW')
+
+  assertEqual('AskWise allow audit binds mapping consent entitlement and decision', query(primaryDatabase, `
+    SELECT concat_ws('|',
+      after_json->>'decision',
+      after_json->>'reason_code',
+      after_json->>'mapping_id',
+      after_json->>'consent_id',
+      after_json->>'entitlement_id'
+    )
+    FROM audit.audit_logs
+    WHERE audit_id = '89000000-0000-4000-8000-000000000101';
+  `), `ALLOW|ALLOW|${fixtures.askwiseMappingA}|${fixtures.askwiseConsentA}|${fixtures.askwiseEntitlementA}`)
+
+  assertEqual('AskWise source mapping is required and denial is audited', query(primaryDatabase, contextSql(
+    fixtures.userA,
+    fixtures.familyA,
+    askwiseAuthorizationCall(
+      fixtures.memberA,
+      '999',
+      'askwise-mapping-deny',
+      '89000000-0000-4000-8000-000000000102',
+    ),
+  )), 'DENY|MAPPING_REQUIRED')
+  assertEqual('AskWise mapping denial audit is append-only evidence', query(primaryDatabase, `
+    SELECT concat_ws('|', after_json->>'decision', after_json->>'reason_code')
+    FROM audit.audit_logs
+    WHERE audit_id = '89000000-0000-4000-8000-000000000102';
+  `), 'DENY|MAPPING_REQUIRED')
+
+  query(primaryDatabase, `
+    UPDATE entitlement.service_entitlements
+    SET status = 'SUSPENDED'
+    WHERE entitlement_id = '${fixtures.askwiseEntitlementA}';
+  `)
+  assertEqual('AskWise missing entitlement is denied and audited', query(primaryDatabase, contextSql(
+    fixtures.userA,
+    fixtures.familyA,
+    askwiseAuthorizationCall(
+      fixtures.memberA,
+      fixtures.askwiseSourceA,
+      'askwise-entitlement-deny',
+      '89000000-0000-4000-8000-000000000103',
+    ),
+  )), 'DENY|ENTITLEMENT_REQUIRED')
+  assertEqual('AskWise entitlement denial audit retains the matched consent', query(primaryDatabase, `
+    SELECT concat_ws('|',
+      after_json->>'decision',
+      after_json->>'reason_code',
+      after_json->>'consent_id'
+    )
+    FROM audit.audit_logs
+    WHERE audit_id = '89000000-0000-4000-8000-000000000103';
+  `), `DENY|ENTITLEMENT_REQUIRED|${fixtures.askwiseConsentA}`)
+  query(primaryDatabase, `
+    UPDATE entitlement.service_entitlements
+    SET status = 'ACTIVE'
+    WHERE entitlement_id = '${fixtures.askwiseEntitlementA}';
+  `)
+
+  query(primaryDatabase, `
+    UPDATE core.consents
+    SET purpose_code = 'ASKWISE_BROADER'
+    WHERE consent_id = '${fixtures.askwiseConsentA}';
+  `)
+  assertEqual('AskWise broader consent purpose is denied', query(primaryDatabase, contextSql(
+    fixtures.userA,
+    fixtures.familyA,
+    askwiseAuthorizationCall(
+      fixtures.memberA,
+      fixtures.askwiseSourceA,
+      'askwise-consent-purpose-deny',
+      '89000000-0000-4000-8000-000000000104',
+    ),
+  )), 'DENY|CONSENT_REQUIRED')
+  query(primaryDatabase, `
+    UPDATE core.consents
+    SET purpose_code = 'ASKWISE_ENROLL'
+    WHERE consent_id = '${fixtures.askwiseConsentA}';
+  `)
+
+  assertEqual('AskWise mapped student cannot cross the selected Family', query(primaryDatabase, contextSql(
+    fixtures.userA,
+    fixtures.familyA,
+    askwiseAuthorizationCall(
+      fixtures.memberA,
+      fixtures.askwiseSourceB,
+      'askwise-cross-family-deny',
+      '89000000-0000-4000-8000-000000000105',
+    ),
+  )), 'DENY|STUDENT_FAMILY_MEMBERSHIP_REQUIRED')
 
   expectSqlFailure(primaryDatabase, 'test account promotion is denied', `
     SELECT core.promote_migration_candidate(
@@ -517,6 +665,18 @@ try {
   assertEqual('family A Core RLS exposes only its own consent receipts', query(primaryDatabase, contextSql(
     fixtures.userA, fixtures.familyA, 'SELECT count(*) FROM core.consents;',
   )), 3)
+  assertEqual('guardian relationship RLS exposes only current active Family authority', query(primaryDatabase, contextSql(
+    fixtures.userA, fixtures.familyA, 'SELECT count(*) FROM core.guardian_student_relationships;',
+  )), 1)
+  assertEqual('guardian relationship RLS denies a switched Family context', query(primaryDatabase, contextSql(
+    fixtures.userA, fixtures.familyB, 'SELECT count(*) FROM core.guardian_student_relationships;',
+  )), 0)
+  assertEqual('role assignment RLS excludes cross-family assignment', query(primaryDatabase, contextSql(
+    fixtures.userA, fixtures.familyA, 'SELECT count(*) FROM core.role_assignments;',
+  )), 1)
+  assertEqual('role assignment RLS denies assignment in unauthorized Family context', query(primaryDatabase, contextSql(
+    fixtures.userA, fixtures.familyB, 'SELECT count(*) FROM core.role_assignments;',
+  )), 0)
   assertEqual('family B RLS sees one result', query(primaryDatabase, contextSql(
     fixtures.userB, fixtures.familyB, 'SELECT count(*) FROM domain.compass_results;',
   )), 1)
@@ -542,7 +702,7 @@ try {
       { ...adapterB, result: '91000000-0000-4000-8000-000000000012' }, '5'.repeat(64),
     ),
     true,
-  ), 'ENTITLEMENT_REQUIRED')
+  ), 'STUDENT_MAPPING_NOT_RESOLVED')
 
   expectSqlFailure(primaryDatabase, 'timeline is append-only', `
     UPDATE domain.timeline_events SET summary_code = 'MUTATED'
@@ -551,6 +711,11 @@ try {
   expectSqlFailure(primaryDatabase, 'consent evidence is append-only', `
     DELETE FROM core.consent_events
     WHERE consent_event_id = '16000000-0000-4000-8000-000000000001';
+  `, 'APPEND_ONLY_RECORD')
+  expectSqlFailure(primaryDatabase, 'AskWise authorization audit is append-only', `
+    UPDATE audit.audit_logs
+    SET reason = 'MUTATED'
+    WHERE audit_id = '89000000-0000-4000-8000-000000000101';
   `, 'APPEND_ONLY_RECORD')
 
   assertEqual('longitudinal record visible before consent withdrawal', query(primaryDatabase, contextSql(
@@ -596,18 +761,21 @@ try {
   )), 1)
   query(primaryDatabase, `
     SELECT core.withdraw_consent(
-      '${fixtures.askwiseConsentA}', '${fixtures.userA}',
+      '${fixtures.askwiseConsentB}', '${fixtures.userB}',
       'SYNTHETIC_ASKWISE_WITHDRAWAL', 'withdraw-askwise-consent-test',
-      '87000000-0000-4000-8000-000000000003',
-      '88000000-0000-4000-8000-000000000003'
+      '97000000-0000-4000-8000-000000000003',
+      '98000000-0000-4000-8000-000000000003'
     );
   `)
   assertEqual('AskWise consent withdrawal denies the next adapter decision', query(primaryDatabase, contextSql(
-    fixtures.userA,
-    fixtures.familyA,
-    "SELECT decision || '|' || reason_code FROM core.authorize_student_access(" +
-      "'" + fixtures.memberA + "', '" + fixtures.studentA +
-      "', 'ASKWISE_ENROLL', 'ASKWISE_HANDOFF');",
+    fixtures.userB,
+    fixtures.familyB,
+    askwiseAuthorizationCall(
+      fixtures.memberB,
+      fixtures.askwiseSourceB,
+      'askwise-withdrawal-deny',
+      '89000000-0000-4000-8000-000000000106',
+    ),
   )), 'DENY|CONSENT_REQUIRED')
 
   evidence.backup.snapshot = snapshot(primaryDatabase)

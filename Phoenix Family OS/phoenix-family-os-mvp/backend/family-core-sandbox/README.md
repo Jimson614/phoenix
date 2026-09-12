@@ -35,7 +35,7 @@ npm run family-core:policy
 ```
 
 The reconciliation check is also database-free. It verifies the physical
-schema contract and the four-argument AskWise adapter:
+schema contract and the AskWise source-mapping/audit adapter contract:
 
 ```powershell
 npm run family-core:reconciliation
@@ -69,6 +69,11 @@ The GitHub workflow starts an isolated PostgreSQL 17 service and runs the same c
 11. Consent, Timeline, adapter trace, and audit evidence is append-only.
 12. `pg_dump` → clean `pg_restore` reproduces row counts and deterministic per-table checksums.
 13. All migrations roll back, schemas disappear, and the empty database can be rebuilt again.
+14. AskWise integer source IDs resolve only through reviewed Core mappings,
+    require exact scope/purpose Consent plus an independent active entitlement,
+    and produce append-only allow/deny audit evidence.
+15. Guardian relationship and role-assignment RLS cannot expose rows outside
+    the one selected, server-revalidated Family context.
 
 ## Data flow
 

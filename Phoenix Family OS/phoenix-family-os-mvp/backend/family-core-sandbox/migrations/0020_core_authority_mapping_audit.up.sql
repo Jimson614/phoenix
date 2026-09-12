@@ -374,18 +374,32 @@ AS $$
   SELECT EXISTS (
     SELECT 1
     FROM core.guardians g
+    JOIN core.users u
+      ON u.user_id = g.user_id
+     AND u.member_pk = g.member_pk
     JOIN core.guardian_student_relationships rel
       ON rel.guardian_id = g.guardian_id
      AND rel.guardian_member_pk = g.member_pk
+    JOIN core.family_memberships gfm
+      ON gfm.membership_id = rel.guardian_family_membership_id
+     AND gfm.family_id = rel.family_id
+     AND gfm.member_pk = rel.guardian_member_pk
     JOIN core.student_family_memberships sfm
       ON sfm.student_family_membership_id = rel.student_family_membership_id
+     AND sfm.family_id = rel.family_id
+     AND sfm.student_id = rel.student_id
+     AND sfm.student_member_pk = rel.student_member_pk
     WHERE g.user_id = p_user_id
       AND g.status = 'ACTIVE'
+      AND u.status = 'ACTIVE'
       AND rel.family_id = p_family_id
       AND rel.student_member_pk = p_subject_member_pk
       AND rel.authority_status = 'ACTIVE'
       AND rel.valid_from <= statement_timestamp()
       AND (rel.valid_until IS NULL OR rel.valid_until > statement_timestamp())
+      AND gfm.status = 'ACTIVE'
+      AND gfm.valid_from <= statement_timestamp()
+      AND (gfm.valid_until IS NULL OR gfm.valid_until > statement_timestamp())
       AND sfm.status = 'ACTIVE'
       AND sfm.valid_from <= statement_timestamp()
       AND (sfm.valid_until IS NULL OR sfm.valid_until > statement_timestamp())
@@ -396,7 +410,9 @@ CREATE OR REPLACE FUNCTION core.has_active_consent(
   p_consent_id uuid,
   p_family_id text,
   p_subject_member_pk uuid,
-  p_purpose_code text
+  p_scope text,
+  p_purpose_code text,
+  p_actor_user_id text
 )
 RETURNS boolean
 LANGUAGE sql
@@ -410,12 +426,41 @@ AS $$
     WHERE c.consent_id = p_consent_id
       AND c.family_id = p_family_id
       AND c.subject_member_pk = p_subject_member_pk
-      AND c.scope = p_purpose_code
+      AND c.scope = p_scope
+      AND c.purpose_code = p_purpose_code
+      AND c.granted_by_user_id = p_actor_user_id
       AND c.status = 'GRANTED'
+      AND c.withdrawn_at IS NULL
+      AND btrim(c.policy_version) <> ''
       AND btrim(c.document_version) <> ''
       AND c.document_hash ~ '^[0-9a-f]{64}$'
+      AND btrim(c.locale) <> ''
+      AND c.evidence_hash ~ '^[0-9a-f]{64}$'
       AND c.effective_from <= statement_timestamp()
       AND (c.expires_at IS NULL OR c.expires_at > statement_timestamp())
+      AND EXISTS (
+        SELECT 1
+        FROM core.members subject
+        WHERE subject.member_pk = c.subject_member_pk
+          AND subject.status = 'ACTIVE'
+          AND (
+            subject.member_kind = 'ADULT'
+            OR (
+              subject.member_kind = 'MINOR'
+              AND c.granted_by_guardian_id IS NOT NULL
+              AND EXISTS (
+                SELECT 1
+                FROM core.guardians g
+                WHERE g.guardian_id = c.granted_by_guardian_id
+                  AND g.user_id = p_actor_user_id
+                  AND g.status = 'ACTIVE'
+              )
+              AND core.has_active_guardian_authority(
+                p_actor_user_id, p_family_id, p_subject_member_pk
+              )
+            )
+          )
+      )
   );
 $$;
 
@@ -423,6 +468,7 @@ CREATE OR REPLACE FUNCTION core.can_access_subject_record(
   p_family_id text,
   p_subject_member_pk uuid,
   p_consent_id uuid,
+  p_scope text,
   p_purpose_code text,
   p_permission_code text
 )
@@ -458,123 +504,258 @@ BEGIN
     RETURN false;
   END IF;
 
-  RETURN core.has_active_consent(p_consent_id, p_family_id, p_subject_member_pk, p_purpose_code);
+  RETURN core.has_active_consent(
+    p_consent_id,
+    p_family_id,
+    p_subject_member_pk,
+    p_scope,
+    p_purpose_code,
+    actor_id
+  );
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION core.authorize_student_access(
   p_member_id uuid,
-  p_student_id text,
+  p_source_student_id text,
   p_action text,
-  p_required_scope text
+  p_required_scope text,
+  p_request_id text,
+  p_audit_id uuid
 )
 RETURNS TABLE (
   decision text,
   reason_code text,
   relationship_id uuid,
-  consent_id uuid
+  consent_id uuid,
+  entitlement_id uuid,
+  mapping_id uuid,
+  student_id text,
+  audit_id uuid
 )
 LANGUAGE plpgsql
-STABLE
 SECURITY DEFINER
-SET search_path = core, pg_temp
+SET search_path = core, entitlement, audit, pg_temp
 AS $$
 DECLARE
   actor_id text := core.current_actor_user_id();
   context_family text := core.current_family_id();
+  audit_actor_id text;
+  audit_family_id text;
+  resolved_mapping_id uuid;
+  resolved_core_student_id text;
   subject_member uuid;
+  resolved_family_membership_id uuid;
+  resolved_student_family_membership_id uuid;
+  resolved_guardian_id text;
   resolved_relationship_id uuid;
   resolved_consent_id uuid;
+  resolved_entitlement_id uuid;
+  resolved_decision text := 'DENY';
+  resolved_reason_code text := 'CONTEXT_REQUIRED';
 BEGIN
-  IF actor_id IS NULL OR context_family IS NULL THEN
-    RETURN QUERY SELECT 'DENY', 'CONTEXT_REQUIRED', NULL::uuid, NULL::uuid;
-    RETURN;
+  IF p_audit_id IS NULL OR p_request_id IS NULL OR btrim(p_request_id) = '' THEN
+    RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'AUDIT_CONTEXT_REQUIRED';
   END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM core.users u
-    WHERE u.user_id = actor_id
-      AND u.member_pk = p_member_id
+
+  SELECT u.user_id INTO audit_actor_id
+  FROM core.users u
+  WHERE u.user_id = actor_id;
+
+  <<decision_flow>>
+  BEGIN
+    IF actor_id IS NULL OR context_family IS NULL THEN
+      resolved_reason_code := 'CONTEXT_REQUIRED';
+      EXIT decision_flow;
+    END IF;
+    IF audit_actor_id IS NULL OR NOT EXISTS (
+      SELECT 1 FROM core.users u
+      WHERE u.user_id = actor_id
+        AND u.member_pk = p_member_id
+        AND u.status = 'ACTIVE'
+    ) THEN
+      resolved_reason_code := 'MEMBER_SESSION_MISMATCH';
+      EXIT decision_flow;
+    END IF;
+    IF p_action <> 'ASKWISE_ENROLL' OR p_required_scope <> 'ASKWISE_HANDOFF' THEN
+      resolved_reason_code := 'ACTION_SCOPE_MISMATCH';
+      EXIT decision_flow;
+    END IF;
+    IF p_source_student_id IS NULL OR p_source_student_id !~ '^[0-9]+$' THEN
+      resolved_reason_code := 'SOURCE_STUDENT_ID_INVALID';
+      EXIT decision_flow;
+    END IF;
+    IF NOT core.has_active_family_membership(actor_id, context_family) THEN
+      resolved_reason_code := 'NO_ACTIVE_FAMILY_MEMBERSHIP';
+      EXIT decision_flow;
+    END IF;
+    audit_family_id := context_family;
+    IF NOT core.actor_has_permission(actor_id, context_family, 'askwise.enroll') THEN
+      resolved_reason_code := 'PERMISSION_REQUIRED';
+      EXIT decision_flow;
+    END IF;
+
+    SELECT m.mapping_id, m.phoenix_core_id
+      INTO resolved_mapping_id, resolved_core_student_id
+    FROM core.external_identity_mappings m
+    WHERE m.source_system = 'ASKWISE_SQLITE'
+      AND m.entity_type = 'STUDENT'
+      AND m.source_id = p_source_student_id
+      AND m.status = 'ACTIVE'
+    ORDER BY m.created_at DESC
+    LIMIT 1;
+
+    IF resolved_mapping_id IS NULL THEN
+      resolved_reason_code := 'MAPPING_REQUIRED';
+      EXIT decision_flow;
+    END IF;
+
+    SELECT
+      s.member_pk,
+      sfm.family_membership_id,
+      sfm.student_family_membership_id
+      INTO
+        subject_member,
+        resolved_family_membership_id,
+        resolved_student_family_membership_id
+    FROM core.students s
+    JOIN core.student_family_memberships sfm
+      ON sfm.student_id = s.student_id
+     AND sfm.student_member_pk = s.member_pk
+    WHERE s.student_id = resolved_core_student_id
+      AND s.status = 'ACTIVE'
+      AND sfm.family_id = context_family
+      AND sfm.status = 'ACTIVE'
+      AND sfm.valid_from <= statement_timestamp()
+      AND (sfm.valid_until IS NULL OR sfm.valid_until > statement_timestamp());
+
+    IF subject_member IS NULL THEN
+      resolved_reason_code := 'STUDENT_FAMILY_MEMBERSHIP_REQUIRED';
+      EXIT decision_flow;
+    END IF;
+
+    SELECT rel.relationship_id, g.guardian_id
+      INTO resolved_relationship_id, resolved_guardian_id
+    FROM core.guardian_student_relationships rel
+    JOIN core.guardians g
+      ON g.guardian_id = rel.guardian_id
+     AND g.member_pk = rel.guardian_member_pk
+    JOIN core.users u
+      ON u.user_id = g.user_id
+     AND u.member_pk = g.member_pk
+    JOIN core.family_memberships gfm
+      ON gfm.membership_id = rel.guardian_family_membership_id
+     AND gfm.family_id = rel.family_id
+     AND gfm.member_pk = rel.guardian_member_pk
+    WHERE g.user_id = actor_id
+      AND g.status = 'ACTIVE'
       AND u.status = 'ACTIVE'
-  ) THEN
-    RETURN QUERY SELECT 'DENY', 'MEMBER_SESSION_MISMATCH', NULL::uuid, NULL::uuid;
-    RETURN;
-  END IF;
-  IF p_action <> 'ASKWISE_ENROLL' OR p_required_scope <> 'ASKWISE_HANDOFF' THEN
-    RETURN QUERY SELECT 'DENY', 'ACTION_SCOPE_MISMATCH', NULL::uuid, NULL::uuid;
-    RETURN;
-  END IF;
-  IF NOT core.has_active_family_membership(actor_id, context_family) THEN
-    RETURN QUERY SELECT 'DENY', 'NO_ACTIVE_FAMILY_MEMBERSHIP', NULL::uuid, NULL::uuid;
-    RETURN;
-  END IF;
-  IF NOT core.actor_has_permission(actor_id, context_family, 'askwise.enroll') THEN
-    RETURN QUERY SELECT 'DENY', 'PERMISSION_REQUIRED', NULL::uuid, NULL::uuid;
-    RETURN;
-  END IF;
+      AND rel.family_id = context_family
+      AND rel.student_id = resolved_core_student_id
+      AND rel.student_member_pk = subject_member
+      AND rel.student_family_membership_id = resolved_student_family_membership_id
+      AND rel.authority_status = 'ACTIVE'
+      AND rel.valid_from <= statement_timestamp()
+      AND (rel.valid_until IS NULL OR rel.valid_until > statement_timestamp())
+      AND gfm.status = 'ACTIVE'
+      AND gfm.valid_from <= statement_timestamp()
+      AND (gfm.valid_until IS NULL OR gfm.valid_until > statement_timestamp())
+    ORDER BY rel.valid_from DESC
+    LIMIT 1;
 
-  SELECT s.member_pk
-    INTO subject_member
-  FROM core.students s
-  JOIN core.student_family_memberships sfm
-    ON sfm.student_id = s.student_id
-   AND sfm.student_member_pk = s.member_pk
-  WHERE s.student_id = p_student_id
-    AND s.status = 'ACTIVE'
-    AND sfm.family_id = context_family
-    AND sfm.status = 'ACTIVE'
-    AND sfm.valid_from <= statement_timestamp()
-    AND (sfm.valid_until IS NULL OR sfm.valid_until > statement_timestamp());
+    IF resolved_relationship_id IS NULL THEN
+      resolved_reason_code := 'GUARDIAN_AUTHORITY_REQUIRED';
+      EXIT decision_flow;
+    END IF;
 
-  IF subject_member IS NULL THEN
-    RETURN QUERY SELECT 'DENY', 'STUDENT_FAMILY_MEMBERSHIP_REQUIRED', NULL::uuid, NULL::uuid;
-    RETURN;
-  END IF;
+    SELECT c.consent_id
+      INTO resolved_consent_id
+    FROM core.consents c
+    WHERE c.family_id = context_family
+      AND c.subject_member_pk = subject_member
+      AND c.subject_family_membership_id = resolved_family_membership_id
+      AND c.granted_by_user_id = actor_id
+      AND c.granted_by_guardian_id = resolved_guardian_id
+      AND c.scope = p_required_scope
+      AND c.purpose_code = p_action
+      AND core.has_active_consent(
+        c.consent_id,
+        context_family,
+        subject_member,
+        p_required_scope,
+        p_action,
+        actor_id
+      )
+    ORDER BY c.granted_at DESC
+    LIMIT 1;
 
-  SELECT rel.relationship_id
-    INTO resolved_relationship_id
-  FROM core.guardian_student_relationships rel
-  JOIN core.guardians g
-    ON g.guardian_id = rel.guardian_id
-   AND g.member_pk = rel.guardian_member_pk
-  WHERE g.user_id = actor_id
-    AND g.status = 'ACTIVE'
-    AND rel.family_id = context_family
-    AND rel.student_id = p_student_id
-    AND rel.student_member_pk = subject_member
-    AND rel.authority_status = 'ACTIVE'
-    AND rel.valid_from <= statement_timestamp()
-    AND (rel.valid_until IS NULL OR rel.valid_until > statement_timestamp())
-  ORDER BY rel.valid_from DESC
-  LIMIT 1;
+    IF resolved_consent_id IS NULL THEN
+      resolved_reason_code := 'CONSENT_REQUIRED';
+      EXIT decision_flow;
+    END IF;
 
-  IF resolved_relationship_id IS NULL THEN
-    RETURN QUERY SELECT 'DENY', 'GUARDIAN_AUTHORITY_REQUIRED', NULL::uuid, NULL::uuid;
-    RETURN;
-  END IF;
+    SELECT se.entitlement_id
+      INTO resolved_entitlement_id
+    FROM entitlement.service_entitlements se
+    WHERE se.family_id = context_family
+      AND se.subject_member_pk = subject_member
+      AND se.subject_family_membership_id = resolved_family_membership_id
+      AND se.service_code = 'ASKWISE'
+      AND se.status = 'ACTIVE'
+      AND se.valid_from <= statement_timestamp()
+      AND (se.valid_until IS NULL OR se.valid_until > statement_timestamp())
+    ORDER BY se.valid_from DESC
+    LIMIT 1;
 
-  SELECT c.consent_id
-    INTO resolved_consent_id
-  FROM core.consents c
-  WHERE c.family_id = context_family
-    AND c.subject_member_pk = subject_member
-    AND c.granted_by_user_id = actor_id
-    AND c.scope = p_required_scope
-    AND c.purpose_code = p_action
-    AND c.status = 'GRANTED'
-    AND c.withdrawn_at IS NULL
-    AND btrim(c.document_version) <> ''
-    AND c.document_hash ~ '^[0-9a-f]{64}$'
-    AND c.effective_from <= statement_timestamp()
-    AND (c.expires_at IS NULL OR c.expires_at > statement_timestamp())
-  ORDER BY c.granted_at DESC
-  LIMIT 1;
+    IF resolved_entitlement_id IS NULL THEN
+      resolved_reason_code := 'ENTITLEMENT_REQUIRED';
+      EXIT decision_flow;
+    END IF;
 
-  IF resolved_consent_id IS NULL THEN
-    RETURN QUERY SELECT 'DENY', 'CONSENT_REQUIRED', resolved_relationship_id, NULL::uuid;
-    RETURN;
-  END IF;
+    resolved_decision := 'ALLOW';
+    resolved_reason_code := 'ALLOW';
+  END decision_flow;
 
-  RETURN QUERY SELECT 'ALLOW', 'ALLOW', resolved_relationship_id, resolved_consent_id;
+  INSERT INTO audit.audit_logs (
+    audit_id, actor_user_id, action, entity_type, entity_id, family_id,
+    before_json, after_json, reason, request_id, source_service
+  ) VALUES (
+    p_audit_id,
+    audit_actor_id,
+    'ASKWISE_STUDENT_ACCESS_DECISION',
+    'STUDENT',
+    COALESCE(resolved_core_student_id, p_source_student_id),
+    audit_family_id,
+    NULL,
+    jsonb_build_object(
+      'decision', resolved_decision,
+      'reason_code', resolved_reason_code,
+      'member_id', p_member_id,
+      'source_system', 'ASKWISE_SQLITE',
+      'source_student_id', p_source_student_id,
+      'core_student_id', resolved_core_student_id,
+      'action', p_action,
+      'scope', p_required_scope,
+      'mapping_id', resolved_mapping_id,
+      'student_family_membership_id', resolved_student_family_membership_id,
+      'relationship_id', resolved_relationship_id,
+      'consent_id', resolved_consent_id,
+      'entitlement_id', resolved_entitlement_id
+    ),
+    resolved_reason_code,
+    p_request_id,
+    'ASKWISE_ADAPTER'
+  );
+
+  RETURN QUERY SELECT
+    resolved_decision,
+    resolved_reason_code,
+    resolved_relationship_id,
+    resolved_consent_id,
+    resolved_entitlement_id,
+    resolved_mapping_id,
+    resolved_core_student_id,
+    p_audit_id;
 END;
 $$;
 
@@ -709,7 +890,7 @@ CREATE INDEX audit_family_time_idx
 
 REVOKE ALL ON FUNCTION core.promote_migration_candidate(uuid, text, text, uuid, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION core.resolve_active_mapping(text, text, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION core.authorize_student_access(uuid, text, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION core.authorize_student_access(uuid, text, text, text, text, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION core.withdraw_consent(uuid, text, text, text, uuid, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION core.withdraw_guardian_authority(uuid, text, text, text, uuid) FROM PUBLIC;
 

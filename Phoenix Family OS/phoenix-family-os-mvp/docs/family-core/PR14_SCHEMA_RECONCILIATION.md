@@ -15,11 +15,17 @@ Baseline: `6141d863475f146ec2494ebadd39c447fd38e9f5`
 - Consent retains the existing purpose/policy/evidence model while adding
   independent `scope`, `document_version`, and `document_hash` evidence.
 - `ASKWISE_HANDOFF` is independent from assessment and longitudinal scopes.
-- `core.authorize_student_access(memberId, studentId, action, requiredScope)`
-  is exposed through the existing four-argument application adapter.
+- Consent lookup matches scope and purpose independently and binds the receipt
+  to the authenticated actor and active Guardian authority for a minor.
+- `core.authorize_student_access(memberId, sourceStudentId, action,
+  requiredScope, requestId, auditId)` resolves an `ASKWISE_SQLITE` source ID
+  through the existing Core mapping ledger, requires a separate active
+  `ASKWISE` entitlement, and records every returned decision in append-only
+  audit evidence.
 - Core identity, relationship, role-assignment, and consent tables now have
-  forced RLS. Administrative mapping/candidate tables have forced RLS with no
-  application read policy.
+  forced RLS. Guardian relationship and role-assignment reads require the
+  explicit selected Family plus active membership/authority. Administrative
+  mapping/candidate tables have forced RLS with no application read policy.
 
 ## Preserved
 
@@ -31,7 +37,7 @@ Baseline: `6141d863475f146ec2494ebadd39c447fd38e9f5`
 ## Evidence posture
 
 `npm run family-core:reconciliation` is database-free and checks schema and
-adapter shape. The disposable PostgreSQL gate includes historical relationship,
-Student–Family, AskWise withdrawal, Core RLS, backup/restore, and rollback
-tests, but must only be run when disposable database execution is explicitly
-authorized.
+adapter shape. The disposable PostgreSQL gate includes exact Consent
+scope/purpose, AskWise mapping and entitlement deny/allow, authorization audit,
+selected-Family RLS, withdrawal, backup/restore, and rollback tests, but must
+only be run when disposable database execution is explicitly authorized.

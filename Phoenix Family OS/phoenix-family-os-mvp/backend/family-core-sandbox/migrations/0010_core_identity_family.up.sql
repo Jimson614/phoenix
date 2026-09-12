@@ -107,10 +107,13 @@ CREATE INDEX student_family_memberships_student_idx
 CREATE TABLE core.guardians (
   guardian_id text PRIMARY KEY CHECK (guardian_id ~ '^gdn_[0-9a-f]{32}$'),
   member_pk uuid NOT NULL UNIQUE REFERENCES core.members(member_pk) ON DELETE RESTRICT,
-  user_id text UNIQUE REFERENCES core.users(user_id) ON DELETE RESTRICT,
+  user_id text UNIQUE,
   status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'SUSPENDED', 'RETIRED')),
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-  UNIQUE (guardian_id, member_pk)
+  UNIQUE (guardian_id, member_pk),
+  CONSTRAINT guardians_user_member_fk
+    FOREIGN KEY (user_id, member_pk)
+    REFERENCES core.users(user_id, member_pk) ON DELETE RESTRICT
 );
 
 CREATE OR REPLACE FUNCTION core.assert_adult_account_subject()

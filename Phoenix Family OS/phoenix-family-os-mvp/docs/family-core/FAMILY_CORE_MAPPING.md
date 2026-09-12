@@ -39,7 +39,7 @@ erDiagram
 | Education Compass student | module-local `student_id` | `core.external_identity_mappings` → Core `student_id` and `member_pk` | Adapter requires one active mapping, same family, consent, entitlement and permission | Synthetic adapter gate PASS |
 | Education assessment/result | module assessment identifier and hashed result | `domain.compass_results` | Store source ID/version and payload hash; never raw answer payload in this proof | Exact replay idempotent; changed replay rejected |
 | Website D1 account | credential/session tables in PR #13 | future `core.auth_identities` link | Preserve credential boundary; issue no Family/Student authority locally | Requires reviewed Core account contract and service authentication |
-| ASKWISE integer student ID | module-local integer | `external_identity_mappings` → Core `student_id` | Manual/verified mapping | Not implemented in this sandbox |
+| ASKWISE integer student ID | module-local integer | `external_identity_mappings` → Core `student_id` | Manual/verified mapping; authorization then revalidates selected Family, Guardian authority, exact Consent and independent entitlement | Synthetic mapping and positive/negative gate implemented; no real data |
 
 ## Education adapter proof
 

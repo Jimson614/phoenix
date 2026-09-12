@@ -17,6 +17,10 @@ assert.match(identity, /family_memberships_one_active_idx/)
 assert.match(identity, /UNIQUE\s*\(family_id,\s*member_pk,\s*valid_from\)/)
 assert.match(identity, /CREATE TABLE core\.student_family_memberships/)
 assert.match(identity, /student_family_memberships_one_active_idx/)
+assert.match(
+  identity,
+  /FOREIGN KEY \(user_id, member_pk\)\s+REFERENCES core\.users\(user_id, member_pk\)/,
+)
 
 assert.doesNotMatch(authority, /UNIQUE\s*\(family_id,\s*guardian_id,\s*student_id\)\s*[,)]/)
 assert.match(authority, /guardian_student_relationships_one_active_idx/)
@@ -26,6 +30,18 @@ assert.match(authority, /'ASKWISE_HANDOFF'/)
 assert.match(authority, /document_version text NOT NULL/)
 assert.match(authority, /document_hash text NOT NULL/)
 assert.match(authority, /CREATE OR REPLACE FUNCTION core\.authorize_student_access/)
+assert.match(
+  authority,
+  /FUNCTION core\.has_active_consent\([\s\S]*?p_scope text,[\s\S]*?p_purpose_code text,[\s\S]*?p_actor_user_id text/,
+)
+assert.match(authority, /c\.scope = p_scope/)
+assert.match(authority, /c\.purpose_code = p_purpose_code/)
+assert.match(authority, /c\.granted_by_user_id = p_actor_user_id/)
+assert.match(authority, /m\.source_system = 'ASKWISE_SQLITE'/)
+assert.match(authority, /se\.service_code = 'ASKWISE'/)
+assert.match(authority, /INSERT INTO audit\.audit_logs/)
+assert.match(authority, /'ASKWISE_STUDENT_ACCESS_DECISION'/)
+assert.match(authority, /'ASKWISE_ADAPTER'/)
 
 for (const table of [
   'members',
@@ -44,8 +60,18 @@ for (const table of [
 
 assert.match(fixture, /ASKWISE_HANDOFF/)
 assert.match(fixture, /SYNTHETIC_ASKWISE_HANDOFF_V1/)
+assert.match(fixture, /'ASKWISE_SQLITE'/)
+assert.match(fixture, /'ASKWISE', 'ACTIVE'/)
+assert.match(rls, /guardian_relationships_self_select[\s\S]*?core\.has_active_family_membership/)
+assert.match(rls, /role_assignments_self_select[\s\S]*?scope_id = core\.current_family_id\(\)/)
+assert.match(rls, /role_assignments_self_select[\s\S]*?core\.has_active_family_membership/)
 assert.match(gate, /historical family membership is retained alongside current membership/)
 assert.match(gate, /historical guardian relationship is retained alongside current authority/)
 assert.match(gate, /AskWise consent withdrawal denies the next adapter decision/)
 assert.match(gate, /family A Core RLS cannot switch to family B/)
+assert.match(gate, /Consent requires exact AskWise scope and purpose/)
+assert.match(gate, /AskWise missing entitlement is denied and audited/)
+assert.match(gate, /AskWise active mapping and entitlement allow is audited/)
+assert.match(gate, /AskWise source mapping is required and denial is audited/)
+assert.match(gate, /role assignment RLS excludes cross-family assignment/)
 console.log('FAMILY_CORE_RECONCILIATION_STATIC=PASS')

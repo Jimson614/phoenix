@@ -121,6 +121,7 @@ FOR EACH ROW EXECUTE FUNCTION audit.reject_mutation();
 CREATE OR REPLACE FUNCTION core.has_active_entitlement(
   p_family_id text,
   p_subject_member_pk uuid,
+  p_subject_family_membership_id uuid,
   p_service_code text
 )
 RETURNS boolean
@@ -134,6 +135,7 @@ AS $$
     FROM entitlement.service_entitlements se
     WHERE se.family_id = p_family_id
       AND se.subject_member_pk = p_subject_member_pk
+      AND se.subject_family_membership_id = p_subject_family_membership_id
       AND se.service_code = p_service_code
       AND se.status = 'ACTIVE'
       AND se.valid_from <= statement_timestamp()
@@ -213,18 +215,23 @@ BEGIN
   IF resolved_member_pk IS NULL THEN
     RAISE EXCEPTION USING ERRCODE = 'P0002', MESSAGE = 'STUDENT_MAPPING_NOT_RESOLVED';
   END IF;
-  IF NOT core.has_active_entitlement(p_family_id, resolved_member_pk, 'EDUCATION_COMPASS') THEN
+  IF NOT core.has_active_entitlement(
+    p_family_id,
+    resolved_member_pk,
+    resolved_family_membership_id,
+    'EDUCATION_COMPASS'
+  ) THEN
     RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'ENTITLEMENT_REQUIRED';
   END IF;
   IF NOT core.can_access_subject_record(
     p_family_id, resolved_member_pk, p_scoring_consent_id,
-    'ASSESSMENT_SCORING', 'assessment.submit'
+    'ASSESSMENT_SCORING', 'ASSESSMENT_SCORING', 'assessment.submit'
   ) THEN
     RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'ASSESSMENT_AUTHORITY_DENIED';
   END IF;
   IF NOT core.can_access_subject_record(
     p_family_id, resolved_member_pk, p_longitudinal_consent_id,
-    'LONGITUDINAL_GROWTH_RECORD', 'timeline.append'
+    'LONGITUDINAL_GROWTH_RECORD', 'LONGITUDINAL_GROWTH_RECORD', 'timeline.append'
   ) THEN
     RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'LONGITUDINAL_AUTHORITY_DENIED';
   END IF;
@@ -429,10 +436,36 @@ CREATE POLICY guardian_relationships_self_select ON core.guardian_student_relati
   FOR SELECT TO phoenix_core_app
   USING (
     family_id = core.current_family_id()
+    AND authority_status = 'ACTIVE'
+    AND valid_from <= statement_timestamp()
+    AND (valid_until IS NULL OR valid_until > statement_timestamp())
+    AND core.has_active_family_membership(core.current_actor_user_id(), family_id)
     AND EXISTS (
-      SELECT 1 FROM core.guardians g
+      SELECT 1
+      FROM core.guardians g
+      JOIN core.users u
+        ON u.user_id = g.user_id
+       AND u.member_pk = g.member_pk
+      JOIN core.family_memberships gfm
+        ON gfm.membership_id = guardian_student_relationships.guardian_family_membership_id
+       AND gfm.family_id = guardian_student_relationships.family_id
+       AND gfm.member_pk = guardian_student_relationships.guardian_member_pk
+      JOIN core.student_family_memberships sfm
+        ON sfm.student_family_membership_id =
+           guardian_student_relationships.student_family_membership_id
+       AND sfm.family_id = guardian_student_relationships.family_id
+       AND sfm.student_id = guardian_student_relationships.student_id
+       AND sfm.student_member_pk = guardian_student_relationships.student_member_pk
       WHERE g.guardian_id = guardian_student_relationships.guardian_id
         AND g.user_id = core.current_actor_user_id()
+        AND g.status = 'ACTIVE'
+        AND u.status = 'ACTIVE'
+        AND gfm.status = 'ACTIVE'
+        AND gfm.valid_from <= statement_timestamp()
+        AND (gfm.valid_until IS NULL OR gfm.valid_until > statement_timestamp())
+        AND sfm.status = 'ACTIVE'
+        AND sfm.valid_from <= statement_timestamp()
+        AND (sfm.valid_until IS NULL OR sfm.valid_until > statement_timestamp())
     )
   );
 
@@ -451,11 +484,20 @@ CREATE POLICY consent_events_grantor_select ON core.consent_events
     WHERE c.consent_id = consent_events.consent_id
       AND c.family_id = core.current_family_id()
       AND c.granted_by_user_id = core.current_actor_user_id()
+      AND core.has_active_family_membership(core.current_actor_user_id(), c.family_id)
   ));
 
 CREATE POLICY role_assignments_self_select ON core.role_assignments
   FOR SELECT TO phoenix_core_app
-  USING (user_id = core.current_actor_user_id());
+  USING (
+    user_id = core.current_actor_user_id()
+    AND scope_type = 'FAMILY'
+    AND scope_id = core.current_family_id()
+    AND status = 'ACTIVE'
+    AND valid_from <= statement_timestamp()
+    AND (valid_until IS NULL OR valid_until > statement_timestamp())
+    AND core.has_active_family_membership(core.current_actor_user_id(), scope_id)
+  );
 
 ALTER TABLE domain.compass_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE domain.compass_results FORCE ROW LEVEL SECURITY;
@@ -472,28 +514,28 @@ CREATE POLICY compass_results_family_select ON domain.compass_results
   FOR SELECT TO phoenix_core_app
   USING (core.can_access_subject_record(
     family_id, subject_member_pk, consent_id,
-    'ASSESSMENT_SCORING', 'family.read'
+    'ASSESSMENT_SCORING', 'ASSESSMENT_SCORING', 'family.read'
   ));
 
 CREATE POLICY journeys_family_select ON domain.journeys
   FOR SELECT TO phoenix_core_app
   USING (core.can_access_subject_record(
     family_id, subject_member_pk, consent_id,
-    'LONGITUDINAL_GROWTH_RECORD', 'family.read'
+    'LONGITUDINAL_GROWTH_RECORD', 'LONGITUDINAL_GROWTH_RECORD', 'family.read'
   ));
 
 CREATE POLICY timeline_family_select ON domain.timeline_events
   FOR SELECT TO phoenix_core_app
   USING (core.can_access_subject_record(
     family_id, subject_member_pk, consent_id,
-    'LONGITUDINAL_GROWTH_RECORD', 'family.read'
+    'LONGITUDINAL_GROWTH_RECORD', 'LONGITUDINAL_GROWTH_RECORD', 'family.read'
   ));
 
 CREATE POLICY blueprints_family_select ON domain.blueprints
   FOR SELECT TO phoenix_core_app
   USING (core.can_access_subject_record(
     family_id, subject_member_pk, consent_id,
-    'LONGITUDINAL_GROWTH_RECORD', 'family.read'
+    'LONGITUDINAL_GROWTH_RECORD', 'LONGITUDINAL_GROWTH_RECORD', 'family.read'
   ));
 
 CREATE POLICY adapter_traces_family_select ON domain.adapter_traces
@@ -501,7 +543,7 @@ CREATE POLICY adapter_traces_family_select ON domain.adapter_traces
   USING (core.can_access_subject_record(
     family_id, subject_member_pk,
     (SELECT j.consent_id FROM domain.journeys j WHERE j.journey_id = adapter_traces.journey_id),
-    'LONGITUDINAL_GROWTH_RECORD', 'family.read'
+    'LONGITUDINAL_GROWTH_RECORD', 'LONGITUDINAL_GROWTH_RECORD', 'family.read'
   ));
 
 GRANT USAGE ON SCHEMA domain TO phoenix_core_app;
@@ -512,7 +554,7 @@ GRANT SELECT ON core.members, core.users, core.auth_identities, core.families,
   core.consent_events, core.role_assignments TO phoenix_core_app;
 GRANT SELECT ON domain.compass_results, domain.journeys, domain.timeline_events,
   domain.blueprints, domain.adapter_traces TO phoenix_core_app;
-GRANT EXECUTE ON FUNCTION core.authorize_student_access(uuid, text, text, text)
+GRANT EXECUTE ON FUNCTION core.authorize_student_access(uuid, text, text, text, text, uuid)
   TO phoenix_core_app;
 GRANT EXECUTE ON FUNCTION domain.ingest_education_synthetic(
   text, text, text, uuid, uuid, text, uuid, uuid, uuid, uuid, uuid, uuid
