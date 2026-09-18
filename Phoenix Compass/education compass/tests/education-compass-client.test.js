@@ -345,6 +345,17 @@ function testReportRegistry() {
   assert.deepStrictEqual(locked.sections, [])
   assert(!JSON.stringify(locked).includes('leaked'))
   assert(!JSON.stringify(locked).includes('EGD08'))
+
+  // Exact camelCase envelope returned by GET /v1/assessments/:id/result for an unpaid growth report.
+  const serverLocked = reports.renderResult({
+    assessmentId: 'asm_growth', reportId: 'rpt_growth', resultState: 'LOCKED',
+    resultKind: 'STUDENT_GROWTH_DISCOVERY', resultVersion: 'student_growth_discovery_report_v1.0.0',
+    productCode: 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1', amountFen: 3990, currency: 'CNY',
+    nextAction: 'PURCHASE_TO_UNLOCK_REPORT', systemResultMarker: 'FULL_SYSTEM_BANK'
+  })
+  assert.strictEqual(serverLocked.rendererKey, reports.RENDERER_KEYS.STUDENT_GROWTH)
+  assert.strictEqual(serverLocked.resultState, 'LOCKED')
+  assert.strictEqual(serverLocked.amountFen, 3990)
 }
 
 function testNavigation() {

@@ -637,6 +637,8 @@ test('V0.5 real HTTP flow preserves revisions, payment authority, owner isolatio
     })
     assert.equal(growthSubmit.response.status, 200, JSON.stringify(growthSubmit.body))
     assert.equal(growthSubmit.body.resultState, 'LOCKED')
+    assert.equal(growthSubmit.body.resultKind, 'STUDENT_GROWTH_DISCOVERY')
+    assert.equal(growthSubmit.body.resultVersion, 'student_growth_discovery_report_v1.0.0')
     assert.equal(growthSubmit.body.systemResultMarker, 'FULL_SYSTEM_BANK')
     const lockedJson = JSON.stringify(growthSubmit.body)
     for (const forbidden of [
@@ -649,6 +651,7 @@ test('V0.5 real HTTP flow preserves revisions, payment authority, owner isolatio
     })
     assert.equal(lockedResult.response.status, 200)
     assert.equal(lockedResult.body.resultState, 'LOCKED')
+    assert.equal(lockedResult.body.resultKind, 'STUDENT_GROWTH_DISCOVERY')
     assert.equal(JSON.stringify(lockedResult.body).includes('strength_signals'), false)
     const lockedReport = await jsonRequest(app.base, `/v1/reports/${growthSubmit.body.reportId}`, {
       headers: owner.headers

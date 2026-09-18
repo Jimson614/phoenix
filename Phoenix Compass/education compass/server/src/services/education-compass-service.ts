@@ -882,6 +882,8 @@ export class EducationCompassService {
       assessmentId: assessment.id,
       reportId: report.id,
       resultState: 'LOCKED',
+      resultKind: report.reportKind,
+      resultVersion: report.resultVersion,
       productCode: GROWTH_DISCOVERY_PRODUCT_CODE,
       amountFen: 3990,
       currency: 'CNY',
