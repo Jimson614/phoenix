@@ -3,8 +3,9 @@
 const assert = require('node:assert/strict')
 const { readFile, readdir } = require('node:fs/promises')
 const path = require('node:path')
+const { serverDist } = require('./server-dist-path')
 
-const { validateQuestionnaireAnswers } = require('../server/dist/src/domain/education-compass/validator.js')
+const { validateQuestionnaireAnswers } = require(serverDist('domain', 'education-compass', 'validator.js'))
 
 const root = path.resolve(__dirname, '..')
 const examplesDirectory = path.join(root, 'docs', 'examples')

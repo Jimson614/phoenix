@@ -187,8 +187,11 @@ export class InMemoryStore implements Store {
     return this.withLock(async () => {
       const draft = clone(this.state)
       const result = await work(new MemoryTransaction(draft))
+      // FileStore persists from this hook. Do not expose the draft as committed
+      // in memory until its durable write has succeeded; otherwise callers see
+      // a rejected transaction while subsequent reads observe its mutations.
+      await this.afterCommit(clone(draft))
       this.state = draft
-      await this.afterCommit(clone(this.state))
       return clone(result)
     })
   }

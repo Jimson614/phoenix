@@ -200,7 +200,9 @@ function presentationMeta(raw, questions, assessmentKind) {
   const providedMin = Number(source.estimatedMinutesMin === undefined ? source.estimated_minutes_min : source.estimatedMinutesMin)
   const providedMax = Number(source.estimatedMinutesMax === undefined ? source.estimated_minutes_max : source.estimatedMinutesMax)
   const estimatedMinutesMin = Number.isFinite(providedMin) && providedMin > 0 ? providedMin : defaultMin
-  const estimatedMinutesMax = Number.isFinite(providedMax) && providedMax >= estimatedMinutesMin ? providedMax : defaultMax
+  const estimatedMinutesMax = Number.isFinite(providedMax) && providedMax >= estimatedMinutesMin
+    ? providedMax
+    : Math.max(defaultMax, estimatedMinutesMin)
   const copyValue = (camelKey, snakeKey) => {
     const candidate = source[camelKey] === undefined ? source[snakeKey] : source[camelKey]
     return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : copyFallbacks[camelKey]

@@ -57,6 +57,12 @@
       <view class="boundary-note">
         <text>{{rendered.disclaimer || '本快照用于发现家庭教育关注点，并帮助决定是否邀请学生本人继续测评；不替代专业诊断或完整升学规划。'}}</text>
       </view>
+      <view class="free-analysis-card">
+        <text class="free-analysis-card__eyebrow">FREE ASSESSMENT AI ANALYSIS</text>
+        <text class="free-analysis-card__title">免费测评 · 有限 AI 分析</text>
+        <text class="free-analysis-card__copy">进入后需单独确认 AI 分析同意。服务端只选取本次已提交测评的必要字段，结果不等同于付费完整报告。</text>
+        <button class="btn btn--outline" bindtap="openFreeAnalysis">开始免费有限 AI 分析</button>
+      </view>
       <view wx:if="{{canStartLevel2}}" class="snapshot-invite">
         <text class="snapshot-invite__title">想更深入了解孩子当前需要支持的地方？</text>
         <text class="snapshot-invite__copy">邀请学生本人完成成长发现，提交后再决定是否解锁完整报告。</text>

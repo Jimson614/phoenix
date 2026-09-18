@@ -66,6 +66,8 @@
 - `GET /v1/me/advisor-requests` → `{ "requests": AdvisorRequest[] }`
 - `POST /v1/advisor-requests` → `{ "request": AdvisorRequest }`
 
+学生档案中，`age` 的规范请求值是 3–100 的整数；为了兼容旧小程序，服务端也接受等价的十进制数字字符串，并把空白值归一为 `null`。`educationSystem` 非空时落库为 `GAOKAO`、`DSE`、`IGCSE`、`A_LEVEL`、`AP_US`、`IB` 或 `OTHER`；服务端会将旧版已发布的显示标签归一为这些编码，未知非空值返回 `400 INVALID_PROFILE`。
+
 服务端从Bearer会话解析owner。资源不属于当前家庭时返回403或404；不得接受客户端传入的owner user ID作为授权依据。
 
 ## 4. 测评合同与草稿

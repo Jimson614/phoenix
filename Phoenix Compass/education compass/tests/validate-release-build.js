@@ -4,6 +4,8 @@ const path = require('path')
 const { buildRelease, DIST_ROOT, RELEASE_VERSION } = require('../scripts/build-release')
 
 const output = path.join(DIST_ROOT, '.release-boundary-test')
+const sourceProjectConfigPath = path.join(path.resolve(__dirname, '..'), 'project.config.json')
+const sourceProjectConfig = fs.readFileSync(sourceProjectConfigPath)
 const RELEASE_TOTAL_BUDGET_BYTES = Math.floor(1.75 * 1024 * 1024)
 const BRAND_AND_UI_BUDGET_BYTES = 1250000
 const UI_TOTAL_BUDGET_BYTES = 1536 * 1024
@@ -12,6 +14,9 @@ const APPROVED_UI_ASSETS = new Set([
   'assets/ui/compass-champagne.png',
   'assets/ui/feather-champagne.png'
 ])
+const FORBIDDEN_ARTIFACT_SEGMENTS = new Set(['.git', '.next', 'node_modules', 'server'])
+const PRIVATE_ARTIFACT_FILE = /(?:^|\/)(?:project\.private\.config\.json|\.env(?:\.[^/]*)?|id_(?:ed25519|rsa)|[^/]+\.(?:jks|key|keystore|p12|p8|pem|pfx|ppk))$/i
+const NEXT_GENERATED_FILE = /(?:^|\/)(?:BUILD_ID|_(?:build|ssg)Manifest\.js|[^/]*_client-reference-manifest\.js|(?:app-build|app-paths|build|fallback-build|font|functions-config|images|interception-route-rewrite|middleware|middleware-build|middleware-react-loadable|next-font|pages|prerender|react-loadable|routes|server-functions|server-reference)-manifest\.(?:js|json)|required-server-files\.json)$/i
 
 function walk(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -51,11 +56,25 @@ function assertClientModulesResolve(directory) {
 }
 
 try {
+  for (const invalidApiBaseUrl of [
+    'http://127.0.0.1:3000',
+    'https://release-user:release-password@api.example.invalid',
+    'https://api.example.invalid?target=other',
+    'https://api.example.invalid#fragment'
+  ]) {
+    assert.throws(() => buildRelease({
+      apiBaseUrl: invalidApiBaseUrl,
+      appid: 'wx1234567890abcdef',
+      outputDirectory: output
+    }), /PHOENIX_API_BASE_URL/, `release must reject unsafe API URL: ${invalidApiBaseUrl}`)
+  }
   buildRelease({
     apiBaseUrl: 'https://api.example.invalid',
     appid: 'wx1234567890abcdef',
     outputDirectory: output
   })
+  assert.deepStrictEqual(fs.readFileSync(sourceProjectConfigPath), sourceProjectConfig,
+    'release build must not rewrite the repository project config')
   const files = walk(output)
   assertClientModulesResolve(output)
   const relativeFiles = files.map((file) => slash(path.relative(output, file)))
@@ -168,10 +187,26 @@ try {
     'release compatibility adapter must be inert and contain no local database or demo provider')
   const runtime = fs.readFileSync(path.join(output, 'config', 'runtime.js'), 'utf8')
   assert(runtime.includes("function mode() { return 'remote' }"), 'release runtime must be permanently remote')
+  assert(runtime.includes('function allowsDevelopmentLoopbackHttp() { return false }'),
+    'release runtime must deny plaintext loopback transport')
   assert(runtime.includes('https://api.example.invalid'), 'release runtime must contain configured HTTPS API')
+  assert(!runtime.includes('http://127.0.0.1'), 'release runtime must not contain a loopback HTTP API')
   const project = JSON.parse(fs.readFileSync(path.join(output, 'project.config.json'), 'utf8'))
   assert.strictEqual(project.appid, 'wx1234567890abcdef')
   assert.strictEqual(project.setting.urlCheck, true)
+  assert.strictEqual(Object.hasOwn(project, 'miniprogramRoot'), false,
+    'standalone release config must not inherit the repository Mini Program root')
+  assert.strictEqual(Object.hasOwn(project, 'srcMiniprogramRoot'), false,
+    'standalone release config must not inherit the repository source root')
+  assert.strictEqual(Object.hasOwn(project, 'watchOptions'), false,
+    'standalone release config must not inherit repository-only watch exclusions')
+  for (const file of relativeFiles) {
+    const segments = file.toLowerCase().split('/')
+    assert(!segments.some((segment) => FORBIDDEN_ARTIFACT_SEGMENTS.has(segment)),
+      `release contains forbidden directory material: ${file}`)
+    assert(!PRIVATE_ARTIFACT_FILE.test(file), `release contains private or key material: ${file}`)
+    assert(!NEXT_GENERATED_FILE.test(file), `release contains Next.js compiler output: ${file}`)
+  }
   const app = JSON.parse(fs.readFileSync(path.join(output, 'app.json'), 'utf8'))
   const sourceApp = JSON.parse(fs.readFileSync(path.join(path.resolve(__dirname, '..'), 'app.json'), 'utf8'))
   const expectedPages = sourceApp.pages.filter((page) => !page.startsWith('pages/admin-'))

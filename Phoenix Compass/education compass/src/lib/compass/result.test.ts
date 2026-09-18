@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import { createSafeFallback, normalizeGrowthSnapshot, RESULT_DISCLAIMER } from "@/lib/compass/result";
-import { ASSESSMENT_VERSION, type AssessmentInput } from "@/lib/compass/types";
+import {
+  AGE_BANDS,
+  ASSESSMENT_VERSION,
+  CURRICULA,
+  FAMILY_GOALS,
+  INTERESTS,
+  type AssessmentInput,
+  type Interest,
+} from "@/lib/compass/types";
+import { validateGrowthSnapshot } from "@/lib/compass/validation";
 
 const input: AssessmentInput = {
   assessment_version: ASSESSMENT_VERSION,
@@ -26,12 +35,19 @@ describe("safe Growth Snapshot", () => {
   });
 
   it("strips fields outside the free Growth Snapshot contract", () => {
+    const fallback = createSafeFallback(input);
     const resultWithExtraField = {
-      ...createSafeFallback(input),
+      ...fallback,
+      growth_type: { ...fallback.growth_type, diagnosis: "not allowed" },
+      strength_signals: fallback.strength_signals.map((signal) => ({ ...signal, confidence: 1 })),
+      possible_directions: fallback.possible_directions.map((direction) => ({ ...direction, purchase_url: "/pay" })),
       commerce: { offer: "not allowed" },
     } as unknown as ReturnType<typeof createSafeFallback>;
     const result = normalizeGrowthSnapshot(resultWithExtraField);
     expect(result).not.toHaveProperty("commerce");
+    expect(result.growth_type).not.toHaveProperty("diagnosis");
+    expect(result.strength_signals[0]).not.toHaveProperty("confidence");
+    expect(result.possible_directions[0]).not.toHaveProperty("purchase_url");
     expect(Object.keys(result)).toEqual([
       "result_version",
       "growth_type",
@@ -40,5 +56,31 @@ describe("safe Growth Snapshot", () => {
       "today_action",
       "disclaimer",
     ]);
+  });
+
+  it("keeps every supported fallback combination inside the response contract", () => {
+    const interestSets: readonly (readonly Interest[])[] = [
+      ...INTERESTS.map((interest) => [interest] as const),
+      ...INTERESTS.filter((interest) => interest !== "exploring").flatMap((interest, index, values) =>
+        values.slice(index + 1).map((second) => [interest, second] as const),
+      ),
+    ];
+
+    for (const ageBand of AGE_BANDS) {
+      for (const curriculum of CURRICULA) {
+        for (const familyGoal of FAMILY_GOALS) {
+          for (const interests of interestSets) {
+            const result = createSafeFallback({
+              ...input,
+              age_band: ageBand,
+              curriculum,
+              family_goal: familyGoal,
+              interests,
+            });
+            expect(validateGrowthSnapshot(result).success).toBe(true);
+          }
+        }
+      }
+    }
   });
 });

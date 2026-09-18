@@ -1,23 +1,24 @@
 'use strict'
 
 const assert = require('node:assert/strict')
+const { serverDist } = require('./server-dist-path')
 
-const { MockWechatAuthProvider } = require('../server/dist/src/auth/wechat-auth-provider.js')
+const { MockWechatAuthProvider } = require(serverDist('auth', 'wechat-auth-provider.js'))
 const {
   FREE_PARENT_QUESTIONNAIRE_VERSION: FREE_VERSION,
   GROWTH_DISCOVERY_QUESTIONNAIRE_VERSION: GROWTH_VERSION
-} = require('../server/dist/src/domain/education-compass/contracts.js')
-const { validateSourceCatalog } = require('../server/dist/src/domain/source-catalog.js')
-const { GROWTH_DISCOVERY_PRODUCT_CODE } = require('../server/dist/src/domain/products.js')
-const { createAppServer } = require('../server/dist/src/http/app.js')
-const { MockPaymentProvider } = require('../server/dist/src/payments/mock-payment-provider.js')
-const { AssessmentService } = require('../server/dist/src/services/assessment-service.js')
-const { AuthService } = require('../server/dist/src/services/auth-service.js')
-const { EducationCompassService } = require('../server/dist/src/services/education-compass-service.js')
-const { OrderService, seedProducts } = require('../server/dist/src/services/order-service.js')
-const { ProfileService } = require('../server/dist/src/services/profile-service.js')
-const { ReportService } = require('../server/dist/src/services/report-service.js')
-const { InMemoryStore } = require('../server/dist/src/store/memory-store.js')
+} = require(serverDist('domain', 'education-compass', 'contracts.js'))
+const { validateSourceCatalog } = require(serverDist('domain', 'source-catalog.js'))
+const { GROWTH_DISCOVERY_PRODUCT_CODE } = require(serverDist('domain', 'products.js'))
+const { createAppServer } = require(serverDist('http', 'app.js'))
+const { MockPaymentProvider } = require(serverDist('payments', 'mock-payment-provider.js'))
+const { AssessmentService } = require(serverDist('services', 'assessment-service.js'))
+const { AuthService } = require(serverDist('services', 'auth-service.js'))
+const { EducationCompassService } = require(serverDist('services', 'education-compass-service.js'))
+const { OrderService, seedProducts } = require(serverDist('services', 'order-service.js'))
+const { ProfileService } = require(serverDist('services', 'profile-service.js'))
+const { ReportService } = require(serverDist('services', 'report-service.js'))
+const { InMemoryStore } = require(serverDist('store', 'memory-store.js'))
 
 const TEST_SECRET = 'education-compass-local-smoke-secret-only'
 const FORBIDDEN_LOCKED_KEYS = [

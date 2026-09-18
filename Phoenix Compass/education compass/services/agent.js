@@ -6,6 +6,12 @@ const DEFAULT_MAX_MESSAGE_CHARS = 2000
 const DEFAULT_MAX_REPLIES = 3
 const TERMINAL_RUN_STATUSES = ['SUCCEEDED', 'FAILED', 'BLOCKED', 'CANCELLED']
 
+function boundedNumber(value, fallback, minimum, maximum) {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.max(minimum, Math.min(parsed, maximum))
+}
+
 function unwrap(result, keys = []) {
   let value = result && result.data ? result.data : result
   for (const key of keys) {
@@ -67,16 +73,23 @@ function normalizeReply(value) {
 function normalizeConversation(result) {
   const conversation = unwrap(result, ['conversation']) || {}
   const limits = conversation.limits || {}
+  const remainingReplies = conversation.remainingReplies === undefined
+    ? (limits.remainingReplies === undefined ? DEFAULT_MAX_REPLIES : limits.remainingReplies)
+    : conversation.remainingReplies
   return {
     ...conversation,
     conversationId: conversation.conversationId || conversation.id || '',
     reportId: conversation.reportId || conversation.report_id || '',
     consentStatus: conversation.consentStatus || conversation.consent_status || '',
-    maxMessageChars: Number(limits.maxMessageChars || conversation.maxMessageChars || DEFAULT_MAX_MESSAGE_CHARS),
-    maxRepliesPerReport: Number(limits.maxRepliesPerReport || limits.maxTurns || conversation.maxRepliesPerReport || DEFAULT_MAX_REPLIES),
-    remainingReplies: Number(conversation.remainingReplies === undefined
-      ? (limits.remainingReplies === undefined ? DEFAULT_MAX_REPLIES : limits.remainingReplies)
-      : conversation.remainingReplies)
+    maxMessageChars: boundedNumber(
+      limits.maxMessageChars || conversation.maxMessageChars,
+      DEFAULT_MAX_MESSAGE_CHARS, 1, DEFAULT_MAX_MESSAGE_CHARS
+    ),
+    maxRepliesPerReport: boundedNumber(
+      limits.maxRepliesPerReport || limits.maxTurns || conversation.maxRepliesPerReport,
+      DEFAULT_MAX_REPLIES, 1, DEFAULT_MAX_REPLIES
+    ),
+    remainingReplies: boundedNumber(remainingReplies, DEFAULT_MAX_REPLIES, 0, DEFAULT_MAX_REPLIES)
   }
 }
 
@@ -90,11 +103,16 @@ function normalizeRun(result) {
     runId: run.runId || run.id || '',
     conversationId: run.conversationId || run.conversation_id || '',
     status,
-    retryAfterMs: Math.max(250, Math.min(Number(run.retryAfterMs || run.retry_after_ms || 1000), 5000)),
+    retryAfterMs: boundedNumber(run.retryAfterMs || run.retry_after_ms, 1000, 250, 5000),
     code: run.code || run.errorCode || run.error_code || error.code || null,
     message: run.message || run.safeMessage || run.userMessage || error.message || (reply && reply.answer) || '',
     reply,
-    remainingReplies: run.remainingReplies === undefined ? null : Number(run.remainingReplies)
+    remainingReplies: run.remainingReplies === undefined && run.remaining_replies === undefined
+      ? null
+      : boundedNumber(
+          run.remainingReplies === undefined ? run.remaining_replies : run.remainingReplies,
+          null, 0, DEFAULT_MAX_REPLIES
+        )
   }
 }
 
@@ -154,7 +172,7 @@ async function getRun(runId) {
 }
 
 async function listMessages(conversationId, options = {}) {
-  const limit = Math.max(1, Math.min(Number(options.limit || 20), 50))
+  const limit = boundedNumber(options.limit, 20, 1, 50)
   const cursor = options.cursor ? `&cursor=${encodeURIComponent(options.cursor)}` : ''
   const result = await api.request(`/v1/agent-conversations/${encodeURIComponent(conversationId)}/messages?limit=${limit}${cursor}`)
   const payload = unwrap(result) || {}

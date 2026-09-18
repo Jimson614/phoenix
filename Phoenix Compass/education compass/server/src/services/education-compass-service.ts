@@ -18,6 +18,8 @@ import {
   CORE_ASSESSMENT_CONSENT_VERSION as CORE_COPY_VERSION,
   FEISHU_PROFILE_MIRROR_CONSENT_COPY as FEISHU_COPY,
   FEISHU_PROFILE_MIRROR_CONSENT_VERSION as FEISHU_COPY_VERSION,
+  isExactActiveCoreAssessmentConsent,
+  isExactActiveStudentAssessmentAssent,
   STUDENT_ASSESSMENT_ASSENT_COPY as ASSENT_COPY,
   STUDENT_ASSESSMENT_ASSENT_VERSION as ASSENT_COPY_VERSION
 } from '../domain/education-compass/consent-policy'
@@ -182,13 +184,20 @@ export class EducationCompassService {
     return this.store.read(async (tx) => {
       const family = await tx.findOne('families', { userId })
       if (!family) return { familyId: null, students: [], nextAction: 'CREATE_FAMILY_PROFILE' }
-      const students = await tx.findMany('students', { familyId: family.id })
+      const students = (await tx.findMany('students', { familyId: family.id }))
+        .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id))
       const states: Array<Record<string, unknown>> = []
       for (const student of students) {
-        const assessments = (await tx.findMany('assessments', { userId, studentId: student.id }))
+        const candidates = (await tx.findMany('assessments', { userId, studentId: student.id }))
           .filter((item) => item.assessmentKind === 'FREE_PARENT_COMPASS' || item.assessmentKind === 'STUDENT_GROWTH_DISCOVERY')
           .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-        const current = assessments[0]
+        let current: Assessment | undefined
+        for (const candidate of candidates) {
+          if (await this.hasActiveAssessmentConsents(tx, candidate)) {
+            current = candidate
+            break
+          }
+        }
         let nextAction = 'START_FREE_PARENT_COMPASS'
         let orderId: string | null = null
         if (current?.status === 'DRAFT') nextAction = current.assessmentKind === 'FREE_PARENT_COMPASS'
@@ -200,6 +209,7 @@ export class EducationCompassService {
           nextAction = snapshot?.next_step_status === 'AVAILABLE' ? 'START_LEVEL_2' : 'VIEW_FAMILY_EDUCATION_SNAPSHOT'
         }
         if (current?.assessmentKind === 'STUDENT_GROWTH_DISCOVERY' && current.status === 'SUBMITTED') {
+          const report = current.reportId ? await tx.findById('reports', current.reportId) : null
           const entitlement = current.reportId
             ? await tx.findOne('entitlements', { userId, reportId: current.reportId, status: 'ACTIVE' })
             : null
@@ -208,7 +218,10 @@ export class EducationCompassService {
           })).filter((order) => ['CREATED', 'PENDING', 'PAID', 'REFUNDING'].includes(order.status))
             .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
           orderId = activeOrders[0]?.id ?? null
-          nextAction = entitlement?.productCode === GROWTH_DISCOVERY_PRODUCT_CODE
+          const fullReportReady = entitlement?.productCode === GROWTH_DISCOVERY_PRODUCT_CODE &&
+            report?.status === 'READY' && report.deliveryStatus === 'DELIVERED' && report.qaPassed &&
+            Boolean(report.resultPayload)
+          nextAction = fullReportReady
             ? 'VIEW_FULL_REPORT'
             : orderId ? 'CHECK_ORDER_STATUS' : 'VIEW_STUDENT_GROWTH_LOCKED_RESULT'
         }
@@ -337,7 +350,7 @@ export class EducationCompassService {
   }
 
   async questionnaire(userId: string, assessmentId: string): Promise<QuestionnaireBank> {
-    return this.store.read(async (tx) => {
+    return this.store.transaction(async (tx) => {
       const assessment = await this.ownedAssessment(tx, userId, assessmentId)
       await this.assertActiveAssessmentConsents(tx, assessment)
       return this.bankForAssessment(assessment)
@@ -345,7 +358,9 @@ export class EducationCompassService {
   }
 
   async getDraft(userId: string, assessmentId: string): Promise<Record<string, unknown>> {
-    return this.store.read(async (tx) => {
+    // Keep the consent rows locked through selection of the answer payload so a
+    // concurrent withdrawal cannot race a stale read of a minor's draft.
+    return this.store.transaction(async (tx) => {
       const assessment = await this.ownedAssessment(tx, userId, assessmentId)
       await this.assertActiveAssessmentConsents(tx, assessment)
       return {
@@ -775,16 +790,39 @@ export class EducationCompassService {
     invariant(assessment.coreConsentGrantId, 403, 'CORE_ASSESSMENT_CONSENT_REQUIRED', '核心测评同意缺失或已撤回')
     const core = await tx.findById('consentGrants', assessment.coreConsentGrantId, { forUpdate: true })
     invariant(core?.userId === assessment.userId && core.familyId === assessment.familyId &&
-      core.studentId === assessment.studentId && core.scope === 'CORE_ASSESSMENT' &&
-      core.copyVersion === CORE_COPY_VERSION && core.guardianAuthorityStatus === 'CONFIRMED' && !core.withdrawnAt,
+      core.studentId === assessment.studentId && core.subjectType === 'STUDENT' &&
+      core.subjectId === assessment.studentId && core.scope === 'CORE_ASSESSMENT' &&
+      core.subjectRole === 'PARENT_GUARDIAN' && core.copyVersion === CORE_COPY_VERSION &&
+      core.copyTextHash === sha256(CORE_COPY) && core.locale === 'zh-CN' &&
+      core.guardianAuthorityStatus === 'CONFIRMED' && !core.withdrawnAt,
       403, 'CORE_ASSESSMENT_CONSENT_REQUIRED', '核心测评同意缺失或已撤回')
     if (assessment.assessmentKind !== 'STUDENT_GROWTH_DISCOVERY') return
     invariant(assessment.studentAssentGrantId, 403, 'STUDENT_ASSESSMENT_ASSENT_REQUIRED', '学生本人同意缺失或已撤回')
     const assent = await tx.findById('consentGrants', assessment.studentAssentGrantId, { forUpdate: true })
     invariant(assent?.userId === assessment.userId && assent.familyId === assessment.familyId &&
-      assent.studentId === assessment.studentId && assent.scope === 'STUDENT_ASSESSMENT_ASSENT' &&
-      assent.copyVersion === ASSENT_COPY_VERSION && assent.subjectRole === 'STUDENT' && !assent.withdrawnAt,
+      assent.studentId === assessment.studentId && assent.subjectType === 'STUDENT' &&
+      assent.subjectId === assessment.studentId && assent.scope === 'STUDENT_ASSESSMENT_ASSENT' &&
+      assent.copyVersion === ASSENT_COPY_VERSION && assent.subjectRole === 'STUDENT' &&
+      assent.copyTextHash === sha256(ASSENT_COPY) && assent.locale === 'zh-CN' &&
+      assent.guardianAuthorityStatus === 'NOT_APPLICABLE' && !assent.withdrawnAt,
       403, 'STUDENT_ASSESSMENT_ASSENT_REQUIRED', '学生本人同意缺失或已撤回')
+  }
+
+  private async hasActiveAssessmentConsents(tx: StoreTransaction, assessment: Assessment): Promise<boolean> {
+    const subject = {
+      userId: assessment.userId,
+      familyId: assessment.familyId,
+      studentId: assessment.studentId
+    }
+    const core = assessment.coreConsentGrantId
+      ? await tx.findById('consentGrants', assessment.coreConsentGrantId)
+      : null
+    if (!isExactActiveCoreAssessmentConsent(core, subject)) return false
+    if (assessment.assessmentKind !== 'STUDENT_GROWTH_DISCOVERY') return true
+    const assent = assessment.studentAssentGrantId
+      ? await tx.findById('consentGrants', assessment.studentAssentGrantId)
+      : null
+    return isExactActiveStudentAssessmentAssent(assent, subject)
   }
 
   private async findIdempotency(

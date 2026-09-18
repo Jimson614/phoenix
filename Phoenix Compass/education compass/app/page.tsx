@@ -82,7 +82,7 @@ export default function LandingPage() {
             <div className="section-heading section-heading--left">
               <p className="eyebrow">HOW IT WORKS</p>
               <h2>三个步骤，约30秒完成</h2>
-              <p>选择题为主，答案只保留在当前会话；没有倒计时，也不制造压力。</p>
+              <p>选择题为主，答案仅用于生成本次结果，不写入 Phoenix 长期档案；没有倒计时，也不制造压力。</p>
             </div>
             <ol className="steps-list">
               <li><span>01</span><div><strong>回答7题</strong><p>阶段、环境、兴趣与家庭目标</p></div></li>

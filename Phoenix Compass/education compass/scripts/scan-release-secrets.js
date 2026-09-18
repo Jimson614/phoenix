@@ -19,19 +19,23 @@ const literalRules = [
 ]
 const sensitiveEnvKeys = new Set([
   'AI_CONTENT_ENCRYPTION_KEY',
+  'AI_CONTENT_KEYRING_JSON',
   'DATABASE_URL',
   'FEISHU_APP_SECRET',
+  'FEISHU_BITABLE_APP_TOKEN',
+  'FEISHU_PSEUDONYM_KEY',
   'OPENAI_API_KEY',
   'OPENAI_SAFETY_HMAC_KEY',
   'SESSION_SECRET',
   'WECHAT_APP_SECRET',
+  'WECHATPAY_API_V3_KEY',
   'WECHAT_PAY_API_V3_KEY'
 ])
 
 function looksLikePlaceholder(value) {
   const normalized = value.trim().replace(/^['"]|['"]$/g, '')
   if (!normalized) return true
-  return /(?:change[-_ ]?me|example|mock|placeholder|replace|test|your[-_ ]|xxxx|<[^>]+>|\$\{[^}]+\})/i.test(normalized)
+  return /^(?:\{\}|\[\]|mock|placeholder|test|x{4,}|<[^>]+>|\$\{[^}]+\}|(?:change[-_ ]?me|replace|your[-_ ])[\w .:/-]*)$/i.test(normalized)
 }
 
 async function files(directory) {
@@ -65,7 +69,7 @@ async function main() {
     }
     if (/^\.env(?:\.|$)/.test(path.basename(absolute))) {
       for (const line of content.split(/\r?\n/)) {
-        const match = line.match(/^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.*?)\s*$/)
+        const match = line.match(/^\s*(?:export\s+)?([A-Z][A-Z0-9_]*)\s*=\s*(.*?)\s*$/)
         if (!match || !sensitiveEnvKeys.has(match[1]) || looksLikePlaceholder(match[2])) continue
         findings.push({ file: relative, rule: `non-placeholder-${match[1].toLowerCase()}` })
       }
@@ -80,7 +84,11 @@ async function main() {
   process.stdout.write(`${JSON.stringify({ status: 'PASS', scannedRoot: '.', findings: 0 })}\n`)
 }
 
-main().catch((error) => {
-  process.stderr.write(`Release secret scan failed: ${error instanceof Error ? error.message : String(error)}\n`)
-  process.exitCode = 1
-})
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`Release secret scan failed: ${error instanceof Error ? error.message : String(error)}\n`)
+    process.exitCode = 1
+  })
+}
+
+module.exports = { looksLikePlaceholder, main, sensitiveEnvKeys }

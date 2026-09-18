@@ -227,7 +227,6 @@ export class AgentWorker<TRequest = unknown, TReply = unknown> {
   private async waitForNextRun(): Promise<void> {
     await new Promise<void>((resolve) => {
       let settled = false
-      let timer: NodeJS.Timeout
       const finish = (): void => {
         if (settled) return
         settled = true
@@ -235,7 +234,7 @@ export class AgentWorker<TRequest = unknown, TReply = unknown> {
         this.controller.signal.removeEventListener('abort', finish)
         resolve()
       }
-      timer = setTimeout(finish, this.options.intervalMs)
+      const timer = setTimeout(finish, this.options.intervalMs)
       this.controller.signal.addEventListener('abort', finish, { once: true })
     })
   }

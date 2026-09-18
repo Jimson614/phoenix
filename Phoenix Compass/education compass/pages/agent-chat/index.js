@@ -36,8 +36,8 @@ function reportIsEligible(report, capability) {
 }
 
 function terminalCopy(run) {
-  if (run.message && run.message.length <= 300) return run.message
   if (run.status === 'BLOCKED' && /ESCALATE|CRISIS|SELF_HARM|ABUSE/.test(run.code || '')) return FALLBACK_COPY.ESCALATE
+  if (run.message && run.message.length <= 300) return run.message
   return FALLBACK_COPY[run.status] || FALLBACK_COPY.FAILED
 }
 
@@ -204,6 +204,15 @@ Page({
       this.updateCanSend()
       return
     }
+    if (!run.runId) {
+      this.resetPollBudget()
+      this.setData({
+        runId: '', runStatus: 'FAILED', pollLimitReached: false,
+        runMessage: '服务端未返回可查询的解读任务，请稍后重试。'
+      })
+      this.updateCanSend()
+      return
+    }
     if (this.data.runId !== run.runId || !this.pollStartedAt) {
       this.pollAttempts = 0
       this.pollStartedAt = Date.now()
@@ -223,7 +232,9 @@ Page({
       })
       return
     }
-    this.pollTimer = setTimeout(() => this.pollRun(), Math.max(250, Math.min(Number(delay || 1000), 5000)))
+    const parsedDelay = Number(delay)
+    const safeDelay = Number.isFinite(parsedDelay) ? Math.max(250, Math.min(parsedDelay, 5000)) : 1000
+    this.pollTimer = setTimeout(() => this.pollRun(), safeDelay)
   },
 
   async pollRun() {

@@ -6,7 +6,9 @@ Page({
   data: {
     familyId: '', studentId: '', editing: false, loading: true, saving: false,
     genders: ['请选择', '男', '女', '不便说明'], genderIndex: 0,
-    systems: ['请选择', '内地课程', 'DSE', 'IB', 'A-Level', 'AP / 美式课程', '其他'], systemIndex: 0,
+    systems: familyData.EDUCATION_SYSTEM_OPTIONS.map((item) => item.label),
+    systemValues: familyData.EDUCATION_SYSTEM_OPTIONS.map((item) => item.value),
+    systemIndex: 0, systemLabel: '请选择',
     form: { name: '', age: '', gender: '', school: '', education_system: '', grade: '', interest: '', goal: '' }
   },
 
@@ -19,14 +21,17 @@ Page({
       const student = options.id ? await familyData.getStudent(family.id, options.id) : null
       if (student && student.family_id !== family.id) return wx.navigateBack()
       if (student) {
+        const educationSystem = familyData.normalizeEducationSystem(student.education_system)
+        const systemIndex = Math.max(0, this.data.systemValues.indexOf(educationSystem))
         this.setData({
           familyId: family.id, studentId: student.id, editing: true,
           form: {
             name: student.name, age: student.age, gender: student.gender, school: student.school,
-            education_system: student.education_system, grade: student.grade, interest: student.interest, goal: student.goal
+            education_system: educationSystem, grade: student.grade, interest: student.interest, goal: student.goal
           },
           genderIndex: Math.max(0, this.data.genders.indexOf(student.gender)),
-          systemIndex: Math.max(0, this.data.systems.indexOf(student.education_system))
+          systemIndex,
+          systemLabel: this.data.systems[systemIndex]
         })
       } else this.setData({ familyId: family.id })
     } catch (error) { wx.showToast({ title: error.message || '孩子档案加载失败', icon: 'none' }) }
@@ -40,13 +45,19 @@ Page({
   },
   pickSystem({ detail }) {
     const index = Number(detail.value)
-    this.setData({ systemIndex: index, 'form.education_system': index ? this.data.systems[index] : '' })
+    this.setData({
+      systemIndex: index,
+      systemLabel: this.data.systems[index] || '请选择',
+      'form.education_system': this.data.systemValues[index] || ''
+    })
   },
   async save() {
     if (this.data.saving) return
     const form = this.data.form
-    if (!form.name.trim() || !String(form.age).trim() || !form.school.trim() || !form.grade.trim()) {
-      return wx.showToast({ title: '请填写姓名、年龄、学校和年级', icon: 'none' })
+    try {
+      familyData.validateStudentForm(form)
+    } catch (error) {
+      return wx.showToast({ title: error.message || '孩子档案格式无效', icon: 'none' })
     }
     this.setData({ saving: true })
     try {

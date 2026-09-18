@@ -7,6 +7,7 @@ import { MockWechatAuthProvider } from '../src/auth/wechat-auth-provider'
 import { loadConfig } from '../src/config'
 import { AppError } from '../src/domain/errors'
 import { QUESTIONNAIRE_FIELDS, QUESTIONNAIRE_TOTAL_WEIGHT, calculateCompleteness, normalizeAnswers } from '../src/domain/questionnaire'
+import { assertReportQa, generateSixModuleReport } from '../src/domain/report-builder'
 import { SourceCatalog, validateSourceCatalog, PLACEHOLDER_SOURCE_CATALOG } from '../src/domain/source-catalog'
 import { MockPaymentProvider } from '../src/payments/mock-payment-provider'
 import { AssessmentService } from '../src/services/assessment-service'
@@ -125,6 +126,59 @@ async function createPaid(context: Awaited<ReturnType<typeof setup>>) {
   return { order, submitted, notification }
 }
 
+test('student profile age accepts numbers and strings, normalizes blanks, and rejects invalid values', async () => {
+  const context = await setup()
+
+  for (const age of [null, '', '   ']) {
+    const student = await context.profiles.createStudent(context.session.user.id, { age })
+    assert.equal(student.age, null)
+  }
+
+  for (const [input, expected] of [[3, 3], [100, 100], [' 16 ', 16]] as const) {
+    const student = await context.profiles.createStudent(context.session.user.id, { age: input })
+    assert.equal(student.age, expected)
+  }
+
+  for (const age of [2, 101, 16.5, '2', '101', '16.5', 'not-a-number', '1e2', '0x10', '+16']) {
+    await assert.rejects(
+      context.profiles.createStudent(context.session.user.id, { age }),
+      (error: unknown) => error instanceof AppError && error.status === 400 && error.code === 'INVALID_PROFILE'
+    )
+  }
+
+  await assert.rejects(
+    context.profiles.createStudent(context.session.user.id, { age: true as unknown as string }),
+    (error: unknown) => error instanceof AppError && error.status === 400 && error.code === 'INVALID_PROFILE'
+  )
+})
+
+test('student profile education system canonicalizes codes and legacy labels', async () => {
+  const context = await setup()
+  const cases = [
+    ['GAOKAO', 'GAOKAO'], ['DSE', 'DSE'], ['IGCSE', 'IGCSE'], ['A_LEVEL', 'A_LEVEL'],
+    ['AP_US', 'AP_US'], ['IB', 'IB'], ['OTHER', 'OTHER'],
+    ['内地课程', 'GAOKAO'], ['内地课程／高考', 'GAOKAO'], ['A-Level', 'A_LEVEL'],
+    ['内地课程/高考', 'GAOKAO'], ['高考', 'GAOKAO'], ['A LEVEL', 'A_LEVEL'],
+    ['AP / 美式课程', 'AP_US'], ['AP／美式课程', 'AP_US'], ['AP／美国课程', 'AP_US'],
+    ['美式课程', 'AP_US'], ['其他', 'OTHER'], ['其他体系', 'OTHER']
+  ] as const
+
+  for (const [input, expected] of cases) {
+    const student = await context.profiles.createStudent(context.session.user.id, { educationSystem: input })
+    assert.equal(student.educationSystem, expected)
+  }
+
+  for (const educationSystem of [null, '', '   ']) {
+    const student = await context.profiles.createStudent(context.session.user.id, { educationSystem })
+    assert.equal(student.educationSystem, null)
+  }
+
+  await assert.rejects(
+    context.profiles.createStudent(context.session.user.id, { educationSystem: 'UNKNOWN_SYSTEM' }),
+    (error: unknown) => error instanceof AppError && error.status === 400 && error.code === 'INVALID_PROFILE'
+  )
+})
+
 test('23-field questionnaire contract matches the client contract and preserves 69/70/100 answers', async () => {
   assert.equal(QUESTIONNAIRE_FIELDS.length, 23)
   assert.equal(QUESTIONNAIRE_TOTAL_WEIGHT, 100)
@@ -144,6 +198,9 @@ test('23-field questionnaire contract matches the client contract and preserves 
 test('paid Compass kill switch defaults off and rejects invalid configuration', () => {
   const base = { NODE_ENV: 'test', SESSION_SECRET: sessionSecret }
   assert.equal(loadConfig(base).paidCompassEnabled, false)
+  assert.equal(loadConfig(base).listenHost, '127.0.0.1')
+  assert.equal(loadConfig({ ...base, LISTEN_HOST: '0.0.0.0' }).listenHost, '0.0.0.0')
+  assert.throws(() => loadConfig({ ...base, LISTEN_HOST: 'localhost' }), (error: unknown) => error instanceof AppError && error.code === 'CONFIG_INVALID')
   assert.equal(loadConfig({ ...base, PAID_COMPASS_ENABLED: 'true' }).paidCompassEnabled, true)
   assert.throws(() => loadConfig({ ...base, PAID_COMPASS_ENABLED: 'yes' }), (error: unknown) => error instanceof AppError && error.code === 'CONFIG_INVALID')
 })
@@ -161,6 +218,8 @@ test('production config pins verified TLS database and exact public WeChat callb
     SOURCE_CATALOG_MODE: 'verified', SOURCE_CATALOG_PATH: '/run/config/source-catalog.json'
   }
   assert.equal(loadConfig(production).publicBaseUrl, production.PUBLIC_BASE_URL)
+  assert.equal(loadConfig(production).listenHost, '127.0.0.1')
+  assert.throws(() => loadConfig({ ...production, LISTEN_HOST: '0.0.0.0' }), (error: unknown) => error instanceof AppError && error.code === 'CONFIG_INVALID')
   assert.throws(() => loadConfig({ ...production, DATABASE_URL: 'postgresql://db.example.com/phoenix?sslmode=require' }), (error: unknown) => error instanceof AppError && error.code === 'CONFIG_INVALID')
   assert.throws(() => loadConfig({ ...production, WECHAT_PAY_NOTIFY_URL: 'https://evil.example/v1/webhooks/wechat-pay/transactions' }), (error: unknown) => error instanceof AppError && error.code === 'CONFIG_INVALID')
   assert.throws(() => loadConfig({ ...production, PUBLIC_BASE_URL: 'https://user@api.example.com' }), (error: unknown) => error instanceof AppError && error.code === 'CONFIG_INVALID')
@@ -188,12 +247,91 @@ test('draft round-trip, 69 gate, and pre-charge six-module QA lock', async () =>
   assert.equal(locked?.deliveryStatus, 'LOCKED')
   assert.equal(locked?.qaPassed, true)
   assert.equal(locked?.sourceCatalogVerified, true)
+  assert.equal(locked?.sourceCatalogVersion, catalog.version)
+  assert.equal(locked?.dataAsOf, catalog.dataAsOf)
+  assert.deepEqual(locked?.versions, {
+    studentVersion: context.student.studentVersion,
+    ruleVersion: 'education-rules-v1',
+    dataVersion: catalog.version,
+    promptVersion: 'deterministic-explanation-v1',
+    templateVersion: 'compass-six-modules-v1'
+  })
+  assert.deepEqual(locked?.sources, [
+    {
+      sourceId: `USER_INPUT:${assessment.id}`,
+      applicableYear: catalog.dataAsOf.slice(0, 4),
+      verifiedAt: catalog.dataAsOf,
+      dataVersion: 'education_compass_v1'
+    },
+    {
+      sourceId: 'PHOENIX_RULESET:EDUCATION_V1',
+      applicableYear: catalog.dataAsOf.slice(0, 4),
+      verifiedAt: catalog.dataAsOf,
+      dataVersion: 'rules-v1'
+    },
+    {
+      sourceId: 'HKU-UG-ADMISSIONS-2026',
+      applicableYear: '2026',
+      verifiedAt: '2026-08-19',
+      dataVersion: catalog.version
+    }
+  ])
   assert.deepEqual(locked?.modules?.map((module) => module.key), [
     'student_profile', 'strengths', 'major_directions', 'university_match', 'routes', 'action_plan'
   ])
   const job = await context.store.read((tx) => tx.findOne('reportJobs', { reportId: submitted.reportId }))
   assert.equal(job?.status, 'SUCCEEDED')
   assert.equal(job?.orderId, null)
+})
+
+test('report QA rejects every prohibited admissions promise phrase', () => {
+  const keys = ['student_profile', 'strengths', 'major_directions', 'university_match', 'routes', 'action_plan'] as const
+  for (const phrase of ['保证', '一定录取', '保录', '稳进', '保底', '百分百', '录取率']) {
+    const modules = keys.map((key, index) => ({
+      key,
+      title: `模块${index + 1}`,
+      summary: index === 3 ? `违规表述：${phrase}` : '合成安全说明',
+      items: []
+    }))
+    assert.throws(() => assertReportQa(modules), (error: unknown) =>
+      error instanceof AppError && error.code === 'REPORT_QA_FAILED', phrase)
+  }
+})
+
+test('assessment submit independently rejects a generator that forges QA or report provenance', async () => {
+  const context = await setup()
+  const assessment = await context.assessments.create(context.session.user.id, context.student.id, {
+    familyId: context.family.id,
+    questionnaireVersion: 'education_compass_v1',
+    studentVersion: context.student.studentVersion,
+    consent: {
+      consentVersion: 'education_compass_guardian_v1',
+      scope: 'education_compass_report',
+      guardianConfirmed: true
+    }
+  })
+  await context.assessments.saveDraft(context.session.user.id, assessment.id, validAnswers)
+
+  const forgedQa = new AssessmentService(context.store, catalog, clock, randomId, (shell, current, student, now) => {
+    const report = generateSixModuleReport(shell, current, student, now)
+    report.modules![0]!.summary = '保证获得目标学校录取'
+    report.qaPassed = true
+    return report
+  })
+  await expectCode(forgedQa.submit(context.session.user.id, assessment.id), 'REPORT_QA_FAILED')
+
+  const forgedSource = new AssessmentService(context.store, catalog, clock, randomId, (shell, current, student, now) => {
+    const report = generateSixModuleReport(shell, current, student, now)
+    report.sources.push({
+      sourceId: 'UNAPPROVED-CANDIDATE-FACT', applicableYear: '2099',
+      verifiedAt: '2099-01-01', dataVersion: 'unreviewed'
+    })
+    return report
+  })
+  await expectCode(forgedSource.submit(context.session.user.id, assessment.id), 'REPORT_QA_FAILED')
+  const persisted = await context.assessments.getDraft(context.session.user.id, assessment.id)
+  assert.equal(persisted.status, 'DRAFT')
+  assert.equal((await context.store.read((tx) => tx.findMany('reports', { assessmentId: assessment.id }))).length, 0)
 })
 
 test('placeholder catalog, failed QA, and report generation failure all block ordering', async () => {
@@ -227,7 +365,54 @@ test('placeholder catalog, failed QA, and report generation failure all block or
   }), 'ASSESSMENT_NOT_READY')
 })
 
-test('prepay rechecks guardian consent and active product after order creation', async () => {
+test('prepay independently rechecks launch switch, source catalog, report QA, consent, and active product', async () => {
+  const switchedOff = await setup()
+  const switchedOffSubmitted = await createSubmitted(switchedOff)
+  const switchedOffOrder = await switchedOff.orders.createOrder(
+    switchedOff.session.user.id,
+    switchedOffSubmitted.submitted.assessmentId,
+    { productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: 'prepay-kill-switch' }
+  )
+  const disabledPrepay = new OrderService(switchedOff.store, switchedOff.mockPay, catalog, false, clock)
+  await expectCode(
+    disabledPrepay.createWechatPrepay(switchedOff.session.user.id, switchedOffOrder.orderId),
+    'PAID_COMPASS_DISABLED'
+  )
+
+  const catalogChanged = await setup()
+  const catalogChangedSubmitted = await createSubmitted(catalogChanged)
+  const catalogChangedOrder = await catalogChanged.orders.createOrder(
+    catalogChanged.session.user.id,
+    catalogChangedSubmitted.submitted.assessmentId,
+    { productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: 'prepay-source-catalog' }
+  )
+  const unverifiedPrepay = new OrderService(
+    catalogChanged.store,
+    catalogChanged.mockPay,
+    PLACEHOLDER_SOURCE_CATALOG,
+    true,
+    clock
+  )
+  await expectCode(
+    unverifiedPrepay.createWechatPrepay(catalogChanged.session.user.id, catalogChangedOrder.orderId),
+    'SOURCE_CATALOG_NOT_VERIFIED'
+  )
+
+  const qaChanged = await setup()
+  const qaChangedSubmitted = await createSubmitted(qaChanged)
+  const qaChangedOrder = await qaChanged.orders.createOrder(
+    qaChanged.session.user.id,
+    qaChangedSubmitted.submitted.assessmentId,
+    { productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: 'prepay-report-qa' }
+  )
+  await qaChanged.store.transaction(async (tx) => {
+    await tx.update('reports', qaChangedSubmitted.submitted.reportId, { qaPassed: false })
+  })
+  await expectCode(
+    qaChanged.orders.createWechatPrepay(qaChanged.session.user.id, qaChangedOrder.orderId),
+    'REPORT_QA_REQUIRED'
+  )
+
   const revoked = await setup()
   const revokedSubmitted = await createSubmitted(revoked)
   const revokedOrder = await revoked.orders.createOrder(revoked.session.user.id, revokedSubmitted.submitted.assessmentId, {
@@ -250,6 +435,26 @@ test('prepay rechecks guardian consent and active product after order creation',
   })
   await disabled.store.transaction(async (tx) => { await tx.update('products', 'COMPASS_REPORT_SINGLE_39_9', { active: false }) })
   await expectCode(disabled.orders.createWechatPrepay(disabled.session.user.id, disabledOrder.orderId), 'PRODUCT_UNAVAILABLE')
+})
+
+test('concurrent duplicate order creation is idempotent and membership SKU cannot unlock a report', async () => {
+  const context = await setup()
+  const { submitted } = await createSubmitted(context)
+  const input = {
+    productCode: 'COMPASS_REPORT_SINGLE_39_9',
+    idempotencyKey: 'concurrent-order-key'
+  }
+  const orders = await Promise.all(Array.from({ length: 20 }, () =>
+    context.orders.createOrder(context.session.user.id, submitted.assessmentId, input)
+  ))
+  assert.equal(new Set(orders.map((order) => order.orderId)).size, 1)
+  assert.equal((await context.store.read((tx) => tx.findMany('orders', {
+    userId: context.session.user.id,
+    assessmentId: submitted.assessmentId
+  }))).length, 1)
+  await expectCode(context.orders.createOrder(context.session.user.id, submitted.assessmentId, {
+    productCode: 'PHOENIX_MEMBER_199', idempotencyKey: 'membership-not-report'
+  }), 'PRODUCT_NOT_SUPPORTED')
 })
 
 test('server query reconciliation is throttled, recovers a missing callback, and closes expired NOTPAY orders', async () => {
@@ -512,4 +717,26 @@ test('file adapter persists isolated state and migration matches production mode
   assert.match(feishuMigration, /UNIQUE \(provider, table_id, external_record_id\)/)
   const postgres = new PostgresStore({ connectionString: 'postgresql://unused:unused@127.0.0.1:1/unused', connectionTimeoutMillis: 1 })
   await postgres.close()
+})
+
+test('portable store does not expose a transaction whose durable commit hook failed', async () => {
+  class RejectingCommitStore extends InMemoryStore {
+    rejectCommits = true
+
+    protected override async afterCommit(): Promise<void> {
+      if (this.rejectCommits) throw new Error('simulated durable write failure')
+    }
+  }
+
+  const store = new RejectingCommitStore()
+  await assert.rejects(store.transaction(async (tx) => {
+    await tx.insert('users', { id: 'usr_failed_commit', role: 'family_user', createdAt: clock().toISOString() })
+  }), /simulated durable write failure/)
+  assert.equal(await store.read((tx) => tx.findById('users', 'usr_failed_commit')), null)
+
+  store.rejectCommits = false
+  await store.transaction(async (tx) => {
+    await tx.insert('users', { id: 'usr_committed', role: 'family_user', createdAt: clock().toISOString() })
+  })
+  assert.equal((await store.read((tx) => tx.findById('users', 'usr_committed')))?.id, 'usr_committed')
 })

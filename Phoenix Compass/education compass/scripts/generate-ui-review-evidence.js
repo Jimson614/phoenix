@@ -10,6 +10,9 @@ const root = path.resolve(__dirname, '..')
 const timestamp = new Date().toISOString().replace(/[-:.]/g, '').replace('Z', 'Z')
 const outputArgument = process.argv.find((value) => value.startsWith('--output='))
 const referenceArgument = process.argv.find((value) => value.startsWith('--reference='))
+if (outputArgument && !outputArgument.slice('--output='.length).trim()) {
+  throw new Error('--output must name a directory')
+}
 const outputDirectory = path.resolve(
   outputArgument ? outputArgument.slice('--output='.length) : path.join(root, 'artifacts', 'ui-review', `${timestamp}-ui-v2`)
 )
@@ -27,7 +30,8 @@ function sha256(file) {
 
 function walk(target) {
   if (!fs.existsSync(target)) return []
-  const metadata = fs.statSync(target)
+  const metadata = fs.lstatSync(target)
+  if (metadata.isSymbolicLink()) throw new Error(`Evidence input must not be a symbolic link: ${target}`)
   if (metadata.isFile()) return [target]
   return fs.readdirSync(target, { withFileTypes: true }).flatMap((entry) => walk(path.join(target, entry.name)))
 }
@@ -123,6 +127,7 @@ function runContract(relative) {
   const result = spawnSync(process.execPath, [path.join(root, relative)], {
     cwd: root,
     encoding: 'utf8',
+    env: safeCommandEnvironment(),
     windowsHide: true
   })
   return {
@@ -135,6 +140,19 @@ function runContract(relative) {
   }
 }
 
+function parseLastJsonLine(output) {
+  const lines = String(output || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    try {
+      const value = JSON.parse(lines[index])
+      if (value && typeof value === 'object') return value
+    } catch {
+      // npm command banners and ordinary test output are intentionally ignored.
+    }
+  }
+  return null
+}
+
 function runNpmScript(script, extraEnv = {}) {
   const windows = process.platform === 'win32'
   const command = windows ? (process.env.ComSpec || 'cmd.exe') : 'npm'
@@ -145,7 +163,7 @@ function runNpmScript(script, extraEnv = {}) {
     cwd: root,
     encoding: 'utf8',
     windowsHide: true,
-    env: { ...process.env, ...extraEnv },
+    env: safeCommandEnvironment(extraEnv),
     maxBuffer: 10 * 1024 * 1024
   })
   return {
@@ -157,8 +175,63 @@ function runNpmScript(script, extraEnv = {}) {
     durationMs: Date.now() - started,
     stdout: String(result.stdout || '').trim(),
     stderr: String(result.stderr || '').trim(),
+    structuredResult: parseLastJsonLine(result.stdout) || parseLastJsonLine(result.stderr),
     spawnError: result.error ? result.error.message : null
   }
+}
+
+function runNodeScript(script, relative, args = [], extraEnv = {}) {
+  const startedAt = new Date()
+  const started = Date.now()
+  const result = spawnSync(process.execPath, [path.join(root, relative), ...args], {
+    cwd: root,
+    encoding: 'utf8',
+    windowsHide: true,
+    env: safeCommandEnvironment(extraEnv),
+    shell: false,
+    maxBuffer: 24 * 1024 * 1024
+  })
+  const stdout = String(result.stdout || '').trim()
+  const stderr = String(result.stderr || '').trim()
+  return {
+    command: `node ${relative}${args.length ? ` ${args.join(' ')}` : ''}`,
+    script,
+    runner: 'portable-node',
+    status: result.status === 0 ? 'PASS' : 'FAIL',
+    exitCode: result.status === null ? 1 : result.status,
+    startedAt: startedAt.toISOString(),
+    durationMs: Date.now() - started,
+    stdout,
+    stderr,
+    structuredResult: parseLastJsonLine(stdout) || parseLastJsonLine(stderr),
+    spawnError: result.error ? result.error.message : null
+  }
+}
+
+function safeCommandEnvironment(extraEnv = {}) {
+  const env = { ...process.env }
+  for (const key of [
+    'AI_CONTENT_ENCRYPTION_KEY', 'AI_CONTENT_KEYRING_JSON', 'DATABASE_URL',
+    'EDUCATION_TEST_DATABASE_URL', 'EDUCATION_TEST_DATABASE_ALLOW_MUTATION',
+    'FEISHU_APP_ID', 'FEISHU_APP_SECRET', 'FEISHU_BITABLE_APP_TOKEN', 'FEISHU_PSEUDONYM_KEY',
+    'OPENAI_API_KEY', 'OPENAI_SAFETY_HMAC_KEY', 'SESSION_SECRET', 'WECHAT_APP_ID',
+    'WECHAT_APP_SECRET', 'WECHAT_MCH_CERT_SERIAL_NO', 'WECHAT_MCH_ID',
+    'WECHAT_MCH_PRIVATE_KEY_PATH', 'WECHATPAY_API_V3_KEY', 'WECHATPAY_PUBLIC_KEY_ID',
+    'WECHATPAY_PUBLIC_KEY_PATH', 'WECHAT_PAY_API_V3_KEY', 'WECHAT_PAY_MCH_ID',
+    'WECHAT_PAY_PRIVATE_KEY', 'WECHAT_PAY_SERIAL_NO'
+  ]) delete env[key]
+  Object.assign(env, {
+    NODE_ENV: 'test',
+    PAYMENT_PROVIDER: 'mock',
+    OPENAI_AGENT_ENABLED: 'false',
+    AGENT_PROVIDER: 'mock',
+    AI_WORKER_ENABLED: 'false',
+    FEISHU_BITABLE_ENABLED: 'false',
+    FEISHU_CUSTOMER_PROFILE_FIELDS_ENABLED: 'false',
+    FEISHU_SYNC_ENABLED: 'false',
+    ...extraEnv
+  })
+  return env
 }
 
 function readJson(file) {
@@ -182,13 +255,38 @@ function markdownCell(value) {
   return String(value).replaceAll('|', '\\|').replace(/[\r\n]+/g, ' ')
 }
 
-const rootWithSeparator = `${root}${path.sep}`
-const temporaryRoot = path.resolve(os.tmpdir())
-const temporaryRootWithSeparator = `${temporaryRoot}${path.sep}`
-const approvedOutput = outputDirectory === root || outputDirectory.startsWith(rootWithSeparator) ||
-  outputDirectory === temporaryRoot || outputDirectory.startsWith(temporaryRootWithSeparator)
+function canonicalWritePath(target) {
+  const missing = []
+  let existing = target
+  while (!fs.existsSync(existing)) {
+    const parent = path.dirname(existing)
+    if (parent === existing) break
+    missing.unshift(path.basename(existing))
+    existing = parent
+  }
+  return path.resolve(fs.realpathSync(existing), ...missing)
+}
+
+function isStrictDescendant(target, parent) {
+  const relation = path.relative(parent, target)
+  return Boolean(relation) && relation !== '..' && !relation.startsWith(`..${path.sep}`) && !path.isAbsolute(relation)
+}
+
+const canonicalOutputDirectory = canonicalWritePath(outputDirectory)
+const canonicalRoot = fs.realpathSync(root)
+const canonicalTemporaryRoot = fs.realpathSync(path.resolve(os.tmpdir()))
+const evidenceRoot = path.join(root, 'artifacts', 'ui-review')
+if (fs.existsSync(evidenceRoot) && fs.lstatSync(evidenceRoot).isSymbolicLink()) {
+  throw new Error('UI evidence root must not be a symbolic link')
+}
+const canonicalEvidenceRoot = canonicalWritePath(evidenceRoot)
+if (!isStrictDescendant(canonicalEvidenceRoot, canonicalRoot)) {
+  throw new Error('UI evidence root must stay inside the project root')
+}
+const approvedOutput = isStrictDescendant(canonicalOutputDirectory, canonicalEvidenceRoot) ||
+  isStrictDescendant(canonicalOutputDirectory, canonicalTemporaryRoot)
 if (!approvedOutput) {
-  throw new Error(`UI evidence output must stay inside the project root or OS temporary directory: ${outputDirectory}`)
+  throw new Error(`UI evidence output must be a child directory of artifacts/ui-review or OS temporary directory: ${outputDirectory}`)
 }
 
 fs.mkdirSync(outputDirectory, { recursive: true })
@@ -228,12 +326,15 @@ writeJson('route-handler-contract.json', {
   generatedAt: new Date().toISOString(),
   registeredPageCount: app.pages.length,
   releasePageCount: releasePages.length,
-  releaseBoundary: { included: 14, excludedDemoAdmin: 2 },
+  releaseBoundary: { included: releasePages.length, excludedDemoAdmin: app.pages.length - releasePages.length },
   screenHooks: screenEvidence(),
   shareAllowlist: ['pages/compass-preview/index', 'pages/report/index'],
   pages: pageContracts
 })
 
+if (referencePath && fs.existsSync(referencePath) && !fs.statSync(referencePath).isFile()) {
+  throw new Error(`UI reference must be a file: ${referencePath}`)
+}
 const reference = referencePath && fs.existsSync(referencePath)
   ? {
       status: 'RECORDED',
@@ -261,24 +362,20 @@ const safeReleaseEnvironment = {
   PHOENIX_API_BASE_URL: 'https://api.phoenix-local-verification.invalid',
   PHOENIX_MINIPROGRAM_APPID: 'wx0123456789abcdef'
 }
-const requiredScripts = [
-  'validate',
-  'test:ui-contract',
-  'test:client',
-  'typecheck:server',
-  'test:server',
-  'test:education-contracts',
-  'test:education-http',
-  'validate:education-docs',
-  'test:all',
-  'smoke:education',
-  'build:release',
-  'scan:release-secrets'
+const commandResults = [
+  runNpmScript('validate'),
+  runNpmScript('test:ui-contract'),
+  runNpmScript('test:client'),
+  runNpmScript('typecheck:server'),
+  runNodeScript('test:server', 'scripts/run-server-tests.js'),
+  runNodeScript('test:education-contracts', 'scripts/run-server-tests.js', ['--test=education-contracts.test.js']),
+  runNodeScript('test:education-http', 'scripts/run-server-tests.js', ['--test=education-http.test.js']),
+  runNpmScript('validate:education-docs'),
+  runNodeScript('test:all', 'scripts/run-all-tests.js'),
+  runNpmScript('smoke:education'),
+  runNpmScript('build:release', safeReleaseEnvironment),
+  runNpmScript('scan:release-secrets')
 ]
-const commandResults = requiredScripts.map((script) => runNpmScript(
-  script,
-  script === 'build:release' ? safeReleaseEnvironment : {}
-))
 fs.writeFileSync(path.join(outputDirectory, 'commands.ndjson'), `${commandResults.map((result) => JSON.stringify(result)).join('\n')}\n`)
 
 const contractResults = [
@@ -295,7 +392,11 @@ const beforeProtectedPath = path.join(outputDirectory, 'before-protected-sha256.
 const afterProtectedPath = path.join(outputDirectory, 'after-protected-sha256.json')
 const beforeSourcePath = path.join(outputDirectory, 'source-ui-manifest.before.json')
 const afterSourcePath = path.join(outputDirectory, 'source-ui-manifest.after.json')
-const protectedChanges = fs.existsSync(beforeProtectedPath) && fs.existsSync(afterProtectedPath)
+const missingProtectedManifests = [beforeProtectedPath, afterProtectedPath]
+  .filter((file) => !fs.existsSync(file))
+  .map((file) => path.basename(file))
+const protectedManifestsPresent = missingProtectedManifests.length === 0
+const protectedChanges = protectedManifestsPresent
   ? compareManifests(readJson(beforeProtectedPath).files, readJson(afterProtectedPath).files)
   : []
 const migrationChanges = protectedChanges.filter((item) => /(?:^|\/)migrations?\//i.test(item.path))
@@ -303,11 +404,12 @@ const freezeChanges = protectedChanges.filter((item) => /docs\/product\/(?:freez
 const lockfileChanges = protectedChanges.filter((item) => /(?:^|\/)package-lock\.json$/i.test(item.path))
 writeJson('protected-files-diff.json', {
   generatedAt: new Date().toISOString(),
-  status: migrationChanges.length || freezeChanges.length || lockfileChanges.length ? 'FAIL' : 'PASS',
+  status: !protectedManifestsPresent || migrationChanges.length || freezeChanges.length || lockfileChanges.length ? 'FAIL' : 'PASS',
+  missingManifests: missingProtectedManifests,
   immutableChecks: {
-    signedFreeze: freezeChanges.length ? 'CHANGED' : 'UNCHANGED',
-    existingMigrations: migrationChanges.length ? 'CHANGED' : 'UNCHANGED',
-    packageLockfiles: lockfileChanges.length ? 'CHANGED' : 'UNCHANGED'
+    signedFreeze: !protectedManifestsPresent ? 'NOT_VERIFIED' : (freezeChanges.length ? 'CHANGED' : 'UNCHANGED'),
+    existingMigrations: !protectedManifestsPresent ? 'NOT_VERIFIED' : (migrationChanges.length ? 'CHANGED' : 'UNCHANGED'),
+    packageLockfiles: !protectedManifestsPresent ? 'NOT_VERIFIED' : (lockfileChanges.length ? 'CHANGED' : 'UNCHANGED')
   },
   migration: 'none',
   changes: protectedChanges
@@ -321,14 +423,18 @@ const apiScripts = new Set([
   'validate:education-docs', 'smoke:education'
 ])
 const apiResults = commandResults.filter((result) => apiScripts.has(result.script))
+const smokeCommand = commandResults.find((result) => result.script === 'smoke:education')
+const smokeVerified = smokeCommand.status === 'PASS' &&
+  smokeCommand.structuredResult?.mode === 'LOCAL_HTTP_MOCK' &&
+  smokeCommand.structuredResult?.externalCalls === 0
 writeJson('api-contract-results.json', {
   generatedAt: new Date().toISOString(),
   status: apiResults.every((result) => result.exitCode === 0) ? 'PASS' : 'FAIL',
   verificationLevel: apiResults.every((result) => result.exitCode === 0) ? 'LOCAL_HTTP_MOCK_VERIFIED' : 'LOCAL_VERIFICATION_FAILED',
   localHttpMock: {
-    status: commandResults.find((result) => result.script === 'smoke:education').status,
-    externalCalls: 0,
-    checkpoints: ['health', 'profile', 'level1-ready', 'level2-locked-no-leak', 'mock-payment-authority', 'level2-ready']
+    status: smokeVerified ? 'PASS' : 'FAIL',
+    externalCalls: smokeCommand.structuredResult?.externalCalls ?? null,
+    checkpoints: smokeCommand.structuredResult?.checkpoints || []
   },
   postgres: {
     status: 'BLOCKED_EXTERNAL',
@@ -368,6 +474,8 @@ writeJson('manual-visual-status.json', {
 
 const automatedPassed = commandResults.every((result) => result.exitCode === 0) &&
   contractResults.every((result) => result.status === 'PASS') &&
+  protectedManifestsPresent &&
+  smokeVerified &&
   migrationChanges.length === 0 && freezeChanges.length === 0 && lockfileChanges.length === 0
 const finalStatus = automatedPassed ? 'LOCAL_HTTP_MOCK_VERIFIED' : 'LOCAL_VERIFICATION_FAILED'
 const commandTable = commandResults.map((result) =>
@@ -379,7 +487,8 @@ const report = `# Phoenix Education Compass UI Test Report\n\n` +
   `- Automated UI/API contracts: **${automatedPassed ? 'PASS' : 'FAIL'}**\n` +
   `- WeChat DevTools and real devices: **BLOCKED_MANUAL**\n` +
   `- Dedicated PostgreSQL integration: **BLOCKED_EXTERNAL** (not attempted)\n` +
-  `- Migration: **none**; signed freeze, existing migrations and package lockfiles are unchanged.\n` +
+  `- Protected-file integrity: **${protectedManifestsPresent ? 'VERIFIED' : 'NOT_VERIFIED'}**; ` +
+  `${protectedManifestsPresent ? 'signed freeze, existing migrations and package lockfiles were compared.' : `missing ${missingProtectedManifests.join(', ')}.`}\n` +
   `- Real WeChat Pay/OpenAI/Feishu/Askwise calls: **not performed**.\n\n` +
   `## Seven-screen route map\n\n` +
   `1. Free home — \`pages/compass/index?level=1&studentId=…\`\n` +

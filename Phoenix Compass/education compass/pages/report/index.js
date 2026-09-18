@@ -3,6 +3,7 @@ const reportModel = require('../../models/education-compass-report')
 const educationCompass = require('../../services/education-compass')
 const payment = require('../../services/payment')
 const session = require('../../services/session')
+const educationNavigation = require('../../utils/education-compass-navigation')
 const runtime = require('../../config/runtime')
 const { dateLabel } = require('../../utils/date')
 
@@ -310,7 +311,10 @@ Page({
     if (!runtime.isDemo()) {
       try {
         const state = await educationCompass.getState()
-        if (state.assessmentId) return wx.redirectTo({ url: `/pages/compass-preview/index?assessmentId=${state.assessmentId}` })
+        const stateAssessmentId = educationNavigation.assessmentIdForReport(state, this.data.reportId)
+        if (stateAssessmentId) {
+          return wx.redirectTo({ url: `/pages/compass-preview/index?assessmentId=${encodeURIComponent(stateAssessmentId)}` })
+        }
       } catch (error) {}
     }
     const cached = payment.listCachedOrders().find((order) => order.reportId === this.data.reportId)

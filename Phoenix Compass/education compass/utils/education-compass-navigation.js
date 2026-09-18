@@ -76,6 +76,37 @@ function selectStudentState(state, requestedStudentId) {
   return { ...state, students }
 }
 
+function linkedStateValue(state, matchNames, matchValue, valueNames) {
+  const expected = String(matchValue || '').trim()
+  if (!state || typeof state !== 'object' || Array.isArray(state) || !expected) return ''
+  const action = state.nextAction || state.next_action
+  const candidates = []
+  if (action && typeof action === 'object' && !Array.isArray(action)) {
+    if (action.target && typeof action.target === 'object' && !Array.isArray(action.target)) candidates.push(action.target)
+    candidates.push(action)
+  }
+  if (Array.isArray(state.students)) candidates.push(...state.students)
+  candidates.push(state)
+  for (const candidate of candidates) {
+    if (firstValue([candidate], matchNames) !== expected) continue
+    const value = firstValue([candidate], valueNames)
+    if (value) return value
+  }
+  return ''
+}
+
+function assessmentIdForReport(state, reportId) {
+  return linkedStateValue(state, ['reportId', 'report_id'], reportId, ['assessmentId', 'assessment_id'])
+}
+
+function reportIdForAssessment(state, assessmentId) {
+  return linkedStateValue(state, ['assessmentId', 'assessment_id'], assessmentId, ['reportId', 'report_id'])
+}
+
+function studentIdForAssessment(state, assessmentId) {
+  return linkedStateValue(state, ['assessmentId', 'assessment_id'], assessmentId, ['studentId', 'student_id'])
+}
+
 function resolveCompassEntry(state, requestedLevel) {
   const level = Number(requestedLevel) === 2 ? 2 : 1
   const destination = resolveDestination(state)
@@ -253,9 +284,12 @@ function navigateFromState(state, wxApi) {
 module.exports = {
   ACTION_ALIASES,
   NavigationContractError,
+  assessmentIdForReport,
   navigateFromState,
+  reportIdForAssessment,
   resolveCompassEntry,
   resolveDestination,
   resolveReportDestination,
-  selectStudentState
+  selectStudentState,
+  studentIdForAssessment
 }

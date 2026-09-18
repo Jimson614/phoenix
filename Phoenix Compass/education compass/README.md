@@ -22,10 +22,10 @@
 
 | 模式 | 触发方式 | 数据与支付 | 可作为何种证据 |
 | --- | --- | --- | --- |
-| `demo/local` | 开发版默认；`touristappid` 可运行 | 本地隔离存储、演示规则和模拟解锁；不调用真实支付，不生成服务端PDF | 页面、交互和本地领域流程演示；不能证明生产鉴权、数据隔离或真实支付 |
-| `remote` | 正式构建产物强制使用；开发版可显式开启 | 通过可信服务端处理微信登录、家庭/学生、问卷、报告、订单、权益、PDF与可关闭的Agent | 自动化及预发布联调；只有完成外部配置、未成年人审批和真机清单后才可作为上线证据 |
+| `demo/local` | 仅直接运行源码配置时默认；不属于 `build:development` 产物 | 本地隔离存储、演示规则和模拟解锁；不调用真实支付，不生成服务端PDF | 页面、交互和本地领域流程演示；不能证明生产鉴权、数据隔离或真实支付 |
+| `remote` | `build:development` 强制使用本机回环后端；正式候选包强制使用已批准的 HTTPS 后端 | 通过可信服务端处理微信登录、家庭/学生、问卷、报告、订单、权益、PDF与可关闭的Agent | 自动化及预发布联调；只有完成外部配置、未成年人审批和真机清单后才可作为上线证据 |
 
-开发源码的运行模式及 API 地址在 `config/runtime.js` 中配置。正式构建缺少 HTTPS API 地址或非 tourist 的真实 AppID 时会失败，不会回退到本地演示支付。生产服务端禁止使用 Mock Payment Provider。
+开发源码的运行模式及 API 地址在 `config/runtime.js` 中配置；`build:development` 会生成独立的、仅允许微信 `develop` 环境访问 `127.0.0.1` 的 remote 联调包。`build:release` 在 HTTPS API 地址与真实 AppID 同时提供时生成 `dist/release`；两者都未提供时只生成不可上传的 `dist/offline-test`，只提供其中一项则失败。任何正式候选包都不会回退到本地演示支付，生产服务端禁止使用 Mock Payment Provider。
 
 ## 已实现
 
@@ -95,17 +95,32 @@
 
 ## 本地运行小程序
 
+仓库根同时包含 Next.js Web、服务端和微信小程序源码，不能把整个根目录交给微信编译器。先启动本机后端，再生成隔离的小程序联调包：
+
+如果微信开发者工具已经打开本项目，先关闭该项目再执行构建。构建完成后再导入或重新打开 `dist/development`，避免旧 WebView 继续访问已经失效的本地 `pageframe` 端口。
+
+```powershell
+npm.cmd run build:server
+npm.cmd run start:server
+# 在另一个 PowerShell 窗口执行：
+npm.cmd run build:development
+```
+
 1. 安装并打开微信开发者工具。
-2. 选择“导入项目”，目录指向本文件夹 `phoenix-family-os-mvp`。
-3. 当前 `project.config.json` 使用 `touristappid`，开发版默认进入 `demo/local`。
-4. 点击“开始家庭成长规划”，依次完成档案、问卷、预览、演示解锁和六模块报告。
-5. 欢迎页底部的 Phoenix Advisor 入口只用于本地演示。
+2. 删除此前导入的仓库根项目，并执行“清缓存 → 全部清除”。
+3. 选择“导入项目”，目录必须指向 `dist/development`。
+4. 确认请求目标为 `http://127.0.0.1:3000`；该明文地址只允许开发者工具的 `develop` 环境。
+5. 点击“开始家庭成长规划”，依次完成档案、问卷、预览、开发联调解锁和六模块报告。
+
+根 `project.config.json` 还把 `miniprogramRoot` 固定到 `dist/development/`，并停止监听 `.next`，用于防止误打开仓库根时微信编译器扫描 Next.js 动态构建文件。开发/发布构建器会从独立产物配置中移除该仓库级路径，避免出现嵌套目录。每次修改小程序源码后都要重新执行 `npm.cmd run build:development`。
+
+若控制台出现 `Failed to load image http://127.0.0.1:<随机端口>/__pageframe__/assets/...` 且同时显示 `net::OK`，先不要修改图片或路径。这通常是开发者工具仍持有旧的本地资源端口：完全关闭项目，在工具关闭期间重新执行 `build:development`，仅清除该项目的 file/compile/network/session 缓存，然后直接重新打开 `dist/development`。不要清除 auth/storage，也不要删除 `.next`。
 
 演示页面必须显示“演示环境/演示解锁”。演示解锁不能被记录为真实支付验收结果。
 
 ## 构建正式小程序包
 
-不要把仓库根目录直接上传或发布。根目录保留 demo/local 数据库、演示报告生成器、管理员演示页和 `server/` 源码，只适合开发与测试。
+不要把仓库根目录直接上传或发布。根目录还包含 Next.js Web、开发辅助代码、管理员演示页和 `server/` 源码，只适合开发与测试。
 
 在 PowerShell 中使用已批准的 HTTPS API 和非 tourist AppID 构建：
 
@@ -140,7 +155,7 @@ npm.cmd --prefix server start
 
 连接 PostgreSQL 后先运行 `npm.cmd --prefix server run db:migrate`；迁移器会加 advisory lock 并校验已应用文件的SHA-256，已经应用的迁移不可修改。`001`—`003`为不可变历史，V0.4.1 新增 `004_dual_agent_analysis.sql`；飞书未来结构变更必须新建 `005` 或更高迁移。飞书候选同步当前最多扫描10000条源投影，建议先按单实例运行；尚未实现 transactional outbox、跨实例全局限速、异步 reconcile job、空值清除或删除 tombstone，不能描述成已满足生产SLA。
 
-若需在开发版小程序联调服务端，显式设置 `config/runtime.js` 中的开发 remote 开关和 HTTPS API 地址，并在微信开发者工具配置相应合法域名。生产参数和启用条件见 [微信支付运行手册](docs/WECHAT_PAY_RUNBOOK.md)。
+开发者工具联调必须使用 `npm.cmd run build:development` 生成的回环专用包，不要手工修改 `config/runtime.js`。正式体验版/发布版必须使用 HTTPS 域名构建 `dist/release`；生产参数和启用条件见 [微信支付运行手册](docs/WECHAT_PAY_RUNBOOK.md)。
 
 ## 自动化验证
 

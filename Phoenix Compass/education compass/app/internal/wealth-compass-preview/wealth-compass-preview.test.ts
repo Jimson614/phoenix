@@ -19,7 +19,7 @@ import {
   SCORING_RULES_VERSION,
   FLOW,
   SKIP_VALUE,
-} from "./page";
+} from "./wealth-compass-preview-model";
 
 const QUESTION_BANK_CONTRACTS = {
   [QUESTION_BANK_VERSION]: {
@@ -36,7 +36,7 @@ const QUESTION_BANK_CONTRACTS = {
       { id: "q3", type: "question", optionCount: 3, hasSkip: true, scoreDimensionKeys: ["family_alignment", "goal_clarity"] },
       { id: "q4", type: "question", optionCount: 3, hasSkip: true, scoreDimensionKeys: ["action_habit", "resilience"] },
       { id: "q5", type: "question", optionCount: 3, hasSkip: true, scoreDimensionKeys: ["action_habit", "goal_clarity"] },
-      { id: "q6", type: "question", optionCount: 3, hasSkip: true, scoreDimensionKeys: ["goal_clarity", "resilience"] },
+      { id: "q6", type: "question", optionCount: 3, hasSkip: true, scoreDimensionKeys: ["action_habit", "goal_clarity", "resilience"] },
       { id: "c3", type: "c3", optionCount: 3, hasSkip: false, scoreDimensionKeys: [] },
       { id: "c4", type: "c4", optionCount: 2, hasSkip: false, scoreDimensionKeys: [] },
       { id: "c5", type: "c5", optionCount: 2, hasSkip: false, scoreDimensionKeys: [] },
@@ -60,9 +60,9 @@ const SCORING_CONTRACTS = {
       {
         id: "q2",
         options: [
-          { value: "q2_low", scores: [{ dimension: "risk_readiness", value: 35 }, { dimension: "resilience", value: 42 }] },
-          { value: "q2_mid", scores: [{ dimension: "risk_readiness", value: 66 }, { dimension: "resilience", value: 64 }] },
-          { value: "q2_high", scores: [{ dimension: "risk_readiness", value: 82 }, { dimension: "resilience", value: 76 }] },
+          { value: "q2_low", scores: [{ dimension: "resilience", value: 42 }, { dimension: "risk_readiness", value: 35 }] },
+          { value: "q2_mid", scores: [{ dimension: "resilience", value: 64 }, { dimension: "risk_readiness", value: 66 }] },
+          { value: "q2_high", scores: [{ dimension: "resilience", value: 76 }, { dimension: "risk_readiness", value: 82 }] },
         ],
       },
       {
@@ -84,9 +84,9 @@ const SCORING_CONTRACTS = {
       {
         id: "q5",
         options: [
-          { value: "q5_no", scores: [{ dimension: "goal_clarity", value: 38 }, { dimension: "action_habit", value: 42 }] },
-          { value: "q5_partial", scores: [{ dimension: "goal_clarity", value: 60 }, { dimension: "action_habit", value: 58 }] },
-          { value: "q5_yes", scores: [{ dimension: "goal_clarity", value: 87 }, { dimension: "action_habit", value: 82 }] },
+          { value: "q5_no", scores: [{ dimension: "action_habit", value: 42 }, { dimension: "goal_clarity", value: 38 }] },
+          { value: "q5_partial", scores: [{ dimension: "action_habit", value: 58 }, { dimension: "goal_clarity", value: 60 }] },
+          { value: "q5_yes", scores: [{ dimension: "action_habit", value: 82 }, { dimension: "goal_clarity", value: 87 }] },
         ],
       },
       {
@@ -256,12 +256,20 @@ describe("Question Bank schema validation", () => {
     expect(result).toEqual({ success: true, errors: [] });
     expect(buildQuestionBankContract(FLOW)).toEqual(QUESTION_BANK_CONTRACTS[QUESTION_BANK_VERSION]);
   });
+
+  it("allows categorical contact preference copy but rejects requests for contact details", () => {
+    const flowWithContactCollection = FLOW.map((step) =>
+      step.id === "c3" ? { ...step, question: "请提供联系方式" } : step,
+    );
+
+    expect(validateQuestionBankSchema(flowWithContactCollection).success).toBe(false);
+  });
 });
 
 describe("Scoring regression", () => {
   it("keeps deterministic dimension outputs for Persona A path", () => {
     const result = calculateResult(PERSONAS.personaA.answers);
-    expect(result.dimensions.map((item) => item.score)).toEqual([88, 66, 86, 76, 81, 72]);
+    expect(result.dimensions.map((item) => item.score)).toEqual([88, 66, 86, 73, 81, 72]);
     expect(result.hardRisk).toBe(false);
   });
 
@@ -293,6 +301,8 @@ describe("Consent gating", () => {
     const c1deny = { c1: "c1_deny", c2: "c2_deny" };
     expect(isConsentBlocked(c1deny)).toBe(true);
     expect(canGeneratePreviewResult(c1deny)).toBe(false);
+    expect(canGeneratePreviewResult({})).toBe(false);
+    expect(canGeneratePreviewResult({ c1: "c1_allow", c2: "c2_partial" })).toBe(true);
   });
 
   it("only allows c-step/c-question progression after selection", () => {
@@ -300,22 +310,23 @@ describe("Consent gating", () => {
     const questionIndex = FLOW.findIndex((step) => step.id === "q1");
     expect(canProgressFromStep(c1Index, {})).toBe(false);
     expect(canProgressFromStep(c1Index, { c1: "c1_allow" })).toBe(true);
+    expect(canProgressFromStep(c1Index, { c1: "unexpected" })).toBe(false);
     expect(canProgressFromStep(questionIndex, {})).toBe(false);
     expect(canProgressFromStep(questionIndex, { q1: SKIP_VALUE })).toBe(true);
   });
 
-  it("keeps denied path to next screen in flow navigation", () => {
-    expect(getNextStepIndex(1, { c1: "c1_deny" }, FLOW)).toBe(2);
-    expect(getNextStepIndex(2, { c2: "c2_deny" }, FLOW)).toBe(3);
+  it("does not advance a denied path into assessment questions", () => {
+    expect(getNextStepIndex(1, { c1: "c1_deny" }, FLOW)).toBe(1);
+    expect(getNextStepIndex(2, { c2: "c2_deny" }, FLOW)).toBe(2);
   });
 
-  it("marks progress as 0 at intro/result and grows with interactive steps", () => {
+  it("keeps intro at 0, completes at 100, and grows with interactive steps", () => {
     const introIndex = FLOW.findIndex((step) => step.type === "intro");
     const q1Index = FLOW.findIndex((step) => step.id === "q1");
     const resultIndex = FLOW.findIndex((step) => step.type === "result");
     expect(getProgressPercent(introIndex, FLOW)).toBe(0);
     expect(Math.round(getProgressPercent(q1Index, FLOW))).toBe(27);
-    expect(getProgressPercent(resultIndex, FLOW)).toBe(0);
+    expect(getProgressPercent(resultIndex, FLOW)).toBe(100);
   });
 });
 

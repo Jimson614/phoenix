@@ -133,6 +133,12 @@ console.log('✓ paid Compass: versioned questionnaire, 70-point gate, six-modul
   })
   const saved = await assessmentService.saveDraft(draft.assessmentId, student.id, fullAnswers)
   assert.strictEqual(saved.completenessScore, 100)
+  await assert.rejects(
+    assessmentService.saveDraft('missing_assessment', student.id, fullAnswers),
+    (error) => error.code === 'ASSESSMENT_NOT_FOUND' && error.statusCode === 404
+  )
+  assert.deepStrictEqual(assessmentService.cachedAnswers('missing_assessment'), {},
+    'a missing assessment must not create an orphan draft cache')
   const submitted = await assessmentService.submit(draft.assessmentId, student.id)
   assert.strictEqual(submitted.status, 'PREVIEW_READY')
   const preview = await assessmentService.preview(draft.assessmentId)
@@ -146,7 +152,21 @@ console.log('✓ paid Compass: versioned questionnaire, 70-point gate, six-modul
   assert.strictEqual(unlocked.full.modules.length, 6)
   familyData.rememberMapping('student', 'local_student', 'remote_student')
   assert.strictEqual(familyData.mappedId('student', 'local_student'), 'remote_student')
+  memory.set(familyData.PROFILE_MAP_KEY, 'corrupted profile map')
+  familyData.rememberMapping('student', 'local_after_corruption', 'remote_after_corruption')
+  assert.strictEqual(familyData.mappedId('student', 'local_after_corruption'), 'remote_after_corruption')
+  memory.set(familyData.PROFILE_MAP_KEY, { families: {}, students: { local_invalid: { id: 'not-a-string' } } })
+  assert.strictEqual(familyData.mappedId('student', 'local_invalid'), '')
+  memory.set(assessmentService.REFERENCES_KEY, ['corrupted assessment reference'])
+  assert.strictEqual(assessmentService.referenceForStudent('0'), null)
+  memory.set('PFS_COMPASS_DRAFT_corrupted_answers', 'corrupted draft answers')
+  assert.deepStrictEqual(assessmentService.cachedAnswers('corrupted_answers'), {})
+  memory.set(payment.ORDER_CACHE_KEY, ['corrupted order cache'])
+  assert.deepStrictEqual(payment.listCachedOrders(), [])
+  memory.set(payment.ORDER_CACHE_KEY, { ghost_order: { status: 'PENDING' } })
+  assert.deepStrictEqual(payment.listCachedOrders(), [], 'order cache entries without an order id must be discarded')
   console.log('✓ demo provider: draft → preview → isolated demo unlock → six-module report')
+  console.log('✓ local cache recovery: profile maps, draft references, answers and order indexes fail closed')
   console.log('✓ remote profile adapter: explicit local-to-server id mapping')
 
   const originalAccountInfo = wx.getAccountInfoSync
@@ -223,6 +243,18 @@ console.log('✓ paid Compass: versioned questionnaire, 70-point gate, six-modul
   apiService.request = originalApiRequest
 
   const agentClient = require('../services/agent')
+  assert.strictEqual(agentClient.normalizeRun({ run: { status: 'QUEUED', retryAfterMs: 'invalid' } }).retryAfterMs, 1000,
+    'malformed retry delays must use the bounded polling fallback')
+  assert.strictEqual(agentClient.normalizeRun({ run: { status: 'QUEUED', retry_after_ms: -1 } }).retryAfterMs, 250)
+  assert.strictEqual(agentClient.normalizeRun({ run: { status: 'RUNNING', remaining_replies: 0 } }).remainingReplies, 0)
+  assert.deepStrictEqual(
+    (({ maxMessageChars, maxRepliesPerReport, remainingReplies }) => ({ maxMessageChars, maxRepliesPerReport, remainingReplies }))(
+      agentClient.normalizeConversation({ conversation: {
+        id: 'malformed_limits', limits: { maxMessageChars: 'invalid', maxRepliesPerReport: 'invalid', remainingReplies: 'invalid' }
+      } })
+    ),
+    { maxMessageChars: 2000, maxRepliesPerReport: 3, remainingReplies: 3 }
+  )
   const agentCalls = []
   const storageWritesBeforeAgent = remoteWrites.length
   apiService.request = async (path, options = {}) => {
@@ -338,6 +370,14 @@ console.log('✓ paid Compass: versioned questionnaire, 70-point gate, six-modul
   assert.strictEqual(agentPageHelpers.MAX_POLL_ATTEMPTS, 60)
   assert.strictEqual(agentPageHelpers.MAX_POLL_DURATION_MS, 120000)
   assert(agentPageDefinition && typeof agentPageDefinition.withdrawConsent === 'function' && typeof agentPageDefinition.deleteConversation === 'function')
+  const malformedRunPage = { ...agentPageDefinition, data: JSON.parse(JSON.stringify(agentPageDefinition.data)) }
+  let malformedRunScheduled = false
+  malformedRunPage.setData = function setData(update) { this.data = { ...this.data, ...update } }
+  malformedRunPage.schedulePoll = () => { malformedRunScheduled = true }
+  malformedRunPage.handleRun({ status: 'QUEUED', runId: '', retryAfterMs: 1000, remainingReplies: null })
+  assert.strictEqual(malformedRunScheduled, false, 'a non-terminal run without a task id must not start polling')
+  assert.strictEqual(malformedRunPage.data.runStatus, 'FAILED')
+  assert(malformedRunPage.data.runMessage.includes('未返回可查询'))
   console.log('✓ V0.4.1 Agent client: consent, idempotency, run polling DTO, trusted sources and no local transcript persistence')
 
   let analysisPageDefinition = null

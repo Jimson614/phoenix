@@ -1,4 +1,5 @@
 import { ASSESSMENT_VERSION, RESULT_VERSION } from "@/lib/compass/types";
+import { readSessionItem, writeSessionItem } from "@/lib/session-storage";
 
 export type CompassEventName =
   | "free_compass_viewed"
@@ -35,17 +36,17 @@ export function trackCompassEvent(
   onceKey?: string,
 ): void {
   if (typeof window === "undefined") return;
-  if (onceKey && sessionStorage.getItem(`pn:event:${onceKey}`)) return;
+  if (onceKey && readSessionItem(`pn:event:${onceKey}`)) return;
 
   const payload = {
+    ...properties,
     event,
     assessment_version: ASSESSMENT_VERSION,
-    ...properties,
   };
   window.dataLayer = window.dataLayer ?? [];
   window.dataLayer.push(payload);
   window.dispatchEvent(new CustomEvent("phoenix-compass:analytics", { detail: payload }));
-  if (onceKey) sessionStorage.setItem(`pn:event:${onceKey}`, "1");
+  if (onceKey) writeSessionItem(`pn:event:${onceKey}`, "1");
 }
 
 export const resultVersion = RESULT_VERSION;

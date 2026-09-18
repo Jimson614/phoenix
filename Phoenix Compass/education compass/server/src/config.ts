@@ -1,10 +1,12 @@
 import { AppError, invariant } from './domain/errors'
 import { FeishuEntityType } from './domain/model'
 import { parseAgentContentKeyring } from './ai/crypto'
+import { isIP } from 'node:net'
 
 export interface AppConfig {
   nodeEnv: 'development' | 'test' | 'production'
   port: number
+  listenHost: string
   databaseUrl: string
   sessionSecret: string
   paymentProvider: 'mock' | 'wechat'
@@ -136,6 +138,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (nodeEnv === 'production') validateProductionDatabaseUrl(env.DATABASE_URL ?? '')
   const port = Number(env.PORT ?? 3000)
   invariant(Number.isInteger(port) && port > 0 && port < 65536, 500, 'CONFIG_INVALID', 'PORT 无效')
+  const listenHost = (env.LISTEN_HOST ?? '127.0.0.1').trim()
+  invariant(isIP(listenHost) !== 0, 500, 'CONFIG_INVALID', 'LISTEN_HOST 必须是 IP 地址')
+  invariant(!(nodeEnv === 'production' && listenHost !== '127.0.0.1'), 500, 'CONFIG_INVALID',
+    '生产服务必须仅监听 127.0.0.1')
   const sourceCatalogMode = (env.SOURCE_CATALOG_MODE ?? 'placeholder') as AppConfig['sourceCatalogMode']
   invariant(['placeholder', 'verified'].includes(sourceCatalogMode), 500, 'CONFIG_INVALID', 'SOURCE_CATALOG_MODE 无效')
   invariant(!(nodeEnv === 'production' && sourceCatalogMode !== 'verified'), 500, 'CONFIG_INVALID', '生产环境必须使用 verified 来源目录')
@@ -160,6 +166,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const config: AppConfig = {
     nodeEnv,
     port,
+    listenHost,
     databaseUrl: env.DATABASE_URL ?? '',
     sessionSecret,
     paymentProvider,

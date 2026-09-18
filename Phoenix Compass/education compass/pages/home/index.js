@@ -7,6 +7,14 @@ const runtime = require('../../config/runtime')
 const session = require('../../services/session')
 const { getNavigationMetrics } = require('../../utils/navigation')
 
+const GRADE_STAGE_LABELS = Object.freeze({
+  PRIMARY: '小学',
+  LOWER_SECONDARY: '初中／Lower Secondary',
+  UPPER_SECONDARY: '高中／Upper Secondary',
+  POST_SECONDARY: '大学或以上',
+  OTHER_STAGE: '其他阶段'
+})
+
 function safeName(value, fallback = '') {
   return value === undefined || value === null ? fallback : String(value).trim()
 }
@@ -30,9 +38,12 @@ function actionCopy(state) {
   }
   const code = actionCode(state)
   const copies = {
+    CREATE_FAMILY_PROFILE: ['建立家庭档案', '先补充必要家庭资料，再开始免费教育罗盘'],
+    CREATE_STUDENT_PROFILE: ['添加学生档案', '先补充学生基本资料，再开始免费教育罗盘'],
     START_LEVEL_1: ['开始免费家长教育罗盘', '约 3—5 分钟，完成 Family Education Snapshot'],
     START_FREE_PARENT_COMPASS: ['开始免费家长教育罗盘', '约 3—5 分钟，完成 Family Education Snapshot'],
     CONTINUE_LEVEL_1: ['继续免费家长教育罗盘', '草稿已由服务端保存，可从上次进度继续'],
+    CONTINUE_FREE_PARENT_COMPASS: ['继续免费家长教育罗盘', '草稿已由服务端保存，可从上次进度继续'],
     VIEW_FAMILY_SNAPSHOT: ['查看家庭教育快照', '查看家庭关注、观察信号和下一步建议'],
     VIEW_FAMILY_EDUCATION_SNAPSHOT: ['查看家庭教育快照', '查看家庭关注、观察信号和下一步建议'],
     COMPLETE_STUDENT_PROFILE: ['确认学生阶段与课程体系', '进入学生本人测评前，只确认必要资料'],
@@ -40,13 +51,26 @@ function actionCopy(state) {
     START_LEVEL_2: ['开始学生成长发现', '由学生本人完成约 15—20 分钟测评'],
     START_STUDENT_GROWTH_DISCOVERY: ['开始学生成长发现', '由学生本人完成约 15—20 分钟测评'],
     CONTINUE_LEVEL_2: ['继续学生成长发现', '草稿已由服务端保存，可跨设备恢复'],
+    CONTINUE_STUDENT_GROWTH_DISCOVERY: ['继续学生成长发现', '草稿已由服务端保存，可跨设备恢复'],
     VIEW_LOCKED_RESULT: ['查看提交状态并解锁报告', '问卷已提交，付款后查看完整六项结果'],
+    VIEW_STUDENT_GROWTH_LOCKED_RESULT: ['查看提交状态并解锁报告', '问卷已提交，付款后查看完整六项结果'],
     PURCHASE_TO_UNLOCK_REPORT: ['付款解锁完整报告', '问卷已提交，完整结果仍由服务端锁定'],
     CHECK_PAYMENT_STATUS: ['查询支付状态', '请勿重复支付，以服务端核验状态为准'],
-    VIEW_REPORT: ['查看学生成长发现报告', '查看六项成长发现结果与 30 天行动计划']
+    CHECK_ORDER_STATUS: ['查询支付状态', '请勿重复支付，以服务端核验状态为准'],
+    VIEW_REPORT: ['查看学生成长发现报告', '查看六项成长发现结果与 30 天行动计划'],
+    VIEW_FULL_REPORT: ['查看学生成长发现报告', '查看六项成长发现结果与 30 天行动计划']
   }
   const copy = copies[code] || ['继续 Education Compass', '按服务端记录继续当前步骤']
   return { title: copy[0], note: copy[1] }
+}
+
+function stageCopy(state, student) {
+  const value = state || {}
+  const stage = safeName(
+    value.stageLabel || value.gradeStage || value.grade_stage || value.stage || (student && student.grade),
+    '资料待确认'
+  )
+  return GRADE_STAGE_LABELS[stage] || stage
 }
 
 Page({
@@ -83,7 +107,7 @@ Page({
         id: reportId,
         assessment_id: state.assessmentId,
         report_kind: state.resultKind,
-        entitled: actionCode(state) === 'VIEW_FULL_REPORT'
+        entitled: ['VIEW_FULL_REPORT', 'VIEW_REPORT'].includes(actionCode(state))
       } : null)
       let reportTargetUrl = ''
       let latestReportActionLabel = nextStep.title
@@ -103,7 +127,7 @@ Page({
         family, students, primaryStudent, latestReport, v05State: state, nextStep,
         progress: Number.isFinite(coverage) ? Math.max(0, Math.min(100, coverage)) : 0,
         studentInitial: initial(primaryStudent && primaryStudent.name),
-        stage: safeName(state.stageLabel || state.stage || (primaryStudent && primaryStudent.grade), '资料待确认'),
+        stage: stageCopy(state, primaryStudent),
         insightCopy: nextStep.note,
         latestReportActionLabel,
         reportTargetUrl,
@@ -221,3 +245,5 @@ Page({
     wx.navigateTo({ url: '/pages/advisor-request/index' })
   }
 })
+
+module.exports = { actionCode, actionCopy, stageCopy }

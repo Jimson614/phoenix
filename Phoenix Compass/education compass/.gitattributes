@@ -1,0 +1,4 @@
+docs/product/freeze/**/*.json text eol=lf
+server/migrations/*.sql text eol=lf
+/package-lock.json text eol=lf
+/server/package-lock.json text eol=lf

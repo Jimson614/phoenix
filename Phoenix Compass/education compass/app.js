@@ -13,7 +13,8 @@ App({
   onLaunch() {
     if (runtime.isDemo()) {
       repository.initialize()
-      this.globalData.currentUserId = wx.getStorageSync('PFS_CURRENT_USER_ID') || ''
+      const storedUserId = wx.getStorageSync('PFS_CURRENT_USER_ID')
+      this.globalData.currentUserId = typeof storedUserId === 'string' ? storedUserId : ''
     }
   },
 

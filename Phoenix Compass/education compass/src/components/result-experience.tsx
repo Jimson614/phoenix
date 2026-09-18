@@ -6,7 +6,8 @@ import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/brand-logo";
 import { resultVersion, trackCompassEvent } from "@/lib/analytics";
 import type { GenerationStatus, GrowthSnapshot } from "@/lib/compass/types";
-import { validateGrowthSnapshot } from "@/lib/compass/validation";
+import { validateGrowthSnapshotResponse } from "@/lib/compass/validation";
+import { readSessionItem, removeSessionItems, writeSessionItem } from "@/lib/session-storage";
 
 const RESULT_KEY = "pn:free-compass:result";
 const DRAFT_KEY = "pn:free-compass:draft";
@@ -27,14 +28,13 @@ export function ResultExperience() {
   useEffect(() => {
     queueMicrotask(() => {
       try {
-        const stored = sessionStorage.getItem(RESULT_KEY);
+        const stored = readSessionItem(RESULT_KEY);
         if (!stored) return;
-        const parsed = JSON.parse(stored) as { result?: unknown; generation_status?: unknown };
-        const validation = validateGrowthSnapshot(parsed.result);
+        const validation = validateGrowthSnapshotResponse(JSON.parse(stored));
         if (!validation.success) return;
-        const generationStatus = parsed.generation_status === "ai" ? "ai" : "fallback";
-        setState({ result: validation.data, generationStatus });
-        setFeedbackSubmitted(sessionStorage.getItem(FEEDBACK_KEY) === "1");
+        const { result, generation_status: generationStatus } = validation.data;
+        setState({ result, generationStatus });
+        setFeedbackSubmitted(readSessionItem(FEEDBACK_KEY) === "1");
         trackCompassEvent(
           "free_compass_result_viewed",
           { generation_status: generationStatus, result_version: resultVersion },
@@ -51,18 +51,21 @@ export function ResultExperience() {
   function submitFeedback() {
     if (!rating || feedbackSubmitted) return;
     trackCompassEvent("result_helpfulness_submitted", { rating, result_version: resultVersion }, "feedback-submitted");
-    sessionStorage.setItem(FEEDBACK_KEY, "1");
+    writeSessionItem(FEEDBACK_KEY, "1");
     setFeedbackSubmitted(true);
   }
 
   function resetExperience() {
-    [RESULT_KEY, DRAFT_KEY, STARTED_AT_KEY, FEEDBACK_KEY].forEach((key) => sessionStorage.removeItem(key));
-    [
-      "assessment-started",
-      "assessment-completed",
-      "result-viewed",
-      "feedback-submitted",
-    ].forEach((key) => sessionStorage.removeItem(`pn:event:${key}`));
+    removeSessionItems([
+      RESULT_KEY,
+      DRAFT_KEY,
+      STARTED_AT_KEY,
+      FEEDBACK_KEY,
+      "pn:event:assessment-started",
+      "pn:event:assessment-completed",
+      "pn:event:result-viewed",
+      "pn:event:feedback-submitted",
+    ]);
   }
 
   if (!ready) {

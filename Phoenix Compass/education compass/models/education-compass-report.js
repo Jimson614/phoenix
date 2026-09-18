@@ -43,6 +43,7 @@ function normalizeLocked(value) {
     resultKind: RESULT_KINDS.STUDENT_GROWTH,
     resultState: 'LOCKED',
     assessmentId: field(value, 'assessmentId', 'assessment_id') || '',
+    reportId: field(value, 'reportId', 'report_id') || '',
     productCode: field(value, 'productCode', 'product_code') || '',
     amountFen: Number(field(value, 'amountFen', 'amount_fen')),
     currency: value.currency || '',

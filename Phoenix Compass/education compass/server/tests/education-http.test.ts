@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { AddressInfo } from 'node:net'
+import path from 'node:path'
 import test from 'node:test'
 import { MockWechatAuthProvider } from '../src/auth/wechat-auth-provider'
 import {
@@ -247,7 +248,11 @@ async function completeLevelOne(
   })
   assert.equal(submitted.response.status, 200)
   assert.equal(submitted.body.resultState, 'READY')
-  return { assessmentId: created.body.assessmentId as string, result: submitted.body.result }
+  return {
+    assessmentId: created.body.assessmentId as string,
+    reportId: submitted.body.reportId as string,
+    result: submitted.body.result
+  }
 }
 
 async function completeLevelTwo(
@@ -665,6 +670,25 @@ test('V0.5 real HTTP flow preserves revisions, payment authority, owner isolatio
     assert.equal(product.body.product.paymentTiming, 'AFTER_SUBMIT_BEFORE_REPORT')
     assert.equal(product.body.product.paymentEnabled, true)
 
+    const forgedAmount = await jsonRequest(app.base, `/v1/assessments/${growthCreate.body.assessmentId}/orders`, {
+      method: 'POST',
+      headers: { ...owner.headers, 'Idempotency-Key': 'growth-forged-amount-001' },
+      body: JSON.stringify({ productCode: GROWTH_DISCOVERY_PRODUCT_CODE, amountFen: 1 })
+    })
+    assert.equal(forgedAmount.response.status, 400)
+    assert.equal(forgedAmount.body.error.code, 'UNKNOWN_REQUEST_FIELDS')
+    const membershipSku = await jsonRequest(app.base, `/v1/assessments/${growthCreate.body.assessmentId}/orders`, {
+      method: 'POST',
+      headers: { ...owner.headers, 'Idempotency-Key': 'growth-membership-sku-001' },
+      body: JSON.stringify({ productCode: 'PHOENIX_MEMBER_199' })
+    })
+    assert.equal(membershipSku.response.status, 400)
+    assert.equal(membershipSku.body.error.code, 'PRODUCT_NOT_SUPPORTED')
+    assert.equal((await app.store.read((tx) => tx.findMany('orders', {
+      userId: owner.userId,
+      assessmentId: growthCreate.body.assessmentId
+    }))).length, 0)
+
     const orderKey = 'growth-order-main-001'
     const order = await jsonRequest(app.base, `/v1/assessments/${growthCreate.body.assessmentId}/orders`, {
       method: 'POST',
@@ -869,6 +893,56 @@ test('next-support capabilities and advisor intent remain server-authoritative',
     assert.equal(deep.body.request.intent, 'DEEP_ASSESSMENT')
     assert.equal(deep.body.request.assessmentId, growth.assessmentId)
     assert.equal(deep.body.request.reportId, growth.reportId)
+
+    const linkedConsents = await app.store.read(async (tx) => {
+      const assessment = await tx.findById('assessments', growth.assessmentId)
+      assert.ok(assessment?.coreConsentGrantId)
+      assert.ok(assessment.studentAssentGrantId)
+      const core = await tx.findById('consentGrants', assessment.coreConsentGrantId)
+      const assent = await tx.findById('consentGrants', assessment.studentAssentGrantId)
+      assert.ok(core)
+      assert.ok(assent)
+      return { core, assent }
+    })
+    const alteredConsentCases = [
+      {
+        grant: linkedConsents.core,
+        expectedCode: 'CORE_ASSESSMENT_CONSENT_REQUIRED',
+        mutations: [
+          ['copy hash', { copyTextHash: '0'.repeat(64) }],
+          ['locale', { locale: 'en-US' }],
+          ['subject type', { subjectType: 'FAMILY' as const }],
+          ['subject id', { subjectId: 'different-subject' }],
+          ['guardian authority', { guardianAuthorityStatus: 'UNKNOWN' as const }]
+        ] as const
+      },
+      {
+        grant: linkedConsents.assent,
+        expectedCode: 'STUDENT_ASSESSMENT_ASSENT_REQUIRED',
+        mutations: [
+          ['copy hash', { copyTextHash: 'f'.repeat(64) }],
+          ['locale', { locale: 'en-US' }],
+          ['subject type', { subjectType: 'FAMILY' as const }],
+          ['subject id', { subjectId: 'different-subject' }],
+          ['guardian authority', { guardianAuthorityStatus: 'CONFIRMED' as const }]
+        ] as const
+      }
+    ]
+    for (const consentCase of alteredConsentCases) {
+      for (const [label, mutation] of consentCase.mutations) {
+        await app.store.transaction(async (tx) => {
+          await tx.update('consentGrants', consentCase.grant.id, mutation)
+        })
+        const denied = await jsonRequest(app.base, '/v1/advisor-requests', {
+          method: 'POST', headers: owner.headers, body: JSON.stringify(deepBody)
+        })
+        assert.equal(denied.response.status, 403, `${label}: ${JSON.stringify(denied.body)}`)
+        assert.equal(denied.body.error.code, consentCase.expectedCode, label)
+        await app.store.transaction(async (tx) => {
+          await tx.update('consentGrants', consentCase.grant.id, consentCase.grant)
+        })
+      }
+    }
   } finally {
     await app.close()
   }
@@ -970,6 +1044,17 @@ test('V0.5 consent grants are reusable while active and withdrawal fences draft,
     })
     assert.equal(fencedDraft.response.status, 403)
     assert.equal(fencedDraft.body.error.code, 'CORE_ASSESSMENT_CONSENT_REQUIRED')
+    const stateAfterCoreWithdrawal = await jsonRequest(app.base, '/v1/me/education-compass/state', {
+      headers: owner.headers
+    })
+    assert.equal(stateAfterCoreWithdrawal.response.status, 200)
+    assert.equal(stateAfterCoreWithdrawal.body.students[0].nextAction, 'START_FREE_PARENT_COMPASS')
+    assert.equal(stateAfterCoreWithdrawal.body.students[0].assessmentId, null)
+    const reportsAfterCoreWithdrawal = await jsonRequest(app.base, '/v1/me/reports', { headers: owner.headers })
+    assert.equal(reportsAfterCoreWithdrawal.response.status, 200)
+    assert.equal(reportsAfterCoreWithdrawal.body.reports.some(
+      (report: { id: string }) => report.id === completed.reportId
+    ), false)
 
     const renewed = await completeLevelOne(app, owner, 'GAOKAO', 'consent-renewed-003')
     const renewedSource = await app.store.read(async (tx) => tx.findById('assessments', renewed.assessmentId))
@@ -1013,6 +1098,53 @@ test('V0.5 consent grants are reusable while active and withdrawal fences draft,
     })
     assert.equal(fencedSubmit.response.status, 403)
     assert.equal(fencedSubmit.body.error.code, 'STUDENT_ASSESSMENT_ASSENT_REQUIRED')
+    const stateAfterAssentWithdrawal = await jsonRequest(app.base, '/v1/me/education-compass/state', {
+      headers: owner.headers
+    })
+    assert.equal(stateAfterAssentWithdrawal.response.status, 200)
+    assert.equal(stateAfterAssentWithdrawal.body.students[0].assessmentId, renewed.assessmentId)
+    assert.equal(stateAfterAssentWithdrawal.body.students[0].sourceAssessmentId, renewed.assessmentId)
+    assert.equal(stateAfterAssentWithdrawal.body.students[0].nextAction, 'START_LEVEL_2')
+  } finally {
+    await app.close()
+  }
+})
+
+test('advisor consent withdrawal is scoped to the selected family or student subject', async () => {
+  const app = await listen()
+  try {
+    const owner = await createProfile(app, 'education-http-advisor-consent-scope', '8')
+    const consent = {
+      scope: 'ADVISOR_CONTACT', copyVersion: 'advisor_contact_opt_in_v1.0.0-rc1',
+      locale: 'zh-CN', guardianAuthorityConfirmed: true
+    }
+    const familyRequest = await jsonRequest(app.base, '/v1/advisor-requests', {
+      method: 'POST', headers: owner.headers,
+      body: JSON.stringify({ preferredTime: '周末上午', topic: '家庭支持', consent })
+    })
+    assert.equal(familyRequest.response.status, 201, JSON.stringify(familyRequest.body))
+    const studentRequest = await jsonRequest(app.base, '/v1/advisor-requests', {
+      method: 'POST', headers: owner.headers,
+      body: JSON.stringify({
+        preferredTime: '周末下午', topic: '学生支持', studentId: owner.studentId, consent
+      })
+    })
+    assert.equal(studentRequest.response.status, 201, JSON.stringify(studentRequest.body))
+
+    const withdrawn = await jsonRequest(app.base, '/v1/me/integration-consents/advisor-contact', {
+      method: 'PUT', headers: owner.headers,
+      body: JSON.stringify({
+        enabled: false, copyVersion: consent.copyVersion, locale: consent.locale,
+        guardianAuthorityConfirmed: true
+      })
+    })
+    assert.equal(withdrawn.response.status, 200, JSON.stringify(withdrawn.body))
+    const listed = await jsonRequest(app.base, '/v1/me/advisor-requests', { headers: owner.headers })
+    const byId = new Map<string, { id: string; status: string }>(
+      listed.body.requests.map((request: { id: string; status: string }) => [request.id, request])
+    )
+    assert.equal(byId.get(familyRequest.body.request.id)?.status, 'CANCELLED_BY_CONSENT_WITHDRAWAL')
+    assert.equal(byId.get(studentRequest.body.request.id)?.status, 'PENDING')
   } finally {
     await app.close()
   }
@@ -1104,6 +1236,255 @@ test('verified payment after Level 2 consent withdrawal stays locked and enters 
       refundStatus: 'ABNORMAL', reason: 'CONSENT_WITHDRAWN_BEFORE_DELIVERY'
     })
   } finally {
+    await app.close()
+  }
+})
+
+test('assessment and paid report access reject every altered frozen-consent identity field', async () => {
+  const app = await listen()
+  try {
+    const owner = await createProfile(app, 'education-http-consent-metadata-owner', '6')
+    const free = await completeLevelOne(app, owner, 'GAOKAO', 'consent-metadata-free')
+    const growth = await completeLevelTwo(app, owner, free.assessmentId, 'GAOKAO', 'consent-metadata-growth')
+    const order = await jsonRequest(app.base, `/v1/assessments/${growth.assessmentId}/orders`, {
+      method: 'POST',
+      headers: { ...owner.headers, 'Idempotency-Key': 'consent-metadata-order' },
+      body: JSON.stringify({ productCode: GROWTH_DISCOVERY_PRODUCT_CODE })
+    })
+    assert.equal(order.response.status, 201, JSON.stringify(order.body))
+    const prepay = await jsonRequest(app.base, `/v1/orders/${order.body.orderId}/wechat-prepay`, {
+      method: 'POST', headers: owner.headers, body: JSON.stringify({})
+    })
+    assert.equal(prepay.response.status, 200, JSON.stringify(prepay.body))
+    app.mockPay.setOrderState(order.body.outTradeNo, 'SUCCESS')
+    const transaction = await app.mockPay.queryOrder(order.body.outTradeNo)
+    assert.equal((await postMockWebhook(app.base, app.mockPay.makeTransactionNotification(transaction))).status, 204)
+
+    const full = await jsonRequest(app.base, `/v1/reports/${growth.reportId}`, { headers: owner.headers })
+    assert.equal(full.response.status, 200, JSON.stringify(full.body))
+    assert.equal(full.body.access, 'full')
+
+    const linked = await app.store.read(async (tx) => {
+      const assessment = await tx.findById('assessments', growth.assessmentId)
+      assert.ok(assessment?.coreConsentGrantId)
+      assert.ok(assessment.studentAssentGrantId)
+      const core = await tx.findById('consentGrants', assessment.coreConsentGrantId)
+      const assent = await tx.findById('consentGrants', assessment.studentAssentGrantId)
+      assert.ok(core)
+      assert.ok(assent)
+      return { core, assent }
+    })
+
+    const cases = [
+      {
+        grant: linked.core,
+        expectedCode: 'CORE_ASSESSMENT_CONSENT_REQUIRED',
+        mutations: [
+          ['copy hash', { copyTextHash: '0'.repeat(64) }],
+          ['locale', { locale: 'en-US' }],
+          ['subject type', { subjectType: 'FAMILY' as const }],
+          ['subject id', { subjectId: 'different-subject' }],
+          ['guardian authority', { guardianAuthorityStatus: 'UNKNOWN' as const }]
+        ] as const
+      },
+      {
+        grant: linked.assent,
+        expectedCode: 'STUDENT_ASSESSMENT_ASSENT_REQUIRED',
+        mutations: [
+          ['copy hash', { copyTextHash: 'f'.repeat(64) }],
+          ['locale', { locale: 'en-US' }],
+          ['subject type', { subjectType: 'FAMILY' as const }],
+          ['subject id', { subjectId: 'different-subject' }],
+          ['guardian authority', { guardianAuthorityStatus: 'CONFIRMED' as const }]
+        ] as const
+      }
+    ]
+    for (const consentCase of cases) {
+      for (const [label, mutation] of consentCase.mutations) {
+        await app.store.transaction(async (tx) => {
+          await tx.update('consentGrants', consentCase.grant.id, mutation)
+        })
+        for (const path of [
+          `/v1/assessments/${growth.assessmentId}/result`,
+          `/v1/reports/${growth.reportId}`
+        ]) {
+          const denied = await jsonRequest(app.base, path, { headers: owner.headers })
+          assert.equal(denied.response.status, 403, `${label}: ${JSON.stringify(denied.body)}`)
+          assert.equal(denied.body.error.code, consentCase.expectedCode, label)
+        }
+        await app.store.transaction(async (tx) => {
+          await tx.update('consentGrants', consentCase.grant.id, consentCase.grant)
+        })
+      }
+    }
+  } finally {
+    await app.close()
+  }
+})
+
+test('real HTTP backend and wx.request adapter complete login, profiles, Level 1 and Level 2', async () => {
+  const app = await listen()
+  const projectRoot = path.resolve(__dirname, '../../..')
+  const runtime = require(path.join(projectRoot, 'config/runtime.js')) as {
+    apiBaseUrl: () => string
+    isDemo: () => boolean
+  }
+  const api = require(path.join(projectRoot, 'services/api.js')) as {
+    accessToken: () => string
+    setAccessToken: (token: string) => void
+  }
+  const authClient = require(path.join(projectRoot, 'services/auth.js')) as {
+    loginFamilyUser: () => Promise<{ id: string; role: string }>
+  }
+  const familyClient = require(path.join(projectRoot, 'services/family-data.js')) as any
+  const compassClient = require(path.join(projectRoot, 'services/education-compass.js')) as any
+  const originalRuntime = { apiBaseUrl: runtime.apiBaseUrl, isDemo: runtime.isDemo }
+  const originalWx = (globalThis as any).wx
+  const originalGetApp = (globalThis as any).getApp
+  const storage = new Map<string, unknown>()
+  const requestedPaths: string[] = []
+  let currentUser: { id: string; role: string } | null = null
+
+  try {
+    // The production adapter must still see HTTPS. This wx.request shim maps the
+    // synthetic HTTPS origin onto the ephemeral loopback server without making
+    // any external request.
+    runtime.apiBaseUrl = () => 'https://mini-client.test.invalid'
+    runtime.isDemo = () => false
+    ;(globalThis as any).getApp = () => ({
+      getCurrentUser: () => currentUser,
+      setCurrentUser: (user: { id: string; role: string } | null) => { currentUser = user }
+    })
+    ;(globalThis as any).wx = {
+      getAccountInfoSync: () => ({ miniProgram: { envVersion: 'release' } }),
+      getStorageSync: (key: string) => storage.get(key),
+      setStorageSync: (key: string, value: unknown) => storage.set(key, value),
+      removeStorageSync: (key: string) => storage.delete(key),
+      login: ({ success }: { success: (value: { code: string }) => void }) => {
+        success({ code: 'miniprogram-real-http-contract' })
+      },
+      request: (options: any) => {
+        void (async () => {
+          try {
+            const requested = new URL(options.url)
+            assert.equal(requested.protocol, 'https:')
+            assert.equal(requested.host, 'mini-client.test.invalid')
+            requestedPaths.push(`${requested.pathname}${requested.search}`)
+            const headers = new Headers(options.header || {})
+            const hasBody = options.data !== undefined && !['GET', 'HEAD'].includes(String(options.method || 'GET'))
+            const response = await fetch(`${app.base}${requested.pathname}${requested.search}`, {
+              method: options.method || 'GET',
+              headers,
+              ...(hasBody ? { body: JSON.stringify(options.data) } : {})
+            })
+            const text = await response.text()
+            let data: unknown = undefined
+            if (text) {
+              try { data = JSON.parse(text) } catch (error) { data = text }
+            }
+            options.success({
+              statusCode: response.status,
+              data,
+              header: Object.fromEntries(response.headers.entries())
+            })
+          } catch (error) {
+            options.fail({ errMsg: 'request:fail loopback adapter error' })
+          }
+        })()
+      }
+    }
+    api.setAccessToken('')
+
+    const user = await authClient.loginFamilyUser()
+    assert.equal(user.role, 'family_user')
+    assert.ok(api.accessToken(), 'the real login response must be retained by the wx storage adapter')
+
+    const family = await familyClient.saveFamily(user.id, {
+      family_name: '小程序 HTTP 契约家庭',
+      parent_name: '小程序契约家长',
+      phone: '13900000007',
+      location: '本地回环测试',
+      goal: '验证真实前后端契约'
+    })
+    assert.equal(family._source, 'remote')
+    assert.equal((await familyClient.getFamily(user.id)).id, family.id)
+    const student = await familyClient.saveStudent(family.id, {
+      name: '小程序契约学生', age: '16', gender: '', school: '',
+      education_system: 'GAOKAO', grade: 'UPPER_SECONDARY', interest: '', goal: ''
+    })
+    assert.equal(student._source, 'remote')
+    assert.deepEqual((await familyClient.getStudents(family.id)).map((item: any) => item.id), [student.id])
+
+    const freeAssessment = await compassClient.createFreeParentAssessment({
+      studentId: student.id,
+      sourceEntry: 'MINIPROGRAM_HOME',
+      guardianConsent: {
+        consentVersion: 'guardian_core_assessment_v1.0.0-rc1',
+        locale: 'zh-CN',
+        guardianConfirmed: true
+      }
+    }, compassClient.createIdempotencyKey('http_free'))
+    assert.equal(freeAssessment.revision, 1)
+    const freeBank = await compassClient.getAssessmentQuestionnaire(freeAssessment.assessmentId)
+    const freeSaved = await compassClient.saveDraft(freeAssessment.assessmentId, {
+      revision: freeAssessment.revision,
+      clientSaveToken: compassClient.createClientSaveToken(),
+      answers: requiredAnswers(freeBank, {
+        FP01: 'UPPER_SECONDARY', FP02: 'GAOKAO', FP06: 'WILLING', FP08: 'STUDENT_ASSESSMENT'
+      })
+    })
+    const freeSubmitted = await compassClient.submitAssessment(freeAssessment.assessmentId, {
+      revision: freeSaved.revision
+    }, compassClient.createIdempotencyKey('http_free_submit'))
+    assert.equal(freeSubmitted.status, 'SUBMITTED')
+    const familyResult = await compassClient.getResult(freeAssessment.assessmentId)
+    assert.equal(familyResult.resultState, 'READY')
+    assert.equal(familyResult.result.result_kind, 'FAMILY_EDUCATION_SNAPSHOT')
+    const afterLevelOne = await compassClient.getState()
+    assert.equal(
+      typeof afterLevelOne.nextAction === 'string' ? afterLevelOne.nextAction : afterLevelOne.nextAction.code,
+      'START_LEVEL_2'
+    )
+
+    const growthAssessment = await compassClient.createStudentGrowthAssessment(student.id, {
+      sourceAssessmentId: freeAssessment.assessmentId,
+      sourceEntry: 'LEVEL_1_RESULT',
+      educationSystem: 'GAOKAO',
+      studentAssent: {
+        consentVersion: 'student_assent_growth_discovery_v1.0.0-rc1',
+        locale: 'zh-CN',
+        studentConfirmed: true
+      }
+    }, compassClient.createIdempotencyKey('http_growth'))
+    assert.equal(growthAssessment.revision, 1)
+    const growthBank = await compassClient.getAssessmentQuestionnaire(growthAssessment.assessmentId)
+    const growthSaved = await compassClient.saveDraft(growthAssessment.assessmentId, {
+      revision: growthAssessment.revision,
+      educationSystem: 'GAOKAO',
+      clientSaveToken: compassClient.createClientSaveToken(),
+      answers: requiredAnswers(growthBank, {
+        EGD01: 'CONFIRM_STUDENT_SELF', EGD02: 'UPPER_SECONDARY', EGD03: 'GAOKAO'
+      })
+    })
+    const growthSubmitted = await compassClient.submitAssessment(growthAssessment.assessmentId, {
+      revision: growthSaved.revision
+    }, compassClient.createIdempotencyKey('http_growth_submit'))
+    assert.equal(growthSubmitted.resultState, 'LOCKED')
+    const lockedResult = await compassClient.getResult(growthAssessment.assessmentId)
+    assert.equal(lockedResult.resultState, 'LOCKED')
+    assert.equal(lockedResult.result, undefined, 'the wx client must not receive paid report content before entitlement')
+    assert.ok(requestedPaths.includes('/v1/auth/wechat/session'))
+    assert.ok(requestedPaths.includes('/v1/me/family'))
+    assert.ok(requestedPaths.includes(`/v1/assessments/${freeAssessment.assessmentId}/submit`))
+    assert.ok(requestedPaths.includes(`/v1/assessments/${growthAssessment.assessmentId}/submit`))
+  } finally {
+    try { api.setAccessToken('') } catch (error) {}
+    runtime.apiBaseUrl = originalRuntime.apiBaseUrl
+    runtime.isDemo = originalRuntime.isDemo
+    if (originalWx === undefined) delete (globalThis as any).wx
+    else (globalThis as any).wx = originalWx
+    if (originalGetApp === undefined) delete (globalThis as any).getApp
+    else (globalThis as any).getApp = originalGetApp
     await app.close()
   }
 })

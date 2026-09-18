@@ -136,6 +136,21 @@ function signedNotification(plain: Record<string, unknown>, eventType: string, o
   }
 }
 
+function signedRawNotification(value: unknown) {
+  const rawBody = Buffer.from(JSON.stringify(value), 'utf8')
+  const nonce = 'callback-nonce-invalid'
+  return {
+    rawBody,
+    headers: {
+      'wechatpay-timestamp': timestamp,
+      'wechatpay-nonce': nonce,
+      'wechatpay-serial': 'PUB_KEY_ID_TEST',
+      'wechatpay-signature': rsaSign(wechatKeys.privateKey, canonicalWechatMessage(timestamp, nonce, rawBody)),
+      'wechatpay-signature-type': 'WECHATPAY2-SHA256-RSA2048'
+    }
+  }
+}
+
 test('canonical API v3 message keeps exact bytes and final LF', () => {
   const body = '{"amount":{"total":3990,"currency":"CNY"}}'
   const expected = `POST\n/v3/pay/transactions/jsapi\n${timestamp}\nnonce\n${body}\n`
@@ -253,4 +268,37 @@ test('official-shape AES-256-GCM vector decrypts and tag changes fail closed', (
   bytes[bytes.length - 1] = bytes[bytes.length - 1]! ^ 1
   assert.throws(() => decryptWechatResource({ ...resource, ciphertext: bytes.toString('base64') }, apiV3Key),
     (error: unknown) => error instanceof AppError && error.code === 'PAYMENT_RESOURCE_DECRYPT_FAILED')
+})
+
+test('signed malformed payment and refund payloads fail closed with stable provider errors', async () => {
+  const noFetch = (async () => { throw new Error('network must not be used') }) as typeof fetch
+  const pay = provider(noFetch)
+  const nullEnvelope = signedRawNotification(null)
+  await assert.rejects(pay.parseTransactionNotification(nullEnvelope.headers, nullEnvelope.rawBody),
+    (error: unknown) => error instanceof AppError && error.code === 'PAYMENT_NOTIFICATION_INVALID')
+
+  const invalidState = signedNotification({
+    appid: 'wx_phoenix_test', mchid: '1900000001', out_trade_no: orderFixture().outTradeNo,
+    transaction_id: 'wx_transaction_invalid', trade_type: 'JSAPI', trade_state: 'UNKNOWN',
+    amount: { total: 3990, currency: 'CNY' }, payer: { openid: 'openid_for_same_app' }
+  }, 'TRANSACTION.SUCCESS', 'transaction')
+  await assert.rejects(pay.parseTransactionNotification(invalidState.headers, invalidState.rawBody),
+    (error: unknown) => error instanceof AppError && error.code === 'WECHATPAY_TRANSACTION_INVALID')
+
+  const invalidRefundFetch = (async () => signedResponse({
+    mchid: '1900000001', out_trade_no: orderFixture().outTradeNo,
+    out_refund_no: refundFixture().outRefundNo, refund_id: 'wx_refund_invalid', status: 'UNKNOWN',
+    amount: { refund: 3990, total: 3990, currency: 'CNY' }
+  })) as typeof fetch
+  await assert.rejects(provider(invalidRefundFetch).queryRefund(refundFixture().outRefundNo),
+    (error: unknown) => error instanceof AppError && error.code === 'WECHATPAY_REFUND_INVALID')
+
+  const officialRefundQueryWithoutMchid = (async () => signedResponse({
+    out_trade_no: orderFixture().outTradeNo,
+    out_refund_no: refundFixture().outRefundNo, refund_id: 'wx_refund_official', status: 'PROCESSING',
+    amount: { refund: 3990, total: 3990, currency: 'CNY' }
+  })) as typeof fetch
+  const officialRefundQuery = await provider(officialRefundQueryWithoutMchid).queryRefund(refundFixture().outRefundNo)
+  assert.equal(officialRefundQuery.mchId, '1900000001')
+  assert.equal(officialRefundQuery.providerRefundId, 'wx_refund_official')
 })

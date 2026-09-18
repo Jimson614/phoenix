@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { createSafeFallback } from "@/lib/compass/result";
 import { ASSESSMENT_VERSION, type AssessmentInput } from "@/lib/compass/types";
-import { validateAssessmentInput, validateGrowthSnapshot } from "@/lib/compass/validation";
+import {
+  normalizeAssessmentDraft,
+  validateAssessmentInput,
+  validateGrowthSnapshot,
+  validateGrowthSnapshotResponse,
+} from "@/lib/compass/validation";
 
 const validInput: AssessmentInput = {
   assessment_version: ASSESSMENT_VERSION,
@@ -41,6 +46,17 @@ describe("validateAssessmentInput", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("sanitizes restored drafts before they reach the assessment UI", () => {
+    expect(
+      normalizeAssessmentDraft({
+        age_band: "15_18",
+        curriculum: "not-a-curriculum",
+        interests: ["technology", "technology"],
+        child_name: "不应恢复",
+      }),
+    ).toEqual({ age_band: "15_18", interests: ["technology"] });
+  });
 });
 
 describe("validateGrowthSnapshot", () => {
@@ -51,5 +67,41 @@ describe("validateGrowthSnapshot", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("rejects nested fields outside the free result contract", () => {
+    const fallback = createSafeFallback(validInput);
+    const result = validateGrowthSnapshot({
+      ...fallback,
+      growth_type: { ...fallback.growth_type, diagnosis: "not allowed" },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects oversized raw text even when trimming would make it short", () => {
+    const fallback = createSafeFallback(validInput);
+    const result = validateGrowthSnapshot({
+      ...fallback,
+      growth_type: { ...fallback.growth_type, title: `${" ".repeat(10_000)}成长型` },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("enforces the same minimum text lengths as the structured-output schema", () => {
+    const fallback = createSafeFallback(validInput);
+    const result = validateGrowthSnapshot({
+      ...fallback,
+      growth_type: { ...fallback.growth_type, summary: "太短" },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("validates the complete result envelope", () => {
+    const fallback = createSafeFallback(validInput);
+    expect(validateGrowthSnapshotResponse({ result: fallback, generation_status: "ai" }).success).toBe(true);
+    expect(validateGrowthSnapshotResponse({ result: fallback, generation_status: "unknown" }).success).toBe(false);
   });
 });

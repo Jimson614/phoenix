@@ -2,10 +2,12 @@
 
 const { createHash } = require('node:crypto')
 const { spawnSync } = require('node:child_process')
+const fs = require('node:fs')
 const {
   mkdir, readFile, readdir, stat, writeFile
 } = require('node:fs/promises')
 const path = require('node:path')
+const { serverDist } = require('./server-dist-path')
 
 const root = path.resolve(__dirname, '..')
 const verificationRoot = path.join(root, 'artifacts', 'verification')
@@ -15,7 +17,8 @@ const historicalMigrationHashes = Object.freeze({
   '001_initial_schema.sql': '502AB6BED513978922FAD8FD424D1C11281B07771E37CE056CF001A2674B35C9',
   '002_feishu_bitable_integration.sql': '5A9FC3092BDF46025834A1211E8458CBFF9D3B1DD39ECBF3C2BD02A72CA2D34D',
   '003_openai_agent.sql': '1E8B64E1FE38D48BEFD11AD3D69AF73423D77AF17A294ECF8E809A83C3D197E6',
-  '004_dual_agent_analysis.sql': '62F9B9213B768C2C2C694632AC30C791E5CAE77F75F0760CE0FB95C308D3E097'
+  '004_dual_agent_analysis.sql': '62F9B9213B768C2C2C694632AC30C791E5CAE77F75F0760CE0FB95C308D3E097',
+  '005_education_compass_levels.sql': '1B398D9FFA3B85947A0814EEDDF512C139AF03E0560B385285C7F652AFD40289'
 })
 
 const ignoredDirectories = new Set([
@@ -25,10 +28,12 @@ const sourceExtensions = new Set([
   '.js', '.json', '.md', '.sql', '.ts', '.wxml', '.wxss', '.yaml', '.yml'
 ])
 const credentialKeys = [
-  'AI_CONTENT_ENCRYPTION_KEY', 'DATABASE_URL', 'EDUCATION_TEST_DATABASE_URL',
+  'AI_CONTENT_ENCRYPTION_KEY', 'AI_CONTENT_KEYRING_JSON', 'DATABASE_URL', 'EDUCATION_TEST_DATABASE_URL',
   'EDUCATION_TEST_DATABASE_ALLOW_MUTATION', 'FEISHU_APP_ID', 'FEISHU_APP_SECRET',
-  'FEISHU_PSEUDONYM_KEY', 'OPENAI_API_KEY', 'OPENAI_SAFETY_HMAC_KEY',
-  'SESSION_SECRET', 'WECHAT_APP_ID', 'WECHAT_APP_SECRET', 'WECHAT_PAY_API_V3_KEY',
+  'FEISHU_BITABLE_APP_TOKEN', 'FEISHU_PSEUDONYM_KEY', 'OPENAI_API_KEY', 'OPENAI_SAFETY_HMAC_KEY',
+  'SESSION_SECRET', 'WECHAT_APP_ID', 'WECHAT_APP_SECRET', 'WECHAT_MCH_CERT_SERIAL_NO',
+  'WECHAT_MCH_ID', 'WECHAT_MCH_PRIVATE_KEY_PATH', 'WECHATPAY_API_V3_KEY',
+  'WECHATPAY_PUBLIC_KEY_ID', 'WECHATPAY_PUBLIC_KEY_PATH', 'WECHAT_PAY_API_V3_KEY',
   'WECHAT_PAY_MCH_ID', 'WECHAT_PAY_PRIVATE_KEY', 'WECHAT_PAY_SERIAL_NO'
 ]
 
@@ -52,7 +57,37 @@ function utcDirectoryName(date = new Date()) {
   return date.toISOString().replaceAll('-', '').replaceAll(':', '').replace('.', '-')
 }
 
+function canonicalWritePath(target) {
+  const missing = []
+  let existing = target
+  while (!fs.existsSync(existing)) {
+    const parent = path.dirname(existing)
+    if (parent === existing) break
+    missing.unshift(path.basename(existing))
+    existing = parent
+  }
+  return path.resolve(fs.realpathSync(existing), ...missing)
+}
+
+function isStrictDescendant(target, parent) {
+  const relation = path.relative(parent, target)
+  return Boolean(relation) && relation !== '..' && !relation.startsWith(`..${path.sep}`) && !path.isAbsolute(relation)
+}
+
+function validateEvidenceRoot(evidenceRoot = verificationRoot, sourceRoot = root) {
+  if (fs.lstatSync(sourceRoot).isSymbolicLink()) throw new Error('Evidence source root must not be a symbolic link')
+  const canonicalSourceRoot = fs.realpathSync(sourceRoot)
+  if (fs.existsSync(evidenceRoot) && fs.lstatSync(evidenceRoot).isSymbolicLink()) {
+    throw new Error('Evidence output root must not be a symbolic link')
+  }
+  const canonicalEvidenceRoot = canonicalWritePath(evidenceRoot)
+  if (!isStrictDescendant(canonicalEvidenceRoot, canonicalSourceRoot)) {
+    throw new Error('Evidence output root must stay inside the project root')
+  }
+}
+
 async function unusedEvidenceDirectory() {
+  validateEvidenceRoot()
   await mkdir(verificationRoot, { recursive: true })
   const base = utcDirectoryName()
   for (let suffix = 0; suffix < 100; suffix += 1) {
@@ -73,7 +108,10 @@ async function filesUnder(directory) {
   const entries = await readdir(directory, { withFileTypes: true })
   const result = []
   for (const entry of entries) {
-    if (entry.isSymbolicLink()) continue
+    if (entry.isSymbolicLink()) {
+      if (ignoredDirectories.has(entry.name)) continue
+      throw new Error(`Source manifest input must not be a symbolic link: ${path.join(directory, entry.name)}`)
+    }
     const absolute = path.join(directory, entry.name)
     if (entry.isDirectory()) {
       if (!ignoredDirectories.has(entry.name)) result.push(...await filesUnder(absolute))
@@ -131,16 +169,22 @@ async function migrationManifest(capturedAt, sourceAggregateSha256) {
     bindings: { freezePath: freezeRelativePath, freezeSha256, sourceAggregateSha256 },
     freezeBaselineSha256: expectedFreezeSha256,
     freezeBaselineMatch: freezeSha256 === expectedFreezeSha256,
-    historicalMigrationsUnchanged: historical.length === 4 && historical.every((item) => item.historicalBaselineMatch),
+    historicalMigrationsUnchanged: historical.length === Object.keys(historicalMigrationHashes).length &&
+      historical.every((item) => item.historicalBaselineMatch),
     aggregateSha256: sha256(stableJson(migrations.map(({ path: filePath, sha256: digest }) => ({ path: filePath, sha256: digest })))),
     migrations
   }
 }
 
-function cleanEnvironment() {
-  const env = { ...process.env, NODE_ENV: 'test' }
+function cleanEnvironment(source = process.env) {
+  const env = { ...source, NODE_ENV: 'test' }
   for (const key of credentialKeys) delete env[key]
+  env.PAYMENT_PROVIDER = 'mock'
   env.OPENAI_AGENT_ENABLED = 'false'
+  env.AGENT_PROVIDER = 'mock'
+  env.AI_WORKER_ENABLED = 'false'
+  env.FEISHU_BITABLE_ENABLED = 'false'
+  env.FEISHU_CUSTOMER_PROFILE_FIELDS_ENABLED = 'false'
   env.FEISHU_SYNC_ENABLED = 'false'
   env.EDUCATION_TEST_DATABASE_URL = ''
   env.EDUCATION_TEST_DATABASE_ALLOW_MUTATION = ''
@@ -304,7 +348,7 @@ async function integrationDiffEvidence(command, bindings) {
   const feishuCase = findCase(command, 'Feishu mirror requires both gates')
   let allowlists = null
   try {
-    const contract = require(path.join(root, 'server', 'dist', 'src', 'integrations', 'feishu', 'schema-contract.js'))
+    const contract = require(serverDist('integrations', 'feishu', 'schema-contract.js'))
     allowlists = contract.CUSTOMER_PROFILE_FEISHU_ALLOWLISTS
   } catch {
     allowlists = null
@@ -427,7 +471,7 @@ async function main() {
     { id: 'server-build', category: 'build', command: npm.command, args: [...npm.argsPrefix, '--prefix', 'server', 'run', 'build'], displayCommand: ['npm', '--prefix', 'server', 'run', 'build'] },
     { id: 'server-typecheck', category: 'build', command: npm.command, args: [...npm.argsPrefix, '--prefix', 'server', 'run', 'typecheck'], displayCommand: ['npm', '--prefix', 'server', 'run', 'typecheck'] },
     { id: 'client-tests', category: 'test', command: npm.command, args: [...npm.argsPrefix, 'run', 'test:client'], displayCommand: ['npm', 'run', 'test:client'] },
-    { id: 'server-tests', category: 'test', command: npm.command, args: [...npm.argsPrefix, '--prefix', 'server', 'test'], displayCommand: ['npm', '--prefix', 'server', 'test'] },
+    { id: 'server-tests', category: 'test', command: process.execPath, args: ['scripts/run-server-tests.js'], displayCommand: ['node', 'scripts/run-server-tests.js'] },
     { id: 'openapi-and-examples', category: 'contract', command: process.execPath, args: ['scripts/verify-education-docs.js'], displayCommand: ['node', 'scripts/verify-education-docs.js'] },
     { id: 'education-http-smoke', category: 'smoke', command: process.execPath, args: ['scripts/smoke-education-compass-mock.js'], displayCommand: ['node', 'scripts/smoke-education-compass-mock.js'] },
     { id: 'education-postgres', category: 'external', command: process.execPath, args: ['scripts/test-education-postgres.js'], displayCommand: ['node', 'scripts/test-education-postgres.js'] }
@@ -575,11 +619,17 @@ async function main() {
   if (localStatus === 'LOCAL_LEVEL1_LEVEL2_VERIFICATION_INVALIDATED_SOURCE_CHANGED') process.exitCode = 2
 }
 
-main().catch((error) => {
-  process.stderr.write(`${JSON.stringify({
-    status: 'LOCAL_EVIDENCE_GENERATION_FAILED',
-    errorClass: error instanceof Error ? error.name : 'UnknownError',
-    errorDigest: sha256(error instanceof Error ? `${error.name}:${error.message}` : String(error))
-  })}\n`)
-  process.exitCode = 1
-})
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`${JSON.stringify({
+      status: 'LOCAL_EVIDENCE_GENERATION_FAILED',
+      errorClass: error instanceof Error ? error.name : 'UnknownError',
+      errorDigest: sha256(error instanceof Error ? `${error.name}:${error.message}` : String(error))
+    })}\n`)
+    process.exitCode = 1
+  })
+}
+
+module.exports = {
+  cleanEnvironment, filesUnder, integrationDiffEvidence, main, migrationManifest, validateEvidenceRoot
+}

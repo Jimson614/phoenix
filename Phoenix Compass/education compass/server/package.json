@@ -9,14 +9,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run build && node --test dist/tests/domain.test.js dist/tests/http.test.js dist/tests/wechat-pay.test.js dist/tests/feishu.test.js dist/tests/agent.test.js dist/tests/education-contracts.test.js dist/tests/education-http.test.js dist/tests/education-integrations.test.js",
-    "test:education-contracts": "npm run build && node --test dist/tests/education-contracts.test.js",
-    "test:education-http": "npm run build && node --test dist/tests/education-http.test.js",
-    "test:education-integrations": "npm run build && node --test dist/tests/education-integrations.test.js",
+    "test": "node ../scripts/run-server-tests.js",
+    "test:education-contracts": "node ../scripts/run-server-tests.js --test=education-contracts.test.js",
+    "test:education-http": "node ../scripts/run-server-tests.js --test=education-http.test.js",
+    "test:education-integrations": "node ../scripts/run-server-tests.js --test=education-integrations.test.js",
     "db:migrate": "node scripts/migrate.js",
-    "start": "node dist/src/index.js",
-    "start:agent-worker": "node dist/src/services/agent-worker-main.js",
-    "agent:worker:once": "node dist/src/services/agent-worker-main.js --once"
+    "start": "node dist/index.js",
+    "start:agent-worker": "node dist/services/agent-worker-main.js",
+    "agent:worker:once": "node dist/services/agent-worker-main.js --once"
   },
   "dependencies": {
     "openai": "6.49.0",

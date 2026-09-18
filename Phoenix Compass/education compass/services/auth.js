@@ -61,11 +61,14 @@ function logout() {
   app.setCurrentUser(runtime.isDemo() ? '' : null)
   api.setAccessToken('')
   if (!runtime.isDemo()) {
-    ;['PFS_CURRENT_USER_ID', 'PFS_REMOTE_PROFILE_MAP_V1', 'PFS_COMPASS_ASSESSMENT_REFS_V1', 'PFS_COMPASS_ORDER_CACHE_V1'].forEach((key) => wx.removeStorageSync(key))
+    ;['PFS_CURRENT_USER_ID', 'PFS_REMOTE_PROFILE_MAP_V1', 'PFS_COMPASS_ASSESSMENT_REFS_V1', 'PFS_COMPASS_ORDER_CACHE_V1'].forEach((key) => {
+      try { wx.removeStorageSync(key) } catch (error) {}
+    })
     try {
       const keys = wx.getStorageInfoSync ? (wx.getStorageInfoSync().keys || []) : []
       keys.filter((key) => key.indexOf('PFS_COMPASS_DRAFT_') === 0).forEach((key) => wx.removeStorageSync(key))
     } catch (error) {}
+    try { require('./payment').clearOrderCache() } catch (error) {}
     try { require('./assessment').clearRemoteSessionData() } catch (error) {}
   }
   return revoke

@@ -40,4 +40,15 @@ function apiBaseUrl() {
   return API_BASE_URL.replace(/\/$/, '')
 }
 
-module.exports = { API_BASE_URL, accountEnvironment, apiBaseUrl, mode, isDemo: () => mode() === 'demo' }
+// Source and release builds never permit plaintext transport. The isolated
+// development builder replaces this with an exact loopback-only capability.
+function allowsDevelopmentLoopbackHttp() { return false }
+
+module.exports = {
+  API_BASE_URL,
+  accountEnvironment,
+  allowsDevelopmentLoopbackHttp,
+  apiBaseUrl,
+  mode,
+  isDemo: () => mode() === 'demo'
+}

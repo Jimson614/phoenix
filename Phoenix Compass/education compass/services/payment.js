@@ -10,22 +10,78 @@ const CACHE_FIELDS = [
   'orderId', 'outTradeNo', 'status', 'productCode', 'amountFen', 'currency',
   'reportId', 'assessmentId', 'paidAt', 'refundedAt', 'idempotencyKey', 'cachedAt'
 ]
+let volatileOrderCache = {}
+let volatileOrderCacheAuthoritative = false
+
+function record(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+}
 
 function safeCacheValue(order) {
+  const source = record(order)
   return CACHE_FIELDS.reduce((result, key) => {
-    if (order && order[key] !== undefined) result[key] = order[key]
+    if (source[key] !== undefined) result[key] = source[key]
     return result
   }, {})
 }
 
-function orderCache() {
-  const stored = wx.getStorageSync(ORDER_CACHE_KEY) || {}
-  const safe = Object.keys(stored).reduce((result, key) => {
-    result[key] = safeCacheValue(stored[key])
+function validOrderId(value) {
+  return typeof value === 'string' && value.trim() === value && value.length > 0 && value.length <= 256 &&
+    !/[\u0000-\u0020\u007f]/.test(value) && !['__proto__', 'prototype', 'constructor'].includes(value)
+}
+
+function sanitizedCache(cacheValue) {
+  const stored = record(cacheValue)
+  return Object.keys(stored).reduce((result, key) => {
+    const entry = safeCacheValue(stored[key])
+    if (validOrderId(entry.orderId)) result[entry.orderId] = entry
     return result
   }, {})
-  if (JSON.stringify(safe) !== JSON.stringify(stored)) wx.setStorageSync(ORDER_CACHE_KEY, safe)
-  return safe
+}
+
+function writeOrderCache(value) {
+  volatileOrderCache = sanitizedCache(value)
+  volatileOrderCacheAuthoritative = true
+  try {
+    if (typeof wx !== 'undefined' && typeof wx.setStorageSync === 'function') {
+      wx.setStorageSync(ORDER_CACHE_KEY, volatileOrderCache)
+      volatileOrderCacheAuthoritative = false
+    }
+  } catch (error) {}
+  return { ...volatileOrderCache }
+}
+
+function clearOrderCache() {
+  volatileOrderCache = {}
+  volatileOrderCacheAuthoritative = true
+  try {
+    if (typeof wx !== 'undefined' && typeof wx.removeStorageSync === 'function') {
+      wx.removeStorageSync(ORDER_CACHE_KEY)
+      volatileOrderCacheAuthoritative = false
+    }
+  } catch (error) {}
+}
+
+function orderCache() {
+  if (volatileOrderCacheAuthoritative) return { ...volatileOrderCache }
+  let storedValue
+  try {
+    if (typeof wx === 'undefined' || typeof wx.getStorageSync !== 'function') return { ...volatileOrderCache }
+    storedValue = wx.getStorageSync(ORDER_CACHE_KEY)
+  } catch (error) {
+    volatileOrderCacheAuthoritative = true
+    return { ...volatileOrderCache }
+  }
+  if (storedValue === undefined || storedValue === null) {
+    volatileOrderCache = {}
+    return {}
+  }
+  const stored = record(storedValue)
+  const safe = sanitizedCache(stored)
+  volatileOrderCache = safe
+  if (JSON.stringify(safe) !== JSON.stringify(stored)) return writeOrderCache(safe)
+  volatileOrderCacheAuthoritative = false
+  return { ...safe }
 }
 
 function unwrap(result, keys) {
@@ -69,11 +125,10 @@ function normalizePrepay(result) {
   }
 }
 function cacheOrder(order) {
-  if (!order || !order.orderId) return order
+  if (!order || !validOrderId(order.orderId)) return order
   const cache = orderCache()
   cache[order.orderId] = safeCacheValue({ ...(cache[order.orderId] || {}), ...order, cachedAt: isoNow() })
-  wx.setStorageSync(ORDER_CACHE_KEY, cache)
-  return cache[order.orderId]
+  return writeOrderCache(cache)[order.orderId]
 }
 function listCachedOrders() { return Object.values(orderCache()).sort((a, b) => (b.cachedAt || '').localeCompare(a.cachedAt || '')) }
 
@@ -219,6 +274,6 @@ function statusLabel(status) {
 }
 
 module.exports = {
-  FINAL_STATUSES, ORDER_CACHE_KEY, cacheOrder, createOrder, getOrder,
+  FINAL_STATUSES, ORDER_CACHE_KEY, cacheOrder, clearOrderCache, createOrder, getOrder,
   listCachedOrders, normalizeOrder, normalizePrepay, pollOrder, refreshCachedOrders, requestWeChatPayment, statusLabel
 }

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { durationBucket, trackCompassEvent } from "@/lib/analytics";
 
@@ -6,6 +6,10 @@ describe("Compass analytics adapter", () => {
   beforeEach(() => {
     sessionStorage.clear();
     window.dataLayer = [];
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("emits a typed event once per flow key", () => {
@@ -40,5 +44,29 @@ describe("Compass analytics adapter", () => {
       rating: 5,
       result_version: "growth-snapshot-v1.0",
     });
+  });
+
+  it("does not allow event properties to overwrite the event contract", () => {
+    trackCompassEvent("free_compass_viewed", {
+      event: "forged-event",
+      assessment_version: "forged-version",
+    });
+
+    expect(window.dataLayer?.[0]).toMatchObject({
+      event: "free_compass_viewed",
+      assessment_version: "free-mvp-v1.0",
+    });
+  });
+
+  it("still emits when session storage is unavailable", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+
+    expect(() => trackCompassEvent("free_compass_started", {}, "started")).not.toThrow();
+    expect(window.dataLayer).toHaveLength(1);
   });
 });

@@ -1,4 +1,5 @@
 import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http'
+import { isIP } from 'node:net'
 import { AppError, errorEnvelope, invariant } from '../domain/errors'
 import { AuthService } from '../services/auth-service'
 import { AssessmentService, CreateAssessmentInput } from '../services/assessment-service'
@@ -21,6 +22,7 @@ export interface AppDependencies {
   agent?: AgentService
   feishu?: FeishuSyncService
   rateLimiter?: RateLimiter
+  readiness?: () => Promise<void>
   logger?: { error(message: string, context?: Record<string, unknown>): void }
 }
 
@@ -95,7 +97,9 @@ function parseJson(raw: Buffer): Record<string, unknown> {
 
 function authToken(request: IncomingMessage): string {
   const authorization = request.headers.authorization ?? ''
-  invariant(authorization.startsWith('Bearer '), 401, 'AUTH_REQUIRED', '请先登录')
+  if (!authorization.startsWith('Bearer ')) {
+    throw new AppError(401, 'AUTH_REQUIRED', '请先登录')
+  }
   return authorization.slice('Bearer '.length)
 }
 
@@ -110,6 +114,44 @@ function exactBody(body: Record<string, unknown>, allowed: readonly string[]): R
   const unknown = Object.keys(body).filter((key) => !allowed.includes(key))
   invariant(unknown.length === 0, 400, 'UNKNOWN_REQUEST_FIELDS', '请求体包含未知字段', { fields: unknown })
   return body
+}
+
+function exactQuery(url: URL, allowed: readonly string[] = []): void {
+  const keys = [...url.searchParams.keys()]
+  invariant(keys.every((key) => allowed.includes(key)) && new Set(keys).size === keys.length,
+    400, 'QUERY_INVALID', '查询参数无效')
+}
+
+function pathSegment(value: string, label = '资源 ID'): string {
+  try {
+    const decoded = decodeURIComponent(value)
+    invariant(decoded.length > 0 && decoded.length <= 128 && !/[\u0000-\u001f\u007f/\\]/.test(decoded),
+      400, 'PATH_PARAMETER_INVALID', `${label} 无效`)
+    return decoded
+  } catch (error) {
+    if (error instanceof AppError) throw error
+    throw new AppError(400, 'PATH_PARAMETER_INVALID', `${label} 无效`)
+  }
+}
+
+function normalizedPeerAddress(request: IncomingMessage): string {
+  const raw = request.socket.remoteAddress ?? 'unknown'
+  return raw.startsWith('::ffff:') ? raw.slice('::ffff:'.length) : raw
+}
+
+function clientAddress(request: IncomingMessage): string {
+  const peer = normalizedPeerAddress(request)
+  const trustedLocalProxy = peer === '127.0.0.1' || peer === '::1'
+  if (!trustedLocalProxy) return peer
+  const forwarded = request.headers['x-forwarded-for']
+  const forwardedValue = Array.isArray(forwarded) ? forwarded[0] : forwarded
+  const chain = typeof forwardedValue === 'string'
+    ? forwardedValue.split(',').map((item) => item.trim()).filter(Boolean)
+    : []
+  const candidate = chain.at(-1) ?? (Array.isArray(request.headers['x-real-ip'])
+    ? request.headers['x-real-ip'][0]
+    : request.headers['x-real-ip'])
+  return typeof candidate === 'string' && isIP(candidate) > 0 ? candidate : peer
 }
 
 function headerBag(request: IncomingMessage): Record<string, string | undefined> {
@@ -145,40 +187,56 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
   const rateLimiter = deps.rateLimiter ?? new InMemoryRateLimiter()
   let activeWebhooks = 0
   return async (request, response) => {
-    const url = new URL(request.url ?? '/', 'http://localhost')
     const method = request.method ?? 'GET'
+    let route = '/'
     try {
-      if (method === 'GET' && url.pathname === '/health') return json(response, 200, { ok: true })
+      const url = new URL(request.url ?? '/', 'http://localhost')
+      route = url.pathname
+      if (method === 'GET' && url.pathname === '/health') {
+        exactQuery(url)
+        try {
+          await deps.readiness?.()
+        } catch {
+          throw new AppError(503, 'SERVICE_NOT_READY', '服务暂未就绪')
+        }
+        return json(response, 200, { ok: true })
+      }
 
       if (method === 'POST' && url.pathname === '/v1/auth/wechat/session') {
-        invariant(await rateLimiter.consume(`auth:${request.socket.remoteAddress ?? 'unknown'}`, 10, 60_000), 429, 'RATE_LIMITED', '请求过于频繁，请稍后重试')
-        const body = parseJson(await readRawBody(request))
-        return json(response, 200, await deps.auth.createWechatSession(String(body.code ?? '')))
+        exactQuery(url)
+        invariant(await rateLimiter.consume(`auth:${clientAddress(request)}`, 10, 60_000), 429, 'RATE_LIMITED', '请求过于频繁，请稍后重试')
+        const body = exactBody(parseJson(await readRawBody(request)), ['code'])
+        invariant(typeof body.code === 'string', 400, 'INVALID_WECHAT_CODE', '微信登录 code 无效')
+        return json(response, 200, await deps.auth.createWechatSession(body.code))
       }
       if (method === 'DELETE' && url.pathname === '/v1/auth/session') {
-        invariant(await rateLimiter.consume(`auth-revoke:${request.socket.remoteAddress ?? 'unknown'}`, 30, 60_000), 429, 'RATE_LIMITED', '请求过于频繁，请稍后重试')
+        exactQuery(url)
+        invariant(await rateLimiter.consume(`auth-revoke:${clientAddress(request)}`, 30, 60_000), 429, 'RATE_LIMITED', '请求过于频繁，请稍后重试')
         await deps.auth.revokeSession(authToken(request))
         return json(response, 204)
       }
 
       if (method === 'POST' && url.pathname === '/v1/webhooks/wechat-pay/transactions') {
+        exactQuery(url)
         const headers = validateWebhookIngress(request)
-        invariant(await rateLimiter.consume(`webhook:${request.socket.remoteAddress ?? 'unknown'}`, 300, 60_000), 429, 'RATE_LIMITED', '回调请求过于频繁')
+        invariant(await rateLimiter.consume(`webhook:${clientAddress(request)}`, 300, 60_000), 429, 'RATE_LIMITED', '回调请求过于频繁')
         invariant(activeWebhooks < 50, 429, 'WEBHOOK_BUSY', '回调处理繁忙')
         activeWebhooks += 1
         try { await deps.orders.handleTransactionNotification(headers, await readRawBody(request, MAX_WEBHOOK_BODY_BYTES, WEBHOOK_BODY_TIMEOUT_MS)) } finally { activeWebhooks -= 1 }
         return json(response, 204)
       }
       if (method === 'POST' && url.pathname === '/v1/webhooks/wechat-pay/refunds') {
+        exactQuery(url)
         const headers = validateWebhookIngress(request)
-        invariant(await rateLimiter.consume(`webhook:${request.socket.remoteAddress ?? 'unknown'}`, 300, 60_000), 429, 'RATE_LIMITED', '回调请求过于频繁')
+        invariant(await rateLimiter.consume(`webhook:${clientAddress(request)}`, 300, 60_000), 429, 'RATE_LIMITED', '回调请求过于频繁')
         invariant(activeWebhooks < 50, 429, 'WEBHOOK_BUSY', '回调处理繁忙')
         activeWebhooks += 1
         try { await deps.orders.handleRefundNotification(headers, await readRawBody(request, MAX_WEBHOOK_BODY_BYTES, WEBHOOK_BODY_TIMEOUT_MS)) } finally { activeWebhooks -= 1 }
         return json(response, 204)
       }
 
-      const user = await deps.auth.authenticate(authToken(request))
+      const token = authToken(request)
+      const user = await deps.auth.authenticate(token)
       if (method !== 'GET') {
         const normalizedRoute = url.pathname.replace(/\/[A-Za-z0-9_-]{8,}/g, '/:id')
         invariant(await rateLimiter.consume(`write:${user.id}:${normalizedRoute}`, 30, 60_000), 429, 'RATE_LIMITED', '操作过于频繁，请稍后重试')
@@ -191,60 +249,76 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
       }
 
       if (url.pathname === '/v1/admin/integrations/feishu/status' && method === 'GET') {
+        exactQuery(url)
         invariant(user.role === 'admin', 403, 'ADMIN_REQUIRED', '仅管理员可查看飞书同步状态')
         invariant(deps.feishu, 503, 'FEISHU_INTEGRATION_UNAVAILABLE', '飞书同步服务未配置')
         return json(response, 200, await deps.feishu.status())
       }
       if (url.pathname === '/v1/admin/integrations/feishu/reconcile' && method === 'POST') {
+        exactQuery(url)
         invariant(user.role === 'admin', 403, 'ADMIN_REQUIRED', '仅管理员可触发飞书同步')
         invariant(deps.feishu, 503, 'FEISHU_INTEGRATION_UNAVAILABLE', '飞书同步服务未配置')
-        const body = parseJson(await readRawBody(request))
+        const body = exactBody(parseJson(await readRawBody(request)), ['limit'])
         const limit = body.limit === undefined ? undefined : Number(body.limit)
         return json(response, 202, await deps.feishu.manualReconcile(user.id, limit))
       }
       if (url.pathname === '/v1/admin/integrations/feishu/validate-schema' && method === 'POST') {
+        exactQuery(url)
         invariant(user.role === 'admin', 403, 'ADMIN_REQUIRED', '仅管理员可校验飞书字段合同')
         invariant(deps.feishu, 503, 'FEISHU_INTEGRATION_UNAVAILABLE', '飞书同步服务未配置')
-        await readRawBody(request)
+        exactBody(parseJson(await readRawBody(request)), [])
         return json(response, 200, await deps.feishu.validateSchema())
       }
 
       if (url.pathname === '/v1/me/family') {
+        exactQuery(url)
         if (method === 'GET') return json(response, 200, { family: await deps.profiles.getFamily(user.id) })
         if (method === 'PUT') {
-          const body = parseJson(await readRawBody(request)) as unknown as FamilyInput
+          const body = exactBody(parseJson(await readRawBody(request)), [
+            'familyName', 'parentName', 'phone', 'location', 'goal'
+          ]) as unknown as FamilyInput
           return json(response, 200, { family: await deps.profiles.upsertFamily(user.id, body) })
         }
       }
 
       if (url.pathname === '/v1/me/students') {
+        exactQuery(url)
         if (method === 'GET') return json(response, 200, { students: await deps.profiles.listStudents(user.id) })
         if (method === 'POST') {
-          const body = parseJson(await readRawBody(request)) as unknown as StudentInput
+          const body = exactBody(parseJson(await readRawBody(request)), [
+            'name', 'age', 'gender', 'school', 'educationSystem', 'grade', 'interest', 'goal'
+          ]) as unknown as StudentInput
           return json(response, 201, { student: await deps.profiles.createStudent(user.id, body) })
         }
       }
 
       const ownStudent = url.pathname.match(/^\/v1\/me\/students\/([^/]+)$/)
       if (ownStudent?.[1]) {
-        const studentId = decodeURIComponent(ownStudent[1])
+        exactQuery(url)
+        const studentId = pathSegment(ownStudent[1], '学生 ID')
         if (method === 'GET') return json(response, 200, { student: await deps.profiles.getStudent(user.id, studentId) })
         if (method === 'PUT') {
-          const body = parseJson(await readRawBody(request)) as unknown as StudentInput
+          const body = exactBody(parseJson(await readRawBody(request)), [
+            'name', 'age', 'gender', 'school', 'educationSystem', 'grade', 'interest', 'goal'
+          ]) as unknown as StudentInput
           return json(response, 200, { student: await deps.profiles.updateStudent(user.id, studentId, body) })
         }
       }
 
       if (method === 'GET' && url.pathname === '/v1/me/reports') {
+        exactQuery(url)
         return json(response, 200, { reports: await deps.profiles.listReports(user.id) })
       }
       if (method === 'GET' && url.pathname === '/v1/me/timeline') {
+        exactQuery(url)
         return json(response, 200, { events: await deps.profiles.timeline(user.id) })
       }
       if (method === 'GET' && url.pathname === '/v1/me/advisor-requests') {
+        exactQuery(url)
         return json(response, 200, { requests: await deps.profiles.listAdvisorRequests(user.id) })
       }
       if (method === 'POST' && url.pathname === '/v1/advisor-requests') {
+        exactQuery(url)
         const body = exactBody(parseJson(await readRawBody(request)), [
           'preferredTime', 'topic', 'note', 'reportId', 'studentId', 'intent', 'consent'
         ])
@@ -271,23 +345,27 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
       }
 
       if (method === 'GET' && url.pathname === '/v1/me/education-compass/state') {
+        exactQuery(url)
         invariant(deps.education, 503, 'EDUCATION_COMPASS_V05_DISABLED', '新版 Education Compass 尚未配置')
         return json(response, 200, await deps.education.state(user.id))
       }
       const questionnaireVersion = url.pathname.match(/^\/v1\/education-compass\/questionnaires\/([^/]+)$/)
       if (method === 'GET' && questionnaireVersion?.[1]) {
         invariant(deps.education, 503, 'EDUCATION_COMPASS_V05_DISABLED', '新版 Education Compass 尚未配置')
+        exactQuery(url, ['educationSystem'])
         const bank = deps.education.questionnaireByVersion(
-          decodeURIComponent(questionnaireVersion[1]),
+          pathSegment(questionnaireVersion[1], '问卷版本'),
           url.searchParams.get('educationSystem') ?? undefined
         )
         return json(response, 200, { questionnaire: bank })
       }
       if (method === 'GET' && url.pathname === '/v1/education-compass/products/growth-discovery') {
+        exactQuery(url)
         invariant(deps.education, 503, 'EDUCATION_COMPASS_V05_DISABLED', '新版 Education Compass 尚未配置')
         return json(response, 200, { product: await deps.education.product() })
       }
       if (method === 'POST' && url.pathname === '/v1/education-compass/free-parent-assessments') {
+        exactQuery(url)
         invariant(deps.education, 503, 'EDUCATION_COMPASS_V05_DISABLED', '新版 Education Compass 尚未配置')
         const body = parseJson(await readRawBody(request))
         const assessment = await deps.education.createFreeParent(user.id, body, idempotencyHeader(request))
@@ -301,11 +379,15 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
         })
       }
       if (method === 'PUT' && url.pathname === '/v1/me/integration-consents/feishu-profile') {
+        exactQuery(url)
         invariant(deps.education, 503, 'EDUCATION_COMPASS_V05_DISABLED', '新版 Education Compass 尚未配置')
         return json(response, 200, await deps.education.setFeishuProfileConsent(user.id, parseJson(await readRawBody(request))))
       }
       if (method === 'PUT' && url.pathname === '/v1/me/integration-consents/advisor-contact') {
-        const body = parseJson(await readRawBody(request))
+        exactQuery(url)
+        const body = exactBody(parseJson(await readRawBody(request)), [
+          'studentId', 'enabled', 'copyVersion', 'locale', 'guardianAuthorityConfirmed'
+        ])
         return json(response, 200, await deps.profiles.setAdvisorContactConsent(user.id, {
           ...(typeof body.studentId === 'string' ? { studentId: body.studentId } : {}),
           enabled: body.enabled as boolean,
@@ -322,18 +404,19 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
         invariant([...url.searchParams.keys()].length === 0, 400, 'CONSENT_QUERY_INVALID', '撤回同意不接受查询参数')
         return json(response, 200, await deps.education.withdrawAssessmentConsent(
           user.id,
-          decodeURIComponent(educationConsent[1]),
+          pathSegment(educationConsent[1], '学生 ID'),
           educationConsent[2] as 'CORE_ASSESSMENT' | 'STUDENT_ASSESSMENT_ASSENT'
         ))
       }
 
       const createAssessment = url.pathname.match(/^\/v1\/students\/([^/]+)\/education-assessments$/)
       if (method === 'POST' && createAssessment?.[1]) {
+        exactQuery(url)
         const rawBody = parseJson(await readRawBody(request))
         if (rawBody.assessmentKind === 'STUDENT_GROWTH_DISCOVERY') {
           invariant(deps.education, 503, 'EDUCATION_COMPASS_V05_DISABLED', '新版 Education Compass 尚未配置')
           const assessment = await deps.education.createGrowthDiscovery(
-            user.id, decodeURIComponent(createAssessment[1]), rawBody, idempotencyHeader(request)
+            user.id, pathSegment(createAssessment[1], '学生 ID'), rawBody, idempotencyHeader(request)
           )
           return json(response, 201, {
             assessmentId: assessment.id,
@@ -344,8 +427,17 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
             revision: assessment.draftRevision
           })
         }
-        const body = rawBody as unknown as CreateAssessmentInput
-        const assessment = await deps.assessments.create(user.id, decodeURIComponent(createAssessment[1]), body)
+        const body = exactBody(rawBody, ['familyId', 'questionnaireVersion', 'studentVersion', 'consent'])
+        const consent = exactBody(
+          body.consent && typeof body.consent === 'object' && !Array.isArray(body.consent)
+            ? body.consent as Record<string, unknown>
+            : {},
+          ['consentVersion', 'scope', 'guardianConfirmed']
+        )
+        const assessment = await deps.assessments.create(user.id, pathSegment(createAssessment[1], '学生 ID'), {
+          ...body,
+          consent
+        } as unknown as CreateAssessmentInput)
         return json(response, 201, {
           assessmentId: assessment.id,
           status: assessment.status,
@@ -355,20 +447,23 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
 
       const assessmentQuestionnaire = url.pathname.match(/^\/v1\/assessments\/([^/]+)\/questionnaire$/)
       if (method === 'GET' && assessmentQuestionnaire?.[1]) {
+        exactQuery(url)
         invariant(deps.education, 503, 'EDUCATION_COMPASS_V05_DISABLED', '新版 Education Compass 尚未配置')
         return json(response, 200, {
-          questionnaire: await deps.education.questionnaire(user.id, decodeURIComponent(assessmentQuestionnaire[1]))
+          questionnaire: await deps.education.questionnaire(user.id, pathSegment(assessmentQuestionnaire[1], '测评 ID'))
         })
       }
       const assessmentResult = url.pathname.match(/^\/v1\/assessments\/([^/]+)\/result$/)
       if (method === 'GET' && assessmentResult?.[1]) {
+        exactQuery(url)
         invariant(deps.education, 503, 'EDUCATION_COMPASS_V05_DISABLED', '新版 Education Compass 尚未配置')
-        return json(response, 200, await deps.education.result(user.id, decodeURIComponent(assessmentResult[1])))
+        return json(response, 200, await deps.education.result(user.id, pathSegment(assessmentResult[1], '测评 ID')))
       }
 
       const assessmentAction = url.pathname.match(/^\/v1\/assessments\/([^/]+)\/(draft|submit|preview|orders)$/)
       if (assessmentAction?.[1] && assessmentAction[2]) {
-        const assessmentId = decodeURIComponent(assessmentAction[1])
+        exactQuery(url)
+        const assessmentId = pathSegment(assessmentAction[1], '测评 ID')
         const v05 = deps.education ? await deps.education.usesV05Contract(user.id, assessmentId) : false
         if (method === 'GET' && assessmentAction[2] === 'draft') {
           if (v05) return json(response, 200, await deps.education!.getDraft(user.id, assessmentId))
@@ -377,6 +472,7 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
         if (method === 'PUT' && assessmentAction[2] === 'draft') {
           const body = parseJson(await readRawBody(request))
           if (v05) return json(response, 200, await deps.education!.saveDraft(user.id, assessmentId, body))
+          exactBody(body, ['answers'])
           const assessment = await deps.assessments.saveDraft(user.id, assessmentId, body.answers)
           return json(response, 200, {
             assessmentId: assessment.id,
@@ -388,6 +484,7 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
         if (method === 'POST' && assessmentAction[2] === 'submit') {
           const body = parseJson(await readRawBody(request))
           if (v05) return json(response, 200, await deps.education!.submit(user.id, assessmentId, body, idempotencyHeader(request)))
+          exactBody(body, [])
           return json(response, 200, await deps.assessments.submit(user.id, assessmentId))
         }
         if (method === 'GET' && assessmentAction[2] === 'preview') {
@@ -401,6 +498,7 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
               productCode: String(body.productCode ?? ''), idempotencyKey: idempotencyHeader(request)
             }))
           }
+          exactBody(body, ['productCode', 'idempotencyKey'])
           return json(response, 201, await deps.orders.createOrder(user.id, assessmentId, {
             productCode: String(body.productCode ?? ''),
             idempotencyKey: String(body.idempotencyKey ?? '')
@@ -410,20 +508,23 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
 
       const prepay = url.pathname.match(/^\/v1\/orders\/([^/]+)\/wechat-prepay$/)
       if (method === 'POST' && prepay?.[1]) {
-        await readRawBody(request)
-        return json(response, 200, await deps.orders.createWechatPrepay(user.id, decodeURIComponent(prepay[1])))
+        exactQuery(url)
+        exactBody(parseJson(await readRawBody(request)), [])
+        return json(response, 200, await deps.orders.createWechatPrepay(user.id, pathSegment(prepay[1], '订单 ID')))
       }
       const order = url.pathname.match(/^\/v1\/orders\/([^/]+)$/)
       if (method === 'GET' && order?.[1]) {
-        return json(response, 200, await deps.orders.getOrder(user.id, decodeURIComponent(order[1])))
+        exactQuery(url)
+        return json(response, 200, await deps.orders.getOrder(user.id, pathSegment(order[1], '订单 ID')))
       }
 
       const adminRefund = url.pathname.match(/^\/v1\/admin\/orders\/([^/]+)\/refunds$/)
       if (method === 'POST' && adminRefund?.[1]) {
-        const body = parseJson(await readRawBody(request))
+        exactQuery(url)
+        const body = exactBody(parseJson(await readRawBody(request)), ['idempotencyKey', 'reason'])
         const headerValue = request.headers['idempotency-key']
         const idempotencyKey = Array.isArray(headerValue) ? headerValue[0] : headerValue
-        const refund = await deps.orders.requestRefund(user.id, decodeURIComponent(adminRefund[1]), {
+        const refund = await deps.orders.requestRefund(user.id, pathSegment(adminRefund[1], '订单 ID'), {
           idempotencyKey: idempotencyKey ?? String(body.idempotencyKey ?? ''),
           reason: String(body.reason ?? '')
         })
@@ -432,7 +533,8 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
 
       const reportPdf = url.pathname.match(/^\/v1\/reports\/([^/]+)\/pdf$/)
       if (method === 'GET' && reportPdf?.[1]) {
-        const reportId = decodeURIComponent(reportPdf[1])
+        exactQuery(url)
+        const reportId = pathSegment(reportPdf[1], '报告 ID')
         const pdf = await deps.reports.pdf(user.id, reportId)
         securityHeaders(response)
         response.statusCode = 200
@@ -444,8 +546,11 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
       }
       const reportFeedback = url.pathname.match(/^\/v1\/reports\/([^/]+)\/feedback$/)
       if (method === 'POST' && reportFeedback?.[1]) {
-        const body = parseJson(await readRawBody(request))
-        const feedback = await deps.reports.submitFeedback(user.id, decodeURIComponent(reportFeedback[1]), {
+        exactQuery(url)
+        const body = exactBody(parseJson(await readRawBody(request)), [
+          'rating', 'tags', 'comment', 'advisorContactRequested'
+        ])
+        const feedback = await deps.reports.submitFeedback(user.id, pathSegment(reportFeedback[1], '报告 ID'), {
           rating: Number(body.rating), tags: body.tags, comment: body.comment,
           advisorContactRequested: body.advisorContactRequested
         })
@@ -453,7 +558,8 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
       }
       const report = url.pathname.match(/^\/v1\/reports\/([^/]+)$/)
       if (method === 'GET' && report?.[1]) {
-        const reportId = decodeURIComponent(report[1])
+        exactQuery(url)
+        const reportId = pathSegment(report[1], '报告 ID')
         const value = await deps.reports.get(user.id, reportId)
         const agentFollowup = deps.agent
           ? await deps.agent.capability(user.id, reportId)
@@ -478,7 +584,7 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
     } catch (error) {
       const envelope = errorEnvelope(error)
       const code = ((envelope.body.error as Record<string, unknown>)?.code ?? 'UNKNOWN') as string
-      if (envelope.status >= 500) logger.error('request_failed', { method, route: url.pathname, code })
+      if (envelope.status >= 500) logger.error('request_failed', { method, route, code })
       json(response, envelope.status, envelope.body)
     }
   }

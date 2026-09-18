@@ -86,30 +86,52 @@ async function getReport(reportId) {
 
 async function getPdf(reportId) {
   if (runtime.isDemo()) throw new api.ApiError('演示模式不生成 PDF，请在生产服务配置后验证', { code: 'DEMO_PDF_UNAVAILABLE' })
+  const safeReportId = typeof reportId === 'string' ? reportId.trim() : ''
+  if (!safeReportId) throw new api.ApiError('报告 ID 不能为空', { code: 'REPORT_ID_REQUIRED' })
   return new Promise((resolve, reject) => {
     let baseUrl = ''
     try { baseUrl = runtime.apiBaseUrl() } catch (error) { reject(error); return }
     const token = api.accessToken()
-    wx.downloadFile({
-      url: `${baseUrl}/v1/reports/${encodeURIComponent(reportId)}/pdf`,
-      timeout: 30000,
-      header: {
-        Accept: 'application/pdf',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      },
-      success(response) {
-        if (response.statusCode >= 200 && response.statusCode < 300 && response.tempFilePath) {
-          resolve(response.tempFilePath)
-          return
+    let settled = false
+    const resolveOnce = (value) => {
+      if (settled) return
+      settled = true
+      resolve(value)
+    }
+    const rejectOnce = (error) => {
+      if (settled) return
+      settled = true
+      reject(error)
+    }
+    try {
+      if (typeof wx === 'undefined' || typeof wx.downloadFile !== 'function') throw new Error('wx.downloadFile unavailable')
+      wx.downloadFile({
+        url: `${baseUrl}/v1/reports/${encodeURIComponent(safeReportId)}/pdf`,
+        timeout: 30000,
+        header: {
+          Accept: 'application/pdf',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        success(response) {
+          if (settled) return
+          const statusCode = response && Number.isInteger(response.statusCode) ? response.statusCode : 0
+          if (statusCode >= 200 && statusCode < 300 && typeof response.tempFilePath === 'string' && response.tempFilePath) {
+            resolveOnce(response.tempFilePath)
+            return
+          }
+          if (statusCode === 401 && token && api.accessToken() === token) api.setAccessToken('')
+          rejectOnce(new api.ApiError(`PDF 下载失败（${statusCode}）`, {
+            code: statusCode === 401 ? 'PDF_DOWNLOAD_UNAUTHORIZED' : 'PDF_DOWNLOAD_FAILED', statusCode
+          }))
+        },
+        fail(error) {
+          const message = error && typeof error.errMsg === 'string' ? error.errMsg : 'PDF 下载失败'
+          rejectOnce(new api.ApiError(message, { code: 'PDF_DOWNLOAD_FAILED' }))
         }
-        reject(new api.ApiError(`PDF 下载失败（${response.statusCode || 0}）`, {
-          code: 'PDF_DOWNLOAD_FAILED', statusCode: response.statusCode || 0
-        }))
-      },
-      fail(error) {
-        reject(new api.ApiError(error.errMsg || 'PDF 下载失败', { code: 'PDF_DOWNLOAD_FAILED' }))
-      }
-    })
+      })
+    } catch (error) {
+      rejectOnce(new api.ApiError('PDF 下载失败', { code: 'PDF_DOWNLOAD_FAILED' }))
+    }
   })
 }
 

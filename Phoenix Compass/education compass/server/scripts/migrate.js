@@ -5,18 +5,19 @@ const { readdir, readFile } = require('node:fs/promises')
 const path = require('node:path')
 const { Pool } = require('pg')
 
-const databaseUrl = process.env.DATABASE_URL || ''
-if (!/^postgres(?:ql)?:\/\//.test(databaseUrl)) {
-  throw new Error('DATABASE_URL must be a PostgreSQL connection URL')
-}
-
 const migrationsDirectory = path.resolve(__dirname, '..', 'migrations')
-const pool = new Pool({
-  connectionString: databaseUrl,
-  max: 1,
-  statement_timeout: 60_000,
-  application_name: 'phoenix-family-os-migrator'
-})
+
+function createMigrationPool(databaseUrl = process.env.DATABASE_URL || '') {
+  if (!/^postgres(?:ql)?:\/\//.test(databaseUrl)) {
+    throw new Error('DATABASE_URL must be a PostgreSQL connection URL')
+  }
+  return new Pool({
+    connectionString: databaseUrl,
+    max: 1,
+    statement_timeout: 60_000,
+    application_name: 'phoenix-family-os-migrator'
+  })
+}
 
 function migrationBody(raw) {
   return raw
@@ -24,9 +25,10 @@ function migrationBody(raw) {
     .replace(/\s*COMMIT\s*;\s*$/i, '')
 }
 
-async function main() {
-  const client = await pool.connect()
+async function main(pool = createMigrationPool()) {
+  let client
   try {
+    client = await pool.connect()
     await client.query("SELECT pg_advisory_lock(hashtext('phoenix_family_os_migrations'))")
     await client.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -61,14 +63,19 @@ async function main() {
       }
     }
   } finally {
-    await client.query("SELECT pg_advisory_unlock(hashtext('phoenix_family_os_migrations'))").catch(() => undefined)
-    client.release()
+    if (client) {
+      await client.query("SELECT pg_advisory_unlock(hashtext('phoenix_family_os_migrations'))").catch(() => undefined)
+      client.release()
+    }
     await pool.end()
   }
 }
 
-main().catch((error) => {
-  process.stderr.write(`Migration failed: ${error instanceof Error ? error.message : 'Unknown error'}\n`)
-  process.exitCode = 1
-})
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`Migration failed: ${error instanceof Error ? error.message : 'Unknown error'}\n`)
+    process.exitCode = 1
+  })
+}
 
+module.exports = { createMigrationPool, main, migrationBody }

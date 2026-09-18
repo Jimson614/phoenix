@@ -115,6 +115,13 @@ function testQuestionnaireModel() {
   assert.strictEqual(freeBank.presentation.estimatedMinutesMin, 3)
   assert.strictEqual(freeBank.presentation.primaryActionHint, '完成免费问卷，查看家庭教育快照')
 
+  const inconsistentDurationFixture = questionnaireFixture()
+  inconsistentDurationFixture.presentation = { estimatedMinutesMin: 30 }
+  const durationBank = model.normalizeQuestionBank(inconsistentDurationFixture, { currentYear: 2026 })
+  assert.strictEqual(durationBank.presentation.estimatedMinutesMin, 30)
+  assert.strictEqual(durationBank.presentation.estimatedMinutesMax, 30,
+    'a missing maximum must never produce a descending duration range')
+
   const invalid = model.validateAnswers(bank, { ...answers, goals: ['UNSURE', 'PROCESS'], injected_label: '中文值' })
   assert(invalid.errors.some((error) => error.code === 'EXCLUSIVE_OPTION_CONFLICT'))
   assert(invalid.errors.some((error) => error.code === 'UNKNOWN_ANSWER_FIELD'))
@@ -125,6 +132,171 @@ function testQuestionnaireModel() {
   assert.strictEqual(switched.answers.province_region, undefined)
   assert.deepStrictEqual(switched.droppedFields.sort(), ['province_region', 'subject_achievement_bands'])
   assert.strictEqual(switched.auditEvent.eventType, 'SYSTEM_ROUTE_CHANGED')
+}
+
+function testStudentProfileNormalization() {
+  const familyData = require('../services/family-data')
+
+  assert.deepStrictEqual(familyData.EDUCATION_SYSTEM_OPTIONS, [
+    { label: '请选择', value: '' },
+    { label: '内地课程', value: 'GAOKAO' },
+    { label: 'DSE', value: 'DSE' },
+    { label: 'IGCSE', value: 'IGCSE' },
+    { label: 'IB', value: 'IB' },
+    { label: 'A-Level', value: 'A_LEVEL' },
+    { label: 'AP / 美式课程', value: 'AP_US' },
+    { label: '其他', value: 'OTHER' }
+  ])
+
+  const educationSystemAliases = [
+    [' 内地课程 ', 'GAOKAO'],
+    ['内地课程／高考', 'GAOKAO'],
+    ['DSE', 'DSE'],
+    [' IGCSE ', 'IGCSE'],
+    ['IB', 'IB'],
+    ['A-Level', 'A_LEVEL'],
+    ['AP / 美式课程', 'AP_US'],
+    ['AP／美式课程', 'AP_US'],
+    ['美式课程', 'AP_US'],
+    ['其他', 'OTHER']
+  ]
+  educationSystemAliases.forEach(([value, expected]) => {
+    assert.strictEqual(familyData.normalizeEducationSystem(value), expected)
+  })
+  assert.strictEqual(familyData.normalizeEducationSystem(''), '')
+  assert.strictEqual(familyData.normalizeEducationSystem('未列出的课程'), 'OTHER')
+
+  assert.strictEqual(familyData.normalizeStudentAge(' 16 '), 16)
+  assert.strictEqual(familyData.normalizeStudentAge(3), 3)
+  assert.strictEqual(familyData.normalizeStudentAge('100'), 100)
+  ;[undefined, null, '', '   '].forEach((value) => {
+    assert.strictEqual(familyData.normalizeStudentAge(value), null)
+  })
+  ;[2, 101, 16.5, 'abc', '１６', '1e2', '0x10', '+16', [], true].forEach((value) => {
+    assert.throws(
+      () => familyData.normalizeStudentAge(value),
+      (error) => error.code === 'STUDENT_AGE_INVALID' && error.statusCode === 400
+    )
+  })
+
+  const form = {
+    name: ' 小明 ', age: '16', gender: ' 男 ', school: ' 示例学校 ',
+    education_system: ' AP / 美式课程 ', grade: ' Year 11 ',
+    interest: ' 机器人与音乐 ', goal: ' 探索工程方向 '
+  }
+  const expectedPayload = {
+    name: '小明', age: 16, gender: '男', school: '示例学校', educationSystem: 'AP_US',
+    grade: 'Year 11', interest: '机器人与音乐', goal: '探索工程方向'
+  }
+  assert.deepStrictEqual(familyData.studentPayload(form), expectedPayload)
+  assert.deepStrictEqual(familyData.validateStudentForm(form), expectedPayload)
+  assert.strictEqual(familyData.studentPayload({ educationSystem: 'IGCSE' }).educationSystem, 'IGCSE')
+  assert.deepStrictEqual(familyData.studentPayload(), {
+    name: '', age: null, gender: '', school: '', educationSystem: '', grade: '', interest: '', goal: ''
+  })
+
+  ;[
+    ['name', 'name', 80],
+    ['gender', 'gender', 30],
+    ['school', 'school', 160],
+    ['education_system', 'educationSystem', 80],
+    ['grade', 'grade', 80],
+    ['interest', 'interest', 500],
+    ['goal', 'goal', 500]
+  ].forEach(([inputField, payloadField, limit]) => {
+    const atLimit = familyData.studentPayload({ ...form, [inputField]: '字'.repeat(limit) })
+    if (payloadField !== 'educationSystem') assert.strictEqual(atLimit[payloadField].length, limit)
+    assert.throws(
+      () => familyData.studentPayload({ ...form, [inputField]: '字'.repeat(limit + 1) }),
+      (error) => error.code === 'STUDENT_FIELD_TOO_LONG' && error.statusCode === 400
+    )
+  })
+
+  ;[
+    ['name', '   '],
+    ['age', ''],
+    ['school', '   '],
+    ['grade', null]
+  ].forEach(([field, value]) => {
+    assert.throws(
+      () => familyData.validateStudentForm({ ...form, [field]: value }),
+      (error) => error.code === 'STUDENT_REQUIRED_FIELDS_MISSING' && error.statusCode === 400
+    )
+  })
+}
+
+async function testStudentEditRejectsInvalidAgeBeforeRequest() {
+  const familyData = require('../services/family-data')
+  const originalPage = global.Page
+  const originalShowToast = wx.showToast
+  const originalSaveStudent = familyData.saveStudent
+  let definition
+  let saveCalls = 0
+  const toasts = []
+
+  try {
+    global.Page = (value) => { definition = value }
+    wx.showToast = (value) => { toasts.push(value) }
+    familyData.saveStudent = async () => {
+      saveCalls += 1
+      return { id: 'must_not_be_created' }
+    }
+    delete require.cache[require.resolve('../pages/student-edit/index')]
+    require('../pages/student-edit/index')
+    const instance = {
+      ...definition,
+      data: {
+        ...definition.data,
+        form: {
+          name: '匿名学生', age: '16.5', gender: '', school: '匿名学校',
+          education_system: '', grade: 'Year 10', interest: '', goal: ''
+        }
+      }
+    }
+    instance.setData = function setData(update) {
+      Object.entries(update).forEach(([key, value]) => {
+        const path = key.split('.')
+        if (path.length === 1) this.data[key] = value
+        else this.data[path[0]][path[1]] = value
+      })
+    }
+
+    const igcseIndex = instance.data.systemValues.indexOf('IGCSE')
+    definition.pickSystem.call(instance, { detail: { value: String(igcseIndex) } })
+    assert.strictEqual(instance.data.form.education_system, 'IGCSE')
+    assert.strictEqual(instance.data.systemLabel, 'IGCSE')
+
+    await definition.save.call(instance)
+    assert.strictEqual(saveCalls, 0, 'an invalid age must be rejected before the network adapter is called')
+    assert.strictEqual(instance.data.saving, false)
+    assert(toasts.some((item) => item.title === '年龄需填写3至100之间的整数'))
+  } finally {
+    familyData.saveStudent = originalSaveStudent
+    if (originalShowToast === undefined) delete wx.showToast
+    else wx.showToast = originalShowToast
+    if (originalPage === undefined) delete global.Page
+    else global.Page = originalPage
+  }
+}
+
+function testHomeActionCopy() {
+  const previousPage = global.Page
+  try {
+    global.Page = () => undefined
+    delete require.cache[require.resolve('../pages/home/index')]
+    const home = require('../pages/home/index')
+    assert.strictEqual(home.actionCopy({ nextAction: 'CREATE_FAMILY_PROFILE' }).title, '建立家庭档案')
+    assert.strictEqual(home.actionCopy({ nextAction: 'CREATE_STUDENT_PROFILE' }).title, '添加学生档案')
+    assert.strictEqual(home.actionCopy({ nextAction: 'CONTINUE_FREE_PARENT_COMPASS' }).title, '继续免费家长教育罗盘')
+    assert.strictEqual(home.actionCopy({ nextAction: 'CONTINUE_STUDENT_GROWTH_DISCOVERY' }).title, '继续学生成长发现')
+    assert.strictEqual(home.actionCopy({ nextAction: 'VIEW_STUDENT_GROWTH_LOCKED_RESULT' }).title, '查看提交状态并解锁报告')
+    assert.strictEqual(home.actionCopy({ nextAction: 'CHECK_ORDER_STATUS' }).title, '查询支付状态')
+    assert.strictEqual(home.actionCopy({ nextAction: 'VIEW_FULL_REPORT' }).title, '查看学生成长发现报告')
+    assert.strictEqual(home.stageCopy({ gradeStage: 'UPPER_SECONDARY' }, { grade: '旧阶段' }), '高中／Upper Secondary')
+  } finally {
+    if (previousPage === undefined) delete global.Page
+    else global.Page = previousPage
+  }
 }
 
 function testReportRegistry() {
@@ -163,12 +335,13 @@ function testReportRegistry() {
   ])
 
   const locked = reports.renderResult({
-    result_kind: 'STUDENT_GROWTH_DISCOVERY', result_state: 'LOCKED', assessment_id: 'asm_growth',
+    result_kind: 'STUDENT_GROWTH_DISCOVERY', result_state: 'LOCKED', assessment_id: 'asm_growth', report_id: 'rpt_growth',
     product_code: 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1', amount_fen: 3990, currency: 'CNY',
     next_action: 'PURCHASE_TO_UNLOCK_REPORT', system_result_marker: 'FULL_SYSTEM_BANK',
     student_snapshot: { leaked: true }, strength_signals: [{ leaked: true }], evidence_refs: ['EGD08']
   })
   assert.strictEqual(locked.resultState, 'LOCKED')
+  assert.strictEqual(locked.reportId, 'rpt_growth')
   assert.deepStrictEqual(locked.sections, [])
   assert(!JSON.stringify(locked).includes('leaked'))
   assert(!JSON.stringify(locked).includes('EGD08'))
@@ -210,6 +383,19 @@ function testNavigation() {
     'one student\'s completed snapshot must not unlock another student\'s Level 2 entry')
   assert.throws(() => navigation.selectStudentState(multiStudentState, 'stu_unknown'),
     (error) => error.code === 'EDUCATION_COMPASS_NEXT_ACTION_INVALID')
+
+  const multiReportState = {
+    studentId: 'stu_primary', assessmentId: 'asm_primary', reportId: 'rpt_primary',
+    students: [
+      { studentId: 'stu_primary', assessmentId: 'asm_primary', reportId: 'rpt_primary' },
+      { studentId: 'stu_second', assessment_id: 'asm_second', report_id: 'rpt_second' }
+    ]
+  }
+  assert.strictEqual(navigation.assessmentIdForReport(multiReportState, 'rpt_second'), 'asm_second')
+  assert.strictEqual(navigation.reportIdForAssessment(multiReportState, 'asm_second'), 'rpt_second')
+  assert.strictEqual(navigation.studentIdForAssessment(multiReportState, 'asm_second'), 'stu_second')
+  assert.strictEqual(navigation.assessmentIdForReport(multiReportState, 'rpt_unknown'), '',
+    'a report fallback must not reuse another student\'s current assessment')
 
   const continueLevel2 = navigation.resolveDestination({
     studentId: 'stu 1', assessmentId: 'asm/2', nextAction: { code: 'CONTINUE_STUDENT_GROWTH_DISCOVERY' }
@@ -254,6 +440,7 @@ async function testCompassEntryPageGate() {
   }
   let definition
   let state
+  let reports = []
   let productCalls = 0
   const redirects = []
 
@@ -263,7 +450,7 @@ async function testCompassEntryPageGate() {
     wx.switchTab = ({ url }) => { redirects.push(url) }
     familyData.getFamily = async () => ({ id: 'fam_1', parent_name: '测试监护人' })
     familyData.getStudents = async () => [{ id: 'stu_1', name: '测试学生', grade: '高中', education_system: 'GAOKAO' }]
-    familyData.getReports = async () => []
+    familyData.getReports = async () => reports
     client.getState = async () => state
     client.getGrowthProduct = async () => {
       productCalls += 1
@@ -298,12 +485,18 @@ async function testCompassEntryPageGate() {
       studentId: 'stu_1', sourceAssessmentId: 'asm_free', nextAction: 'START_LEVEL_2',
       students: [{ studentId: 'stu_1', sourceAssessmentId: 'asm_free', nextAction: 'START_LEVEL_2' }]
     }
+    reports = [
+      { id: 'rpt_1', student_id: 'stu_1', assessment_id: 'asm_1', entitled: true, created_at: '2026-09-01T00:00:00.000Z' },
+      { id: 'rpt_other', student_id: 'stu_other', assessment_id: 'asm_other', entitled: true, created_at: '2026-09-02T00:00:00.000Z' }
+    ]
     const allowed = page({ level: '2', studentId: 'stu_1', sourceAssessmentId: 'asm_untrusted' })
     await definition.loadV05.call(allowed, { id: 'usr_1' })
     assert.strictEqual(productCalls, 1)
     assert.strictEqual(allowed.data.level2EntryAuthorized, true)
     assert.strictEqual(allowed.data.product.displayPrice, '¥39.90')
     assert.strictEqual(allowed.sourceAssessmentId, 'asm_free', 'Level 2 must use the server-owned Level 1 source ID')
+    assert.deepStrictEqual(allowed.data.reports.map((report) => report.id), ['rpt_1'],
+      'a student Compass page must not mix in another student\'s reports')
     assert.strictEqual(allowed.data.loading, false)
   } finally {
     client.getState = originals.getState
@@ -316,6 +509,348 @@ async function testCompassEntryPageGate() {
     else wx.redirectTo = originals.redirectTo
     if (originals.switchTab === undefined) delete wx.switchTab
     else wx.switchTab = originals.switchTab
+    if (originals.Page === undefined) delete global.Page
+    else global.Page = originals.Page
+  }
+}
+
+async function testQuestionnaireStudentIsolation() {
+  const client = require('../services/education-compass')
+  const session = require('../services/session')
+  const originals = {
+    getQuestionnaire: client.getAssessmentQuestionnaire,
+    getDraft: client.getDraft,
+    getState: client.getState,
+    guard: session.guard,
+    Page: global.Page
+  }
+  let definition
+
+  try {
+    session.guard = () => ({ id: 'usr_1', role: 'family_user' })
+    client.getAssessmentQuestionnaire = async () => questionnaireFixture()
+    client.getDraft = async () => ({
+      assessmentId: 'asm_second', assessmentKind: client.ASSESSMENT_KINDS.STUDENT_GROWTH,
+      educationSystem: 'GAOKAO', revision: 0, answers: {}
+    })
+    client.getState = async () => ({
+      studentId: 'stu_primary', studentDisplayName: '第一位学生', educationSystem: 'DSE',
+      students: [
+        { studentId: 'stu_primary', assessmentId: 'asm_primary', studentDisplayName: '第一位学生', educationSystem: 'DSE' },
+        { studentId: 'stu_second', assessmentId: 'asm_second', studentDisplayName: '第二位学生', educationSystem: 'GAOKAO' }
+      ]
+    })
+    global.Page = (value) => { definition = value }
+    delete require.cache[require.resolve('../pages/compass-questionnaire/index')]
+    require('../pages/compass-questionnaire/index')
+    const instance = { ...definition, data: JSON.parse(JSON.stringify(definition.data)) }
+    instance.setData = function setData(update) { this.data = { ...this.data, ...update } }
+
+    await definition.loadV05.call(instance, { assessmentId: 'asm_second', studentId: 'stu_second' })
+
+    assert.strictEqual(instance.data.error, '')
+    assert.deepStrictEqual(instance.data.student, { id: 'stu_second', name: '第二位学生' })
+    assert.strictEqual(instance.remoteBank.educationSystem, 'GAOKAO',
+      'the selected assessment must not inherit the primary student\'s education system')
+
+    const mismatched = { ...definition, data: JSON.parse(JSON.stringify(definition.data)) }
+    mismatched.setData = instance.setData
+    await definition.loadV05.call(mismatched, { assessmentId: 'asm_second', studentId: 'stu_primary' })
+    assert(mismatched.data.error.includes('不一致'), 'a stale or forged Student ID must not relabel another assessment')
+  } finally {
+    client.getAssessmentQuestionnaire = originals.getQuestionnaire
+    client.getDraft = originals.getDraft
+    client.getState = originals.getState
+    session.guard = originals.guard
+    if (originals.Page === undefined) delete global.Page
+    else global.Page = originals.Page
+  }
+}
+
+async function testFamilySnapshotAnalysisEntry() {
+  const originalPage = global.Page
+  const originalAccountInfo = wx.getAccountInfoSync
+  const originalNavigateTo = wx.navigateTo
+  let definition
+  const navigations = []
+  try {
+    wx.getAccountInfoSync = () => ({ miniProgram: { envVersion: 'release' } })
+    wx.navigateTo = ({ url }) => { navigations.push(url) }
+    global.Page = (value) => { definition = value }
+    delete require.cache[require.resolve('../pages/compass-preview/index')]
+    require('../pages/compass-preview/index')
+    const instance = {
+      ...definition,
+      data: { ...definition.data, assessmentId: 'asm/free 1', viewKind: 'family', preview: null }
+    }
+    definition.openFreeAnalysis.call(instance)
+    assert.deepStrictEqual(navigations, [
+      '/pages/assessment-analysis/index?mode=free&assessmentId=asm%2Ffree%201'
+    ], 'the production family snapshot must expose its finite free-analysis flow')
+  } finally {
+    wx.getAccountInfoSync = originalAccountInfo
+    if (originalNavigateTo === undefined) delete wx.navigateTo
+    else wx.navigateTo = originalNavigateTo
+    if (originalPage === undefined) delete global.Page
+    else global.Page = originalPage
+  }
+}
+
+async function testApiTransportHardening() {
+  const api = require('../services/api')
+  const runtime = require('../config/runtime')
+  const originals = {
+    accountEnvironment: runtime.accountEnvironment,
+    allowsDevelopmentLoopbackHttp: runtime.allowsDevelopmentLoopbackHttp,
+    apiBaseUrl: runtime.apiBaseUrl,
+    request: wx.request,
+    getStorageSync: wx.getStorageSync,
+    setStorageSync: wx.setStorageSync,
+    removeStorageSync: wx.removeStorageSync
+  }
+  const storage = new Map()
+  const restoreStorage = () => {
+    wx.getStorageSync = (key) => storage.get(key)
+    wx.setStorageSync = (key, value) => storage.set(key, value)
+    wx.removeStorageSync = (key) => storage.delete(key)
+  }
+
+  try {
+    runtime.apiBaseUrl = () => 'https://mini-client.test.invalid/api'
+    restoreStorage()
+    api.setAccessToken('')
+
+    wx.getStorageSync = () => { throw new Error('storage read failed') }
+    wx.setStorageSync = () => { throw new Error('storage write failed') }
+    wx.removeStorageSync = () => { throw new Error('storage remove failed') }
+    api.setAccessToken('volatile-session-token')
+    assert.strictEqual(api.accessToken(), 'volatile-session-token',
+      'a transient storage failure must not interrupt the active authenticated session')
+
+    restoreStorage()
+    api.setAccessToken('')
+    storage.set(api.ACCESS_TOKEN_KEY, { corrupted: true })
+    assert.strictEqual(api.accessToken(), '')
+    assert.strictEqual(storage.has(api.ACCESS_TOKEN_KEY), false, 'malformed persisted credentials must be discarded')
+    assert.throws(() => api.setAccessToken('invalid\r\ntoken'), (error) => error.code === 'ACCESS_TOKEN_INVALID')
+
+    api.setAccessToken('current-session-token')
+    wx.request = (options) => options.success({
+      statusCode: 401,
+      data: { error: { code: 'SESSION_INVALID', message: 'session expired' } }
+    })
+    await assert.rejects(api.request('/v1/me/family'),
+      (error) => error.code === 'SESSION_INVALID' && error.statusCode === 401)
+    assert.strictEqual(api.accessToken(), '', 'a confirmed 401 must clear the rejected session token')
+
+    let delayedRequest
+    api.setAccessToken('old-session-token')
+    wx.request = (options) => { delayedRequest = options }
+    const oldRequest = api.request('/v1/me/family').catch((error) => error)
+    api.setAccessToken('new-session-token')
+    delayedRequest.success({ statusCode: 401, data: { error: { code: 'SESSION_INVALID' } } })
+    assert.strictEqual((await oldRequest).code, 'SESSION_INVALID')
+    assert.strictEqual(api.accessToken(), 'new-session-token',
+      'a late 401 from an older request must not erase a newer login')
+
+    let sentHeaders
+    wx.request = (options) => {
+      sentHeaders = options.header
+      options.success({ statusCode: 200, data: { ok: true } })
+      options.success({ statusCode: 401, data: { error: { code: 'SESSION_INVALID' } } })
+      options.fail({ errMsg: 'late duplicate callback' })
+    }
+    assert.deepStrictEqual(await api.request('/v1/me/family', {
+      headers: { authorization: 'Bearer attacker-controlled', 'Idempotency-Key': 'safe-key-1' }
+    }), { ok: true })
+    assert.strictEqual(sentHeaders.Authorization, 'Bearer new-session-token')
+    assert.strictEqual(sentHeaders.authorization, undefined)
+    assert.strictEqual(api.accessToken(), 'new-session-token',
+      'late duplicate callbacks must not mutate an already-settled request')
+
+    wx.request = (options) => options.success(null)
+    await assert.rejects(api.request('/v1/me/family'), (error) => error.code === 'INVALID_RESPONSE')
+    wx.request = (options) => options.success({ statusCode: '200', data: {} })
+    await assert.rejects(api.request('/v1/me/family'), (error) => error.code === 'INVALID_RESPONSE')
+    wx.request = () => { throw new Error('platform request failed synchronously') }
+    await assert.rejects(api.request('/v1/me/family'), (error) => error.code === 'NETWORK_ERROR')
+
+    let requestCalls = 0
+    wx.request = () => { requestCalls += 1 }
+    for (const invalidPath of ['//untrusted.example/v1', '/v1/../admin', '/v1/%2e%2e/admin', '/v1/%0d%0aheader', '/v1\\family', '/v1/family#fragment']) {
+      await assert.rejects(api.request(invalidPath), (error) => error.code === 'REQUEST_PATH_INVALID')
+    }
+    assert.strictEqual(requestCalls, 0, 'invalid paths must be rejected before entering wx.request')
+    await assert.rejects(api.request('/v1/me/family', { headers: { 'X-Test': 'ok\r\ninjected: yes' } }),
+      (error) => error.code === 'REQUEST_HEADERS_INVALID')
+    await assert.rejects(api.request('/v1/me/family', { contentType: 'application/json\r\ninjected: yes' }),
+      (error) => error.code === 'REQUEST_HEADERS_INVALID')
+    await assert.rejects(api.request('/v1/me/family', { method: 'GET\r\nINJECTED' }),
+      (error) => error.code === 'REQUEST_METHOD_INVALID')
+
+    let loopbackRequestUrl = ''
+    runtime.accountEnvironment = () => 'develop'
+    runtime.allowsDevelopmentLoopbackHttp = (value) => value === 'http://127.0.0.1:3000'
+    runtime.apiBaseUrl = () => 'http://127.0.0.1:3000'
+    wx.request = (options) => {
+      loopbackRequestUrl = options.url
+      options.success({ statusCode: 200, data: { ok: true } })
+    }
+    assert.deepStrictEqual(await api.request('/health'), { ok: true })
+    assert.strictEqual(loopbackRequestUrl, 'http://127.0.0.1:3000/health')
+
+    runtime.accountEnvironment = () => 'trial'
+    await assert.rejects(api.request('/health'), (error) => error.code === 'API_BASE_URL_INVALID')
+    runtime.accountEnvironment = () => 'develop'
+    runtime.allowsDevelopmentLoopbackHttp = () => false
+    await assert.rejects(api.request('/health'), (error) => error.code === 'API_BASE_URL_INVALID')
+
+    for (const invalidBase of [
+      'http://api.example.test',
+      'http://1.12.77.180',
+      'http://localhost:3000',
+      'https://user@api.example.test',
+      'https://api.example.test?target=other',
+      'https://api.example.test/%2e%2e/admin',
+      'https://api.example.test:99999'
+    ]) {
+      runtime.apiBaseUrl = () => invalidBase
+      await assert.rejects(api.request('/v1/me/family'), (error) => error.code === 'API_BASE_URL_INVALID')
+    }
+  } finally {
+    runtime.accountEnvironment = originals.accountEnvironment
+    runtime.allowsDevelopmentLoopbackHttp = originals.allowsDevelopmentLoopbackHttp
+    runtime.apiBaseUrl = originals.apiBaseUrl
+    wx.request = originals.request
+    wx.getStorageSync = originals.getStorageSync
+    wx.setStorageSync = originals.setStorageSync
+    wx.removeStorageSync = originals.removeStorageSync
+    api.setAccessToken('')
+  }
+}
+
+async function testPdfDownloadHardening() {
+  const api = require('../services/api')
+  const report = require('../services/report')
+  const runtime = require('../config/runtime')
+  const originals = {
+    apiBaseUrl: runtime.apiBaseUrl,
+    accountInfo: wx.getAccountInfoSync,
+    downloadFile: wx.downloadFile
+  }
+  try {
+    wx.getAccountInfoSync = () => ({ miniProgram: { envVersion: 'release' } })
+    runtime.apiBaseUrl = () => 'https://mini-client.test.invalid'
+    api.setAccessToken('pdf-old-session-token')
+    let delayedDownload
+    wx.downloadFile = (options) => { delayedDownload = options }
+    const delayed = report.getPdf('rpt/old').catch((error) => error)
+    api.setAccessToken('pdf-new-session-token')
+    delayedDownload.success({ statusCode: 401 })
+    assert.strictEqual((await delayed).code, 'PDF_DOWNLOAD_UNAUTHORIZED')
+    assert.strictEqual(api.accessToken(), 'pdf-new-session-token',
+      'a late PDF 401 must not clear a newer authenticated session')
+
+    wx.downloadFile = (options) => options.success({ statusCode: 401 })
+    await assert.rejects(report.getPdf('rpt_current'),
+      (error) => error.code === 'PDF_DOWNLOAD_UNAUTHORIZED' && error.statusCode === 401)
+    assert.strictEqual(api.accessToken(), '', 'the current token must be cleared after an authenticated PDF 401')
+
+    api.setAccessToken('pdf-active-session-token')
+    let downloadUrl = ''
+    wx.downloadFile = (options) => {
+      downloadUrl = options.url
+      options.success({ statusCode: 200, tempFilePath: 'wxfile://tmp/report.pdf' })
+      options.success({ statusCode: 401 })
+      options.fail({ errMsg: 'late duplicate callback' })
+    }
+    assert.strictEqual(await report.getPdf('rpt /1'), 'wxfile://tmp/report.pdf')
+    assert(downloadUrl.endsWith('/v1/reports/rpt%20%2F1/pdf'))
+    assert.strictEqual(api.accessToken(), 'pdf-active-session-token',
+      'a duplicate callback after a successful PDF download must be ignored')
+
+    wx.downloadFile = (options) => options.success(null)
+    await assert.rejects(report.getPdf('rpt_invalid_response'), (error) => error.code === 'PDF_DOWNLOAD_FAILED')
+    wx.downloadFile = () => { throw new Error('downloadFile failed synchronously') }
+    await assert.rejects(report.getPdf('rpt_sync_failure'), (error) => error.code === 'PDF_DOWNLOAD_FAILED')
+    await assert.rejects(report.getPdf('  '), (error) => error.code === 'REPORT_ID_REQUIRED')
+  } finally {
+    runtime.apiBaseUrl = originals.apiBaseUrl
+    wx.getAccountInfoSync = originals.accountInfo
+    if (originals.downloadFile === undefined) delete wx.downloadFile
+    else wx.downloadFile = originals.downloadFile
+    api.setAccessToken('')
+  }
+}
+
+async function testPaymentCacheStorageFailure() {
+  const api = require('../services/api')
+  const auth = require('../services/auth')
+  const payment = require('../services/payment')
+  const originalRequest = api.request
+  const originals = {
+    accountInfo: wx.getAccountInfoSync,
+    getStorageSync: wx.getStorageSync,
+    setStorageSync: wx.setStorageSync,
+    removeStorageSync: wx.removeStorageSync,
+    getApp: global.getApp,
+    Page: global.Page
+  }
+  let definition
+  let currentUser = { id: 'usr_storage_failure', role: 'family_user' }
+  try {
+    wx.getAccountInfoSync = () => ({ miniProgram: { envVersion: 'release' } })
+    wx.getStorageSync = () => { throw new Error('storage read failed') }
+    wx.setStorageSync = () => { throw new Error('storage write failed') }
+    wx.removeStorageSync = () => { throw new Error('storage remove failed') }
+    global.getApp = () => ({
+      getCurrentUser: () => currentUser,
+      setCurrentUser: (value) => { currentUser = value }
+    })
+    api.request = async (path) => {
+      assert.strictEqual(path, '/v1/orders/ord_storage_failure')
+      return {
+        order: {
+          id: 'ord_storage_failure', assessment_id: 'asm_storage_failure', report_id: 'rpt_storage_failure',
+          product_code: 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1', amount_fen: 3990, currency: 'CNY', status: 'PAID'
+        }
+      }
+    }
+    const order = await payment.getOrder('ord_storage_failure')
+    assert.strictEqual(order.status, 'PAID')
+    assert(payment.listCachedOrders().some((item) => item.orderId === 'ord_storage_failure'),
+      'the in-memory order cache must remain usable when wx storage is unavailable')
+
+    global.Page = (value) => { definition = value }
+    delete require.cache[require.resolve('../pages/payment-result/index')]
+    require('../pages/payment-result/index')
+    const instance = {
+      ...definition,
+      data: { ...definition.data, orderId: 'ord_storage_failure', reportId: '', checking: false }
+    }
+    instance.setData = function setData(update) { this.data = { ...this.data, ...update } }
+    await definition.check.call(instance, false)
+    assert.strictEqual(instance.data.error, '')
+    assert.strictEqual(instance.data.order.status, 'PAID',
+      'payment status rendering must not fail merely because cache persistence failed')
+    api.request = async (path) => {
+      assert.strictEqual(path, '/v1/auth/session')
+      return undefined
+    }
+    api.setAccessToken('logout-session-token')
+    await auth.logout()
+    assert.strictEqual(currentUser, null)
+    assert.strictEqual(api.accessToken(), '')
+    assert.deepStrictEqual(payment.listCachedOrders(), [],
+      'logout must clear the volatile order fallback even when every storage operation throws')
+  } finally {
+    api.request = originalRequest
+    wx.getAccountInfoSync = originals.accountInfo
+    wx.getStorageSync = originals.getStorageSync
+    wx.setStorageSync = originals.setStorageSync
+    wx.removeStorageSync = originals.removeStorageSync
+    if (originals.getApp === undefined) delete global.getApp
+    else global.getApp = originals.getApp
     if (originals.Page === undefined) delete global.Page
     else global.Page = originals.Page
   }
@@ -341,8 +876,8 @@ async function testApiAdapter() {
     calls.push({ path, options })
     if (path === '/v1/me/education-compass/state') return { state: { student_id: 'stu_1', next_action: { code: 'START_LEVEL_1' } } }
     if (path === '/v1/education-compass/questionnaires/free_parent_compass_v1.0.0-rc1') return { questionnaire: { version: 'free_parent_compass_v1' } }
-    if (path === '/v1/education-compass/free-parent-assessments') return { assessment: { id: 'asm_free', assessment_kind: 'FREE_PARENT_COMPASS', revision: 0, status: 'DRAFT' } }
-    if (path === '/v1/students/stu_1/education-assessments') return { assessment: { id: 'asm_growth', assessment_kind: 'STUDENT_GROWTH_DISCOVERY', source_assessment_id: 'asm_free', revision: 0, status: 'DRAFT' } }
+    if (path === '/v1/education-compass/free-parent-assessments') return { assessment: { id: 'asm_free', assessment_kind: 'FREE_PARENT_COMPASS', revision: 1, status: 'DRAFT' } }
+    if (path === '/v1/students/stu_1/education-assessments') return { assessment: { id: 'asm_growth', assessment_kind: 'STUDENT_GROWTH_DISCOVERY', source_assessment_id: 'asm_free', revision: 1, status: 'DRAFT' } }
     if (path === '/v1/assessments/asm_growth/questionnaire') return { questionnaire: questionnaireFixture() }
     if (path === '/v1/assessments/asm_growth/draft' && options.method === 'PUT') {
       return { draft: { id: 'asm_growth', revision: 2, status: 'DRAFT', answers: options.data.answers, client_save_token: options.data.clientSaveToken } }
@@ -377,11 +912,15 @@ async function testApiAdapter() {
     assert.strictEqual((await client.getAssessmentQuestionnaire('asm_growth')).schemaDigest, 'sha256:test-bank')
     assert.strictEqual((await client.getDraft('asm_growth')).revision, 1)
     const saveToken = client.createClientSaveToken()
+    await assert.rejects(client.saveDraft('asm_growth', { answers: {}, revision: 0, clientSaveToken: saveToken }),
+      (error) => error.code === 'DRAFT_REVISION_REQUIRED')
     const saved = await client.saveDraft('asm_growth', { answers: { EGD03: 'GAOKAO' }, revision: 1, clientSaveToken: saveToken })
     assert.strictEqual(saved.revision, 2)
     assert.strictEqual(saved.clientSaveToken, saveToken)
     await assert.rejects(client.saveDraft('asm_growth', { answers: {}, revision: 2 }), (error) => error.code === 'CLIENT_SAVE_TOKEN_REQUIRED')
     const submitKey = client.createIdempotencyKey('submit')
+    await assert.rejects(client.submitAssessment('asm_growth', { revision: 0 }, submitKey),
+      (error) => error.code === 'DRAFT_REVISION_REQUIRED')
     assert.strictEqual((await client.submitAssessment('asm_growth', { revision: 2 }, submitKey)).status, 'SUBMITTED')
     assert.strictEqual((await client.getResult('asm_growth')).resultState, 'LOCKED')
     assert.strictEqual((await client.getGrowthProduct()).amountFen, 3990)
@@ -429,9 +968,17 @@ async function testApiAdapter() {
 
 async function run() {
   testQuestionnaireModel()
+  testStudentProfileNormalization()
+  await testStudentEditRejectsInvalidAgeBeforeRequest()
   testReportRegistry()
   testNavigation()
+  testHomeActionCopy()
   await testCompassEntryPageGate()
+  await testQuestionnaireStudentIsolation()
+  await testFamilySnapshotAnalysisEntry()
+  await testApiTransportHardening()
+  await testPdfDownloadHardening()
+  await testPaymentCacheStorageFailure()
   await testApiAdapter()
   console.log('✓ Education Compass V0.5 client: remote adapter, canonical bank, result registry, revision and server nextAction navigation')
 }

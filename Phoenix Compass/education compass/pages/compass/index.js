@@ -72,12 +72,14 @@ Page({
       const level = entry.level
       this.sourceAssessmentId = level === 2 ? (state.sourceAssessmentId || '') : ''
       if (level === 2 && !this.sourceAssessmentId) throw new Error('服务端尚未返回已完成的 Level 1 Assessment ID')
-      const reports = family ? (await familyData.getReports(family.id)).map((report) => ({
-        ...report,
-        dateLabel: report.created_at ? dateLabel(report.created_at) : '日期待同步',
-        accessLabel: report.entitled ? '完整报告' : '结果／预览',
-        title: (report.preview && report.preview.profileSummary) || 'Education Compass 结果'
-      })) : []
+      const reports = family ? (await familyData.getReports(family.id))
+        .filter((report) => report.student_id === student.id)
+        .map((report) => ({
+          ...report,
+          dateLabel: report.created_at ? dateLabel(report.created_at) : '日期待同步',
+          accessLabel: report.entitled ? '完整报告' : '结果／预览',
+          title: (report.preview && report.preview.profileSummary) || 'Education Compass 结果'
+        })) : []
       const product = level === 2 ? await educationCompass.getGrowthProduct() : null
       this.setData({
         state, family, student: { ...student, initial: initial(student.name) }, reports, level,

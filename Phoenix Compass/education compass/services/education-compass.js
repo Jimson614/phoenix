@@ -215,7 +215,7 @@ async function getDraft(assessmentId) {
 async function saveDraft(assessmentId, input) {
   ensureRemote()
   const value = input || {}
-  if (!Number.isInteger(value.revision) || value.revision < 0) {
+  if (!Number.isInteger(value.revision) || value.revision < 1) {
     throw new api.ApiError('草稿 revision 无效', { code: 'DRAFT_REVISION_REQUIRED' })
   }
   const clientSaveToken = String(value.clientSaveToken || '').trim()
@@ -234,7 +234,7 @@ async function saveDraft(assessmentId, input) {
 async function submitAssessment(assessmentId, input, idempotencyKey) {
   ensureRemote()
   const value = input || {}
-  if (!Number.isInteger(value.revision) || value.revision < 0) {
+  if (!Number.isInteger(value.revision) || value.revision < 1) {
     throw new api.ApiError('提交 revision 无效', { code: 'DRAFT_REVISION_REQUIRED' })
   }
   return normalizeAssessment(await api.request(`/v1/assessments/${encodeURIComponent(requireId(assessmentId, 'assessmentId'))}/submit`, {

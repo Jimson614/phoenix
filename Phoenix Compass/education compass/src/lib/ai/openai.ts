@@ -18,6 +18,8 @@ type ResponsesApiPayload = Readonly<{
   }>[];
 }>;
 
+const MAX_PROVIDER_RESPONSE_BYTES = 64 * 1024;
+
 function extractOutputText(payload: ResponsesApiPayload): string | null {
   for (const item of payload.output ?? []) {
     for (const content of item.content ?? []) {
@@ -27,11 +29,68 @@ function extractOutputText(payload: ResponsesApiPayload): string | null {
   }
   return null;
 }
+
+function parseOpenAIBaseUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      !url.hostname
+    ) {
+      return null;
+    }
+
+    url.pathname = url.pathname.replace(/\/+$/, "");
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+
+async function readResponsesPayload(response: Response): Promise<ResponsesApiPayload | null> {
+  const contentLength = response.headers.get("content-length");
+  if (contentLength && /^\d+$/.test(contentLength) && Number(contentLength) > MAX_PROVIDER_RESPONSE_BYTES) {
+    await response.body?.cancel().catch(() => undefined);
+    return null;
+  }
+  if (!response.body) return null;
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  let totalBytes = 0;
+  let text = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_PROVIDER_RESPONSE_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        return null;
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+    const payload = JSON.parse(text) as unknown;
+    return typeof payload === "object" && payload !== null ? (payload as ResponsesApiPayload) : null;
+  } catch {
+    return null;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 async function requestSnapshot(input: AssessmentInput, attempt: number): Promise<GrowthSnapshot | null> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
 
-  const baseUrl = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
+  const baseUrl = parseOpenAIBaseUrl(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1");
+  if (!baseUrl) return null;
   const model = process.env.OPENAI_MODEL || "gpt-5.6-luna";
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 3_200);
@@ -45,6 +104,7 @@ async function requestSnapshot(input: AssessmentInput, attempt: number): Promise
       },
       body: JSON.stringify({
         model,
+        store: false,
         instructions:
           attempt === 0
             ? GROWTH_SNAPSHOT_SYSTEM_PROMPT
@@ -64,7 +124,8 @@ async function requestSnapshot(input: AssessmentInput, attempt: number): Promise
     });
 
     if (!response.ok) return null;
-    const payload = (await response.json()) as ResponsesApiPayload;
+    const payload = await readResponsesPayload(response);
+    if (!payload) return null;
     const outputText = extractOutputText(payload);
     if (!outputText) return null;
     const validation = validateGrowthSnapshot(JSON.parse(outputText));

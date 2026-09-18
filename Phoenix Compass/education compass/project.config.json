@@ -1,9 +1,15 @@
 {
   "description": "Phoenix Family OS Mini Program MVP V0.5.0 local demo and remote backend client",
+  "miniprogramRoot": "dist/development/",
+  "srcMiniprogramRoot": "dist/development/",
   "packOptions": {
     "ignore": [
       {
         "value": "server",
+        "type": "folder"
+      },
+      {
+        "value": "artifacts",
         "type": "folder"
       },
       {
@@ -31,6 +37,10 @@
         "type": "folder"
       },
       {
+        "value": ".next",
+        "type": "folder"
+      },
+      {
         "value": "package.json",
         "type": "file"
       },
@@ -48,6 +58,12 @@
       }
     ],
     "include": []
+  },
+  "watchOptions": {
+    "ignore": [
+      ".next",
+      ".next/**"
+    ]
   },
   "setting": {
     "bundle": false,
@@ -80,7 +96,7 @@
   },
   "compileType": "miniprogram",
   "libVersion": "3.7.12",
-  "appid": "wx0dbe75a3e748ae33",
+  "appid": "wxb2c1f04cec8d020a",
   "projectname": "Phoenix-Family-OS-MVP-V0.5.0",
   "simulatorType": "wechat",
   "condition": {},

@@ -1,5 +1,5 @@
 import { invariant } from '../domain/errors'
-import { buildLockedReport, generateSixModuleReport } from '../domain/report-builder'
+import { assertReportQa, buildLockedReport, generateSixModuleReport } from '../domain/report-builder'
 import { calculateCompleteness, normalizeAnswers, QUESTIONNAIRE_VERSION } from '../domain/questionnaire'
 import { Assessment, Report, ReportPreview, Student } from '../domain/model'
 import { PLACEHOLDER_SOURCE_CATALOG, SourceCatalog } from '../domain/source-catalog'
@@ -139,7 +139,24 @@ export class AssessmentService {
         missingFields: completeness.missingFields, reportId, submittedAt: now, updatedAt: now
       })
       const shell = buildLockedReport(reportId, assessment, student, now, this.sourceCatalog)
+      const expectedShell = structuredClone(shell)
       const report = this.reportGenerator(shell, assessment, student, now)
+      invariant(
+        report.id === expectedShell.id && report.userId === expectedShell.userId && report.familyId === expectedShell.familyId &&
+          report.studentId === expectedShell.studentId && report.assessmentId === expectedShell.assessmentId &&
+          report.createdAt === expectedShell.createdAt && report.dataAsOf === expectedShell.dataAsOf &&
+          report.disclaimer === expectedShell.disclaimer && report.confidence === expectedShell.confidence &&
+          report.sourceCatalogVerified === expectedShell.sourceCatalogVerified &&
+          report.sourceCatalogVersion === expectedShell.sourceCatalogVersion &&
+          report.reportKind === expectedShell.reportKind && report.resultVersion === expectedShell.resultVersion &&
+          report.ruleVersion === expectedShell.ruleVersion && report.disclaimerVersion === expectedShell.disclaimerVersion &&
+          report.disclaimerTextHash === expectedShell.disclaimerTextHash &&
+          JSON.stringify(report.preview) === JSON.stringify(expectedShell.preview) &&
+          JSON.stringify(report.sources) === JSON.stringify(expectedShell.sources) &&
+          JSON.stringify(report.versions) === JSON.stringify(expectedShell.versions),
+        500, 'REPORT_QA_FAILED', '报告身份、来源或版本快照未通过收费前QA'
+      )
+      assertReportQa(report.modules ?? [])
       invariant(report.status === 'LOCKED' && report.deliveryStatus === 'LOCKED' && report.qaPassed && report.modules?.length === 6,
         500, 'REPORT_QA_FAILED', '六模块报告未通过收费前QA')
       await tx.insert('reports', report)

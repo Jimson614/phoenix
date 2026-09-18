@@ -166,7 +166,9 @@ Page({
       })
       return
     }
-    this.pollTimer = setTimeout(() => this.pollRun(), Math.max(250, Math.min(Number(delay || 1000), 5000)))
+    const parsedDelay = Number(delay)
+    const safeDelay = Number.isFinite(parsedDelay) ? Math.max(250, Math.min(parsedDelay, 5000)) : 1000
+    this.pollTimer = setTimeout(() => this.pollRun(), safeDelay)
   },
 
   async pollRun() {

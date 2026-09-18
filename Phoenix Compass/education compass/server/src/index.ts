@@ -116,6 +116,18 @@ async function main(): Promise<void> {
   )
   const server = createAppServer({
     auth, profiles, assessments, orders, reports, education, feishu,
+    // `/health` is a readiness check in the deployed API contract. Keep it
+    // read-only, but verify that the authoritative store can still answer so a
+    // disconnected PostgreSQL backend is not advertised as usable to clients.
+    readiness: async () => {
+      await store.read(async (tx) => {
+        const product = await tx.findById('products', 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1')
+        if (!product || product.code !== 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1' ||
+          product.amountFen !== 3990 || product.currency !== 'CNY' || product.scope !== 'SINGLE_REPORT') {
+          throw new Error('Authoritative product catalog is not ready')
+        }
+      })
+    },
     ...(agent ? { agent } : {})
   })
   let refundSweepRunning = false
@@ -150,7 +162,7 @@ async function main(): Promise<void> {
   const feishuSyncTimer = setInterval(() => { void reconcileFeishu() }, config.feishuSyncIntervalMs)
   feishuSyncTimer.unref()
   void reconcileFeishu()
-  server.listen(config.port, () => {
+  server.listen(config.port, config.listenHost, () => {
     process.stdout.write(`Phoenix Family OS server listening on port ${config.port}\n`)
   })
 

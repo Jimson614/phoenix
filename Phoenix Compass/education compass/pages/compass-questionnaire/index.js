@@ -4,6 +4,7 @@ const assessmentService = require('../../services/assessment')
 const legacyQuestionnaire = require('../../models/questionnaire-schema')
 const educationCompass = require('../../services/education-compass')
 const questionnaireModel = require('../../models/education-compass-questionnaire')
+const educationNavigation = require('../../utils/education-compass-navigation')
 const runtime = require('../../config/runtime')
 const analytics = require('../../services/analytics')
 
@@ -165,7 +166,16 @@ Page({
         educationCompass.getState()
       ])
       const draftAnswers = draft.answers || {}
-      const educationSystem = draftAnswers.EGD03 || draftAnswers.education_system || state.educationSystem || ''
+      const requestedStudentId = options.studentId || ''
+      const assessmentStudentId = educationNavigation.studentIdForAssessment(state, options.assessmentId)
+      if (assessmentStudentId && requestedStudentId && assessmentStudentId !== requestedStudentId) {
+        throw new educationNavigation.NavigationContractError('Assessment 与当前 Student ID 不一致，请从家庭中心重新进入')
+      }
+      const selectedState = educationNavigation.selectStudentState(
+        state, assessmentStudentId || requestedStudentId || state.studentId
+      )
+      const educationSystem = draftAnswers.EGD03 || draftAnswers.education_system || draft.educationSystem ||
+        rawBank.educationSystem || rawBank.education_system || selectedState.educationSystem || ''
       const bank = questionnaireModel.normalizeQuestionBank(rawBank, { educationSystem, assessmentKind: draft.assessmentKind })
       this.remoteBank = bank
       this.remoteAnswers = toIdAnswers(bank, toKeyAnswers(bank, draftAnswers))
@@ -173,7 +183,10 @@ Page({
       this.dirty = false
       const level = draft.assessmentKind === educationCompass.ASSESSMENT_KINDS.STUDENT_GROWTH ? 2 : 1
       this.setData({
-        student: { id: options.studentId || state.studentId || '', name: state.studentDisplayName || '学生本人' },
+        student: {
+          id: assessmentStudentId || requestedStudentId || selectedState.studentId || '',
+          name: selectedState.studentDisplayName || '学生本人'
+        },
         assessmentId: options.assessmentId,
         level,
         uiScreen: uiScreen(level),
@@ -223,7 +236,9 @@ Page({
     const min = Number(presentation.estimatedMinutesMin)
     const max = Number(presentation.estimatedMinutesMax)
     const estimatedMinutesMin = Number.isFinite(min) && min > 0 ? min : defaultMin
-    const estimatedMinutesMax = Number.isFinite(max) && max >= estimatedMinutesMin ? max : defaultMax
+    const estimatedMinutesMax = Number.isFinite(max) && max >= estimatedMinutesMin
+      ? max
+      : Math.max(defaultMax, estimatedMinutesMin)
     const current = steps[stepIndex] || null
     this.setData({
       steps, stepIndex, current, coverage: view.coverage,
@@ -304,6 +319,7 @@ Page({
   },
 
   addMatrixRow({ currentTarget, detail }) {
+    if (this.data.saving || this.data.submitting || this.data.routeReloading) return
     const question = this.remoteBank.questions.find((item) => item.id === currentTarget.dataset.id)
     if (!question || !question.matrix) return
     const indexes = detail.value || []
@@ -323,6 +339,7 @@ Page({
   },
 
   updateMatrixRange({ currentTarget, detail }) {
+    if (this.data.saving || this.data.submitting || this.data.routeReloading) return
     const question = this.remoteBank.questions.find((item) => item.id === currentTarget.dataset.id)
     if (!question || !question.matrix) return
     const rows = Array.isArray(this.remoteAnswers[question.id]) ? this.remoteAnswers[question.id].slice() : []
@@ -335,6 +352,7 @@ Page({
   },
 
   removeMatrixRow({ currentTarget }) {
+    if (this.data.saving || this.data.submitting || this.data.routeReloading) return
     const question = this.remoteBank.questions.find((item) => item.id === currentTarget.dataset.id)
     if (!question) return
     const rows = Array.isArray(this.remoteAnswers[question.id]) ? this.remoteAnswers[question.id].slice() : []
@@ -362,7 +380,7 @@ Page({
 
   async saveDraft(silent) {
     if (!this.data.isV05) return this.saveLegacyDraft(silent)
-    if (!this.dirty && silent) return null
+    if (!this.dirty) return null
     if (this.savePromise) {
       this.saveQueued = true
       await this.savePromise
@@ -412,7 +430,7 @@ Page({
   },
 
   async saveLegacyDraft(silent) {
-    if (!this.dirty && silent) return null
+    if (!this.dirty) return null
     this.setData({ saving: true, savedLabel: '正在保存…' })
     try {
       const result = await assessmentService.saveDraft(this.data.assessmentId, this.data.student.id, this.collectAnswers())

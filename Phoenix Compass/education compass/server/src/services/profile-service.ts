@@ -2,13 +2,17 @@ import { AppError, invariant } from '../domain/errors'
 import {
   ADVISOR_CONTACT_CONSENT_COPY,
   ADVISOR_CONTACT_CONSENT_VERSION,
+  CORE_ASSESSMENT_CONSENT_COPY,
   CORE_ASSESSMENT_CONSENT_VERSION,
+  STUDENT_ASSESSMENT_ASSENT_COPY,
   STUDENT_ASSESSMENT_ASSENT_VERSION,
-  consentCopySha256
+  consentCopySha256,
+  isExactActiveCoreAssessmentConsent,
+  isExactActiveStudentAssessmentAssent
 } from '../domain/education-compass/consent-policy'
 import { buildLevel3ReservationFromFrozenEvidence } from '../domain/education-compass/next-support'
-import { AdvisorRequest, Family, Report, Student, TimelineEvent } from '../domain/model'
-import { GROWTH_DISCOVERY_PRODUCT_CODE } from '../domain/products'
+import { AdvisorRequest, EducationSystem, Family, Report, Student, TimelineEvent } from '../domain/model'
+import { COMPASS_PRODUCT_CODE, GROWTH_DISCOVERY_PRODUCT_CODE } from '../domain/products'
 import { Store, StoreTransaction } from '../store/store'
 import { Clock, IdFactory, iso, randomId, systemClock } from '../utils/runtime'
 
@@ -23,6 +27,40 @@ function text(value: unknown, field: string, max: number, required = true): stri
 function optionalText(value: unknown, field: string, max: number): string | null {
   if (value === undefined || value === null || value === '') return null
   return text(value, field, max, false)
+}
+
+const EDUCATION_SYSTEM_BY_INPUT: Readonly<Record<string, EducationSystem>> = Object.freeze({
+  GAOKAO: 'GAOKAO',
+  DSE: 'DSE',
+  IGCSE: 'IGCSE',
+  A_LEVEL: 'A_LEVEL',
+  AP_US: 'AP_US',
+  IB: 'IB',
+  OTHER: 'OTHER',
+  '内地课程': 'GAOKAO',
+  '内地课程／高考': 'GAOKAO',
+  '内地课程/高考': 'GAOKAO',
+  '高考': 'GAOKAO',
+  'A-Level': 'A_LEVEL',
+  'A-LEVEL': 'A_LEVEL',
+  'A LEVEL': 'A_LEVEL',
+  AP: 'AP_US',
+  'AP / 美式课程': 'AP_US',
+  'AP／美式课程': 'AP_US',
+  'AP／美国课程': 'AP_US',
+  '美式课程': 'AP_US',
+  '其他': 'OTHER',
+  '其他体系': 'OTHER'
+})
+
+function normalizeEducationSystem(value: unknown): EducationSystem | null {
+  if (value === undefined || value === null) return null
+  invariant(typeof value === 'string', 400, 'INVALID_PROFILE', 'educationSystem 格式无效')
+  const input = value.trim()
+  if (!input) return null
+  const normalized = EDUCATION_SYSTEM_BY_INPUT[input] ?? EDUCATION_SYSTEM_BY_INPUT[input.toUpperCase()]
+  invariant(normalized, 400, 'INVALID_PROFILE', 'educationSystem 格式无效')
+  return normalized
 }
 
 type AdvisorRequestIntent = 'GENERAL_ADVISOR' | 'DEEP_ASSESSMENT'
@@ -53,7 +91,7 @@ export interface FamilyInput {
 
 export interface StudentInput {
   name?: string | null
-  age?: number | null
+  age?: number | string | null
   gender?: string | null
   school?: string | null
   educationSystem?: string | null
@@ -110,7 +148,8 @@ export class ProfileService {
     return this.store.read(async (tx) => {
       const family = await tx.findOne('families', { userId })
       if (!family) return []
-      return tx.findMany('students', { familyId: family.id })
+      return (await tx.findMany('students', { familyId: family.id }))
+        .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id))
     })
   }
 
@@ -165,11 +204,44 @@ export class ProfileService {
   }
 
   async listReports(userId: string): Promise<Array<Record<string, unknown>>> {
-    return this.store.read(async (tx) => {
+    return this.store.transaction(async (tx) => {
       const reports = await tx.findMany('reports', { userId })
       const entitlements = await tx.findMany('entitlements', { userId, status: 'ACTIVE' })
       const entitlementByReport = new Map(entitlements.map((item) => [item.reportId, item]))
-      return reports.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((report) => ({
+      const visible: Report[] = []
+      for (const report of reports) {
+        if (report.reportKind !== 'FAMILY_EDUCATION_SNAPSHOT' && report.reportKind !== 'STUDENT_GROWTH_DISCOVERY') {
+          visible.push(report)
+          continue
+        }
+        const assessment = await tx.findById('assessments', report.assessmentId, { forUpdate: true })
+        if (!assessment || assessment.userId !== userId || assessment.reportId !== report.id) continue
+        const subject = { userId, familyId: assessment.familyId, studentId: assessment.studentId }
+        const core = assessment.coreConsentGrantId
+          ? await tx.findById('consentGrants', assessment.coreConsentGrantId, { forUpdate: true })
+          : null
+        if (!isExactActiveCoreAssessmentConsent(core, subject)) continue
+        if (report.reportKind === 'STUDENT_GROWTH_DISCOVERY') {
+          const assent = assessment.studentAssentGrantId
+            ? await tx.findById('consentGrants', assessment.studentAssentGrantId, { forUpdate: true })
+            : null
+          if (!isExactActiveStudentAssessmentAssent(assent, subject)) continue
+        }
+        visible.push(report)
+      }
+      return visible.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((report) => ({
+        ...(() => {
+          const candidate = entitlementByReport.get(report.id)
+          const entitlement = report.reportKind === 'STUDENT_GROWTH_DISCOVERY'
+            ? (candidate?.productCode === GROWTH_DISCOVERY_PRODUCT_CODE ? candidate : undefined)
+            : report.reportKind === 'FAMILY_EDUCATION_SNAPSHOT'
+              ? undefined
+              : (candidate?.productCode === COMPASS_PRODUCT_CODE ? candidate : undefined)
+          return {
+            productCode: entitlement?.productCode ?? null,
+            entitled: Boolean(entitlement)
+          }
+        })(),
         id: report.id,
         studentId: report.studentId,
         assessmentId: report.assessmentId,
@@ -179,9 +251,7 @@ export class ProfileService {
         resultVersion: report.resultVersion,
         deliveryStatus: report.deliveryStatus,
         qaPassed: report.qaPassed,
-        productCode: entitlementByReport.get(report.id)?.productCode ?? null,
-        createdAt: report.createdAt,
-        entitled: entitlementByReport.has(report.id)
+        createdAt: report.createdAt
       }))
     })
   }
@@ -263,15 +333,21 @@ export class ProfileService {
           ? await tx.findById('consentGrants', assessment.coreConsentGrantId, { forUpdate: true })
           : null
         invariant(core?.userId === userId && core.familyId === family.id && core.studentId === assessment.studentId &&
-          core.scope === 'CORE_ASSESSMENT' && core.copyVersion === CORE_ASSESSMENT_CONSENT_VERSION &&
+          core.subjectType === 'STUDENT' && core.subjectId === assessment.studentId &&
+          core.scope === 'CORE_ASSESSMENT' && core.subjectRole === 'PARENT_GUARDIAN' &&
+          core.copyVersion === CORE_ASSESSMENT_CONSENT_VERSION &&
+          core.copyTextHash === consentCopySha256(CORE_ASSESSMENT_CONSENT_COPY) && core.locale === 'zh-CN' &&
           core.guardianAuthorityStatus === 'CONFIRMED' && !core.withdrawnAt,
         403, 'CORE_ASSESSMENT_CONSENT_REQUIRED', '核心测评同意缺失或已撤回')
         const assent = assessment.studentAssentGrantId
           ? await tx.findById('consentGrants', assessment.studentAssentGrantId, { forUpdate: true })
           : null
         invariant(assent?.userId === userId && assent.familyId === family.id && assent.studentId === assessment.studentId &&
+          assent.subjectType === 'STUDENT' && assent.subjectId === assessment.studentId &&
           assent.scope === 'STUDENT_ASSESSMENT_ASSENT' && assent.copyVersion === STUDENT_ASSESSMENT_ASSENT_VERSION &&
-          assent.subjectRole === 'STUDENT' && !assent.withdrawnAt,
+          assent.subjectRole === 'STUDENT' &&
+          assent.copyTextHash === consentCopySha256(STUDENT_ASSESSMENT_ASSENT_COPY) && assent.locale === 'zh-CN' &&
+          assent.guardianAuthorityStatus === 'NOT_APPLICABLE' && !assent.withdrawnAt,
         403, 'STUDENT_ASSESSMENT_ASSENT_REQUIRED', '学生本人同意缺失或已撤回')
         const source = assessment.sourceAssessmentId
           ? await tx.findById('assessments', assessment.sourceAssessmentId)
@@ -359,7 +435,10 @@ export class ProfileService {
       if (!input.enabled) {
         if (active) await tx.update('consentGrants', active.id, { withdrawnAt: now, updatedAt: now })
         const pending = await tx.findMany('advisorRequests', { userId, familyId: family.id, status: 'PENDING' })
-        const affected = pending.filter((request) => studentId ? request.studentId === studentId : true)
+        // Family and student consent are separate scopes. Withdrawing the
+        // family-level grant must not cancel requests covered by a student's
+        // still-active grant (and vice versa).
+        const affected = pending.filter((request) => request.studentId === studentId)
         for (const request of affected) {
           await tx.update('advisorRequests', request.id, { status: 'CANCELLED_BY_CONSENT_WITHDRAWAL', updatedAt: now })
           const links = await tx.findMany('integrationLinks', {
@@ -396,14 +475,30 @@ export class ProfileService {
   }
 
   private normalizeStudent(input: StudentInput): Omit<Student, 'id' | 'familyId' | 'studentVersion' | 'createdAt' | 'updatedAt'> {
-    const age = input.age === undefined || input.age === null ? null : Number(input.age)
+    const rawAge = input.age
+    invariant(
+      rawAge === undefined || rawAge === null || typeof rawAge === 'number' || typeof rawAge === 'string',
+      400,
+      'INVALID_PROFILE',
+      'age 格式无效'
+    )
+    const normalizedAge = typeof rawAge === 'string' ? rawAge.trim() : rawAge
+    invariant(
+      typeof normalizedAge !== 'string' || normalizedAge === '' || /^\d+$/.test(normalizedAge),
+      400,
+      'INVALID_PROFILE',
+      'age 格式无效'
+    )
+    const age = normalizedAge === undefined || normalizedAge === null || normalizedAge === ''
+      ? null
+      : Number(normalizedAge)
     invariant(age === null || (Number.isInteger(age) && age >= 3 && age <= 100), 400, 'INVALID_PROFILE', 'age 格式无效')
     return {
       name: optionalText(input.name, 'name', 80),
       age,
       gender: optionalText(input.gender, 'gender', 30),
       school: optionalText(input.school, 'school', 160),
-      educationSystem: optionalText(input.educationSystem, 'educationSystem', 80),
+      educationSystem: normalizeEducationSystem(input.educationSystem),
       grade: optionalText(input.grade, 'grade', 80),
       interest: optionalText(input.interest, 'interest', 500),
       goal: optionalText(input.goal, 'goal', 500)

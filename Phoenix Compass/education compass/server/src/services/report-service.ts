@@ -1,7 +1,10 @@
 import { invariant } from '../domain/errors'
 import {
+  CORE_ASSESSMENT_CONSENT_COPY,
   CORE_ASSESSMENT_CONSENT_VERSION,
-  STUDENT_ASSESSMENT_ASSENT_VERSION
+  STUDENT_ASSESSMENT_ASSENT_COPY,
+  STUDENT_ASSESSMENT_ASSENT_VERSION,
+  consentCopySha256
 } from '../domain/education-compass/consent-policy'
 import { buildNextSupportCapabilityV1, NextSupportCapabilityV1 } from '../domain/education-compass/next-support'
 import { Assessment, Feedback, Report } from '../domain/model'
@@ -177,18 +180,23 @@ export class ReportService {
       ? await tx.findById('consentGrants', assessment.coreConsentGrantId, { forUpdate: true })
       : null
     invariant(core?.userId === userId && core.familyId === assessment.familyId &&
-      core.studentId === assessment.studentId && core.scope === 'CORE_ASSESSMENT' &&
+      core.studentId === assessment.studentId && core.subjectType === 'STUDENT' &&
+      core.subjectId === assessment.studentId && core.scope === 'CORE_ASSESSMENT' &&
+      core.subjectRole === 'PARENT_GUARDIAN' &&
       core.copyVersion === CORE_ASSESSMENT_CONSENT_VERSION &&
-      core.guardianAuthorityStatus === 'CONFIRMED' && !core.withdrawnAt,
+      core.copyTextHash === consentCopySha256(CORE_ASSESSMENT_CONSENT_COPY) &&
+      core.locale === 'zh-CN' && core.guardianAuthorityStatus === 'CONFIRMED' && !core.withdrawnAt,
       403, 'CORE_ASSESSMENT_CONSENT_REQUIRED', '核心测评同意缺失或已撤回')
     if (report.reportKind !== 'STUDENT_GROWTH_DISCOVERY') return assessment
     const assent = assessment.studentAssentGrantId
       ? await tx.findById('consentGrants', assessment.studentAssentGrantId, { forUpdate: true })
       : null
     invariant(assent?.userId === userId && assent.familyId === assessment.familyId &&
-      assent.studentId === assessment.studentId && assent.scope === 'STUDENT_ASSESSMENT_ASSENT' &&
+      assent.studentId === assessment.studentId && assent.subjectType === 'STUDENT' &&
+      assent.subjectId === assessment.studentId && assent.scope === 'STUDENT_ASSESSMENT_ASSENT' &&
       assent.copyVersion === STUDENT_ASSESSMENT_ASSENT_VERSION && assent.subjectRole === 'STUDENT' &&
-      !assent.withdrawnAt,
+      assent.copyTextHash === consentCopySha256(STUDENT_ASSESSMENT_ASSENT_COPY) &&
+      assent.locale === 'zh-CN' && assent.guardianAuthorityStatus === 'NOT_APPLICABLE' && !assent.withdrawnAt,
       403, 'STUDENT_ASSESSMENT_ASSENT_REQUIRED', '学生本人同意缺失或已撤回')
     return assessment
   }

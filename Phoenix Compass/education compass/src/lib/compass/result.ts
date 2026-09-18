@@ -173,9 +173,19 @@ export function createSafeFallback(input: AssessmentInput): GrowthSnapshot {
 export function normalizeGrowthSnapshot(result: GrowthSnapshot): GrowthSnapshot {
   return {
     result_version: RESULT_VERSION,
-    growth_type: result.growth_type,
-    strength_signals: result.strength_signals,
-    possible_directions: result.possible_directions,
+    growth_type: {
+      title: result.growth_type.title,
+      summary: result.growth_type.summary,
+    },
+    strength_signals: result.strength_signals.map((signal) => ({
+      title: signal.title,
+      evidence: signal.evidence,
+    })),
+    possible_directions: result.possible_directions.map((direction) => ({
+      title: direction.title,
+      reason: direction.reason,
+      micro_action: direction.micro_action,
+    })),
     today_action: result.today_action,
     disclaimer: RESULT_DISCLAIMER,
   };

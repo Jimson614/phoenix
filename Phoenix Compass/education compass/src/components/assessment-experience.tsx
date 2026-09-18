@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BrandLogo } from "@/components/brand-logo";
 import { durationBucket, trackCompassEvent } from "@/lib/analytics";
@@ -25,11 +25,24 @@ import {
   type GrowthSnapshotResponse,
   type Interest,
 } from "@/lib/compass/types";
-import { validateAssessmentInput, validateGrowthSnapshot } from "@/lib/compass/validation";
+import {
+  normalizeAssessmentDraft,
+  validateAssessmentInput,
+  validateGrowthSnapshotResponse,
+} from "@/lib/compass/validation";
+import { readSessionItem, removeSessionItems, writeSessionItem } from "@/lib/session-storage";
 
 const DRAFT_KEY = "pn:free-compass:draft";
 const RESULT_KEY = "pn:free-compass:result";
 const STARTED_AT_KEY = "pn:free-compass:started-at";
+const FEEDBACK_KEY = "pn:free-compass:feedback-submitted";
+const GENERATION_TIMEOUT_MS = 8_000;
+const NEW_RESULT_RESET_KEYS = [
+  DRAFT_KEY,
+  FEEDBACK_KEY,
+  "pn:event:result-viewed",
+  "pn:event:feedback-submitted",
+] as const;
 
 type StoredDraft = Readonly<{
   step: number;
@@ -76,6 +89,7 @@ export function AssessmentExperience() {
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [messageIndex, setMessageIndex] = useState(0);
+  const submittingRef = useRef(false);
 
   const progress = ((step + 1) / stepTitles.length) * 100;
   const canContinue = isStepComplete(step, draft);
@@ -83,31 +97,38 @@ export function AssessmentExperience() {
 
   useEffect(() => {
     queueMicrotask(() => {
-      try {
-        const stored = sessionStorage.getItem(DRAFT_KEY);
-        if (stored) {
+      const stored = readSessionItem(DRAFT_KEY);
+      let restoredDraft: AssessmentDraft = {};
+      let restoredStep = 0;
+
+      if (stored) {
+        try {
           const parsed = JSON.parse(stored) as StoredDraft;
           if (parsed && typeof parsed === "object") {
-            setStep(Math.min(4, Math.max(0, Number(parsed.step) || 0)));
-            setDraft(parsed.answers ?? {});
+            restoredDraft = normalizeAssessmentDraft(parsed.answers);
+            const requestedStep = Math.min(4, Math.max(0, Number(parsed.step) || 0));
+            const firstIncompleteStep = stepTitles.findIndex((_, index) => !isStepComplete(index, restoredDraft));
+            restoredStep = Math.min(requestedStep, firstIncompleteStep === -1 ? 4 : firstIncompleteStep);
           }
+        } catch {
+          removeSessionItems([DRAFT_KEY]);
         }
-        const storedStart = Number(sessionStorage.getItem(STARTED_AT_KEY));
-        const nextStart = Number.isFinite(storedStart) && storedStart > 0 ? storedStart : Date.now();
-        sessionStorage.setItem(STARTED_AT_KEY, String(nextStart));
-        setStartedAt(nextStart);
-      } catch {
-        setDraft({});
-        setStep(0);
-      } finally {
-        setHydrated(true);
       }
+
+      const storedStart = Number(readSessionItem(STARTED_AT_KEY));
+      const hasValidStart = Number.isFinite(storedStart) && storedStart > 0;
+      const nextStart = hasValidStart ? storedStart : Date.now();
+      writeSessionItem(STARTED_AT_KEY, String(nextStart));
+      setDraft(restoredDraft);
+      setStep(restoredStep);
+      setStartedAt(nextStart);
+      setHydrated(true);
     });
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
-    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ step, answers: draft } satisfies StoredDraft));
+    writeSessionItem(DRAFT_KEY, JSON.stringify({ step, answers: draft } satisfies StoredDraft));
   }, [draft, hydrated, step]);
 
   useEffect(() => {
@@ -166,7 +187,7 @@ export function AssessmentExperience() {
   }
 
   async function submitAssessment(nextDraft: AssessmentDraft) {
-    if (generating) return;
+    if (submittingRef.current) return;
     const candidate: AssessmentInput = {
       assessment_version: ASSESSMENT_VERSION,
       age_band: nextDraft.age_band!,
@@ -184,6 +205,7 @@ export function AssessmentExperience() {
       return;
     }
 
+    submittingRef.current = true;
     setGenerating(true);
     setError(null);
     trackCompassEvent(
@@ -193,24 +215,33 @@ export function AssessmentExperience() {
     );
 
     let envelope: GrowthSnapshotResponse;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
     try {
       const response = await fetch("/api/growth-snapshot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(inputValidation.data),
+        cache: "no-store",
+        signal: controller.signal,
       });
       if (!response.ok) throw new Error("generation_failed");
-      const payload = (await response.json()) as GrowthSnapshotResponse;
-      const resultValidation = validateGrowthSnapshot(payload.result);
-      if (!resultValidation.success || (payload.generation_status !== "ai" && payload.generation_status !== "fallback")) {
-        throw new Error("invalid_result");
-      }
-      envelope = { result: resultValidation.data, generation_status: payload.generation_status };
+      const responseValidation = validateGrowthSnapshotResponse(await response.json());
+      if (!responseValidation.success) throw new Error("invalid_result");
+      envelope = responseValidation.data;
     } catch {
       envelope = { result: createSafeFallback(inputValidation.data), generation_status: "fallback" };
+    } finally {
+      window.clearTimeout(timeout);
     }
 
-    sessionStorage.setItem(RESULT_KEY, JSON.stringify(envelope));
+    if (!writeSessionItem(RESULT_KEY, JSON.stringify(envelope))) {
+      submittingRef.current = false;
+      setGenerating(false);
+      setError("浏览器无法保存本次结果，请允许会话存储后重试。");
+      return;
+    }
+    removeSessionItems(NEW_RESULT_RESET_KEYS);
     router.push("/result");
   }
 

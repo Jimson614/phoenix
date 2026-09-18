@@ -21,6 +21,8 @@ import {
 
 const API_ORIGIN = 'https://api.mch.weixin.qq.com'
 const SIGNATURE_TYPE = 'WECHATPAY2-SHA256-RSA2048'
+const TRANSACTION_STATES = new Set(['SUCCESS', 'REFUND', 'NOTPAY', 'CLOSED', 'REVOKED', 'USERPAYING', 'PAYERROR'])
+const REFUND_STATES = new Set(['SUCCESS', 'CLOSED', 'PROCESSING', 'ABNORMAL'])
 
 export interface WechatPayConfig {
   appId: string
@@ -112,6 +114,8 @@ export class WechatPayProvider implements PaymentProvider {
     invariant(this.wechatPayPublicKey.asymmetricKeyType === 'rsa', 500, 'WECHATPAY_PUBLIC_KEY_INVALID', '微信支付公钥必须是 RSA')
     const modulusLength = this.merchantPrivateKey.asymmetricKeyDetails?.modulusLength ?? 0
     invariant(modulusLength >= 2048, 500, 'WECHATPAY_PRIVATE_KEY_INVALID', '商户 RSA 私钥至少需要2048位')
+    const publicModulusLength = this.wechatPayPublicKey.asymmetricKeyDetails?.modulusLength ?? 0
+    invariant(publicModulusLength >= 2048, 500, 'WECHATPAY_PUBLIC_KEY_INVALID', '微信支付 RSA 公钥至少需要2048位')
     this.apiV3Key = config.apiV3Key
   }
 
@@ -166,7 +170,8 @@ export class WechatPayProvider implements PaymentProvider {
     const payload = await this.requestJson<{ refund_id?: string; status?: RefundResult['refundStatus'] }>(
       'POST', '/v3/refund/domestic/refunds', body
     )
-    invariant(payload.refund_id && payload.status, 502, 'WECHATPAY_REFUND_INVALID', '微信退款响应无效')
+    invariant(payload.refund_id && payload.status && REFUND_STATES.has(payload.status),
+      502, 'WECHATPAY_REFUND_INVALID', '微信退款响应无效')
     return { providerRefundId: payload.refund_id, status: payload.status }
   }
 
@@ -174,18 +179,25 @@ export class WechatPayProvider implements PaymentProvider {
     const path = `/v3/refund/domestic/refunds/${encodeURIComponent(outRefundNo)}`
     const payload = await this.requestJson<Record<string, unknown>>('GET', path)
     const amount = payload.amount as Record<string, unknown> | undefined
-    return {
+    const refundStatus = String(payload.status ?? '')
+    invariant(REFUND_STATES.has(refundStatus), 502, 'WECHATPAY_REFUND_INVALID', '微信退款状态无效')
+    const result: RefundResult = {
       eventId: `refund-query:${String(payload.refund_id ?? outRefundNo)}:${String(payload.status ?? '')}`,
+      // The domestic refund query response does not include mchid. The
+      // authenticated, response-signature-verified request is scoped to this
+      // provider instance, so its configured merchant ID is authoritative.
       mchId: String(payload.mchid ?? this.mchId),
       outTradeNo: String(payload.out_trade_no ?? ''),
       outRefundNo: String(payload.out_refund_no ?? ''),
       providerRefundId: String(payload.refund_id ?? ''),
-      refundStatus: String(payload.status ?? '') as RefundResult['refundStatus'],
+      refundStatus: refundStatus as RefundResult['refundStatus'],
       refundFen: Number(amount?.refund ?? NaN),
       totalFen: Number(amount?.total ?? NaN),
       currency: String(amount?.currency ?? ''),
       ...(payload.success_time ? { successTime: String(payload.success_time) } : {})
     }
+    this.validateRefundShape(result)
+    return result
   }
 
   async parseTransactionNotification(headers: HeaderBag, rawBody: Buffer): Promise<TransactionResult> {
@@ -193,7 +205,7 @@ export class WechatPayProvider implements PaymentProvider {
     const envelope = this.parseEnvelope(rawBody)
     invariant(envelope.event_type === 'TRANSACTION.SUCCESS', 400, 'PAYMENT_EVENT_TYPE_INVALID', '仅接受支付成功通知')
     invariant(envelope.resource.original_type === 'transaction', 400, 'PAYMENT_RESOURCE_TYPE_INVALID', '支付通知资源类型无效')
-    const plain = JSON.parse(decryptWechatResource(envelope.resource, this.apiV3Key).toString('utf8')) as Record<string, unknown>
+    const plain = this.parseDecryptedObject(envelope.resource, 'PAYMENT_NOTIFICATION_INVALID')
     return this.normalizeTransaction(envelope.id, plain)
   }
 
@@ -202,20 +214,24 @@ export class WechatPayProvider implements PaymentProvider {
     const envelope = this.parseEnvelope(rawBody)
     invariant(envelope.event_type.startsWith('REFUND.'), 400, 'REFUND_EVENT_TYPE_INVALID', '退款通知事件类型无效')
     invariant(envelope.resource.original_type === 'refund', 400, 'PAYMENT_RESOURCE_TYPE_INVALID', '退款通知资源类型无效')
-    const plain = JSON.parse(decryptWechatResource(envelope.resource, this.apiV3Key).toString('utf8')) as Record<string, unknown>
+    const plain = this.parseDecryptedObject(envelope.resource, 'REFUND_NOTIFICATION_INVALID')
     const amount = plain.amount as Record<string, unknown> | undefined
-    return {
+    const refundStatus = String(plain.refund_status ?? '')
+    invariant(REFUND_STATES.has(refundStatus), 400, 'REFUND_STATUS_INVALID', '退款通知状态无效')
+    const result: RefundResult = {
       eventId: envelope.id,
       mchId: String(plain.mchid ?? ''),
       outTradeNo: String(plain.out_trade_no ?? ''),
       outRefundNo: String(plain.out_refund_no ?? ''),
       providerRefundId: String(plain.refund_id ?? ''),
-      refundStatus: String(plain.refund_status ?? '') as RefundResult['refundStatus'],
+      refundStatus: refundStatus as RefundResult['refundStatus'],
       refundFen: Number(amount?.refund ?? NaN),
       totalFen: Number(amount?.total ?? NaN),
       currency: String(amount?.currency ?? ''),
       ...(plain.success_time ? { successTime: String(plain.success_time) } : {})
     }
+    this.validateRefundShape(result, 400)
+    return result
   }
 
   signApiRequest(method: string, pathWithQuery: string, timestamp: string, nonce: string, rawBody: string): string {
@@ -279,10 +295,16 @@ export class WechatPayProvider implements PaymentProvider {
   }
 
   private parseEnvelope(rawBody: Buffer): NotificationEnvelope {
-    let envelope: NotificationEnvelope
-    try { envelope = JSON.parse(rawBody.toString('utf8')) as NotificationEnvelope } catch { throw new AppError(400, 'PAYMENT_NOTIFICATION_INVALID', '支付通知不是有效 JSON') }
-    invariant(envelope.id && envelope.resource_type === 'encrypt-resource' && envelope.resource, 400, 'PAYMENT_NOTIFICATION_INVALID', '支付通知结构无效')
-    return envelope
+    let parsed: unknown
+    try { parsed = JSON.parse(rawBody.toString('utf8')) as unknown } catch { throw new AppError(400, 'PAYMENT_NOTIFICATION_INVALID', '支付通知不是有效 JSON') }
+    invariant(parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed),
+      400, 'PAYMENT_NOTIFICATION_INVALID', '支付通知结构无效')
+    const envelope = parsed as Partial<NotificationEnvelope>
+    invariant(typeof envelope.id === 'string' && envelope.id.length > 0 && envelope.id.length <= 128 &&
+      typeof envelope.event_type === 'string' && envelope.resource_type === 'encrypt-resource' &&
+      envelope.resource !== null && typeof envelope.resource === 'object' && !Array.isArray(envelope.resource),
+      400, 'PAYMENT_NOTIFICATION_INVALID', '支付通知结构无效')
+    return envelope as NotificationEnvelope
   }
 
   private normalizeTransaction(eventId: string, payload: Record<string, unknown>): TransactionResult {
@@ -290,6 +312,8 @@ export class WechatPayProvider implements PaymentProvider {
     const payer = payload.payer as Record<string, unknown> | undefined
     const hasOwn = (value: Record<string, unknown> | undefined, key: string): boolean =>
       Boolean(value && Object.prototype.hasOwnProperty.call(value, key))
+    const tradeState = String(payload.trade_state ?? '')
+    invariant(TRANSACTION_STATES.has(tradeState), 502, 'WECHATPAY_TRANSACTION_INVALID', '微信支付交易状态无效')
     return {
       eventId,
       appId: String(payload.appid ?? ''),
@@ -297,11 +321,30 @@ export class WechatPayProvider implements PaymentProvider {
       outTradeNo: String(payload.out_trade_no ?? ''),
       transactionId: String(payload.transaction_id ?? ''),
       tradeType: String(payload.trade_type ?? ''),
-      tradeState: String(payload.trade_state ?? '') as TransactionResult['tradeState'],
+      tradeState: tradeState as TransactionResult['tradeState'],
       ...(hasOwn(amount, 'total') ? { totalFen: Number(amount?.total) } : {}),
       ...(hasOwn(amount, 'currency') ? { currency: String(amount?.currency) } : {}),
       ...(hasOwn(payer, 'openid') ? { payerOpenid: String(payer?.openid) } : {}),
       ...(payload.success_time ? { successTime: String(payload.success_time) } : {})
     }
+  }
+
+  private parseDecryptedObject(resource: EncryptedResource, code: string): Record<string, unknown> {
+    try {
+      const parsed = JSON.parse(decryptWechatResource(resource, this.apiV3Key).toString('utf8')) as unknown
+      invariant(parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed),
+        400, code, '支付通知解密内容无效')
+      return parsed as Record<string, unknown>
+    } catch (error) {
+      if (error instanceof AppError) throw error
+      throw new AppError(400, code, '支付通知解密内容无效')
+    }
+  }
+
+  private validateRefundShape(result: RefundResult, status = 502): void {
+    invariant(result.mchId.length > 0 && result.outTradeNo.length > 0 && result.outRefundNo.length > 0 &&
+      result.providerRefundId.length > 0 && Number.isInteger(result.refundFen) && result.refundFen > 0 &&
+      Number.isInteger(result.totalFen) && result.totalFen > 0 && result.currency.length > 0,
+      status, status === 400 ? 'REFUND_NOTIFICATION_INVALID' : 'WECHATPAY_REFUND_INVALID', '微信退款响应结构无效')
   }
 }

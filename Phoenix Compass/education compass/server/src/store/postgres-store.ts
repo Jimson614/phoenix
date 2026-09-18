@@ -193,8 +193,19 @@ export class PostgresStore implements Store {
   constructor(connection: string | PoolConfig | Pool) {
     this.pool = connection instanceof Pool ? connection : new Pool(
       typeof connection === 'string'
-        ? { connectionString: connection, max: 10, statement_timeout: 10_000, application_name: 'phoenix-family-os' }
-        : connection
+        ? {
+            connectionString: connection,
+            max: 10,
+            connectionTimeoutMillis: 10_000,
+            idleTimeoutMillis: 30_000,
+            statement_timeout: 10_000,
+            application_name: 'phoenix-family-os'
+          }
+        : {
+            connectionTimeoutMillis: 10_000,
+            idleTimeoutMillis: 30_000,
+            ...connection
+          }
     )
   }
 

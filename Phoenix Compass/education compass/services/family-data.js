@@ -4,12 +4,69 @@ const { repository } = require('./demo-runtime')
 
 const PROFILE_MAP_KEY = 'PFS_REMOTE_PROFILE_MAP_V1'
 
-function profileMap() { return wx.getStorageSync(PROFILE_MAP_KEY) || { families: {}, students: {} } }
+const EDUCATION_SYSTEM_OPTIONS = Object.freeze([
+  Object.freeze({ label: '请选择', value: '' }),
+  Object.freeze({ label: '内地课程', value: 'GAOKAO' }),
+  Object.freeze({ label: 'DSE', value: 'DSE' }),
+  Object.freeze({ label: 'IGCSE', value: 'IGCSE' }),
+  Object.freeze({ label: 'IB', value: 'IB' }),
+  Object.freeze({ label: 'A-Level', value: 'A_LEVEL' }),
+  Object.freeze({ label: 'AP / 美式课程', value: 'AP_US' }),
+  Object.freeze({ label: '其他', value: 'OTHER' })
+])
+
+const EDUCATION_SYSTEM_ALIASES = Object.freeze({
+  GAOKAO: 'GAOKAO',
+  '内地课程': 'GAOKAO',
+  '内地课程／高考': 'GAOKAO',
+  '内地课程/高考': 'GAOKAO',
+  '高考': 'GAOKAO',
+  DSE: 'DSE',
+  IGCSE: 'IGCSE',
+  IB: 'IB',
+  A_LEVEL: 'A_LEVEL',
+  'A-LEVEL': 'A_LEVEL',
+  'A LEVEL': 'A_LEVEL',
+  AP_US: 'AP_US',
+  AP: 'AP_US',
+  'AP / 美式课程': 'AP_US',
+  'AP／美式课程': 'AP_US',
+  '美式课程': 'AP_US',
+  OTHER: 'OTHER',
+  '其他': 'OTHER',
+  '其他体系': 'OTHER'
+})
+
+const STUDENT_TEXT_LIMITS = Object.freeze({
+  name: 80,
+  gender: 30,
+  school: 160,
+  educationSystem: 80,
+  grade: 80,
+  interest: 500,
+  goal: 500
+})
+
+function record(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+}
+
+function idMap(value) {
+  return Object.keys(record(value)).reduce((result, key) => {
+    const id = record(value)[key]
+    if (typeof id === 'string' && id.trim()) result[key] = id
+    return result
+  }, {})
+}
+
+function profileMap() {
+  const stored = record(wx.getStorageSync(PROFILE_MAP_KEY))
+  return { families: idMap(stored.families), students: idMap(stored.students) }
+}
 function rememberMapping(type, localId, remoteId) {
   if (!localId || !remoteId || localId === remoteId) return
   const map = profileMap()
   const bucket = type === 'family' ? 'families' : 'students'
-  map[bucket] = map[bucket] || {}
   map[bucket][localId] = remoteId
   wx.setStorageSync(PROFILE_MAP_KEY, map)
 }
@@ -48,11 +105,75 @@ function familyPayload(form) {
   }
 }
 
-function studentPayload(form) {
-  return {
-    name: form.name || '', age: form.age || '', gender: form.gender || '', school: form.school || '',
-    educationSystem: form.education_system || '', grade: form.grade || '', interest: form.interest || '', goal: form.goal || ''
+function normalizedStudentText(value, field, label) {
+  if (value === undefined || value === null) return ''
+  if (typeof value !== 'string') {
+    throw new api.ApiError(`${label}格式无效`, { code: 'STUDENT_FIELD_INVALID', statusCode: 400 })
   }
+  const normalized = value.trim()
+  if (normalized.length > STUDENT_TEXT_LIMITS[field]) {
+    throw new api.ApiError(`${label}不能超过${STUDENT_TEXT_LIMITS[field]}个字符`, {
+      code: 'STUDENT_FIELD_TOO_LONG', statusCode: 400
+    })
+  }
+  return normalized
+}
+
+function normalizeEducationSystem(value) {
+  const normalized = normalizedStudentText(value, 'educationSystem', '课程体系')
+  if (!normalized) return ''
+  return EDUCATION_SYSTEM_ALIASES[normalized] || EDUCATION_SYSTEM_ALIASES[normalized.toUpperCase()] || 'OTHER'
+}
+
+function educationSystemLabel(value) {
+  const normalized = normalizeEducationSystem(value)
+  const option = EDUCATION_SYSTEM_OPTIONS.find((item) => item.value === normalized)
+  return option ? option.label : '请选择'
+}
+
+function normalizeStudentAge(value) {
+  if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) return null
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    throw new api.ApiError('年龄需填写3至100之间的整数', {
+      code: 'STUDENT_AGE_INVALID', statusCode: 400
+    })
+  }
+  const normalized = typeof value === 'string' ? value.trim() : value
+  if (typeof normalized === 'string' && !/^\d+$/.test(normalized)) {
+    throw new api.ApiError('年龄需填写3至100之间的整数', {
+      code: 'STUDENT_AGE_INVALID', statusCode: 400
+    })
+  }
+  const age = typeof normalized === 'number' ? normalized : Number(normalized)
+  if (!Number.isInteger(age) || age < 3 || age > 100) {
+    throw new api.ApiError('年龄需填写3至100之间的整数', {
+      code: 'STUDENT_AGE_INVALID', statusCode: 400
+    })
+  }
+  return age
+}
+
+function studentPayload(form = {}) {
+  return {
+    name: normalizedStudentText(form.name, 'name', '姓名'),
+    age: normalizeStudentAge(form.age),
+    gender: normalizedStudentText(form.gender, 'gender', '性别'),
+    school: normalizedStudentText(form.school, 'school', '学校'),
+    educationSystem: normalizeEducationSystem(form.education_system === undefined ? form.educationSystem : form.education_system),
+    grade: normalizedStudentText(form.grade, 'grade', '年级'),
+    interest: normalizedStudentText(form.interest, 'interest', '兴趣'),
+    goal: normalizedStudentText(form.goal, 'goal', '未来想法')
+  }
+}
+
+function validateStudentForm(form = {}) {
+  const payload = studentPayload(form)
+  if (!payload.name || payload.age === null || !payload.school || !payload.grade) {
+    throw new api.ApiError('请填写姓名、年龄、学校和年级', {
+      code: 'STUDENT_REQUIRED_FIELDS_MISSING', statusCode: 400
+    })
+  }
+  return payload
 }
 
 async function getFamily(userId) {
@@ -191,7 +312,8 @@ function assertRemoteProfiles(family, student) {
 }
 
 module.exports = {
-  PROFILE_MAP_KEY, assertRemoteProfiles, createAdvisorRequest, getAdvisorRequests, getFamily,
+  EDUCATION_SYSTEM_OPTIONS, PROFILE_MAP_KEY, assertRemoteProfiles, createAdvisorRequest, educationSystemLabel,
+  getAdvisorRequests, getFamily,
   getReports, getStudent, getStudents, getTimeline, mappedId, rememberMapping, saveFamily, saveStudent,
-  updateAdvisorContactConsent
+  normalizeEducationSystem, normalizeStudentAge, studentPayload, updateAdvisorContactConsent, validateStudentForm
 }

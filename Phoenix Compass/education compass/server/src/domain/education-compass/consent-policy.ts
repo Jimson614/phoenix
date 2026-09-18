@@ -29,6 +29,54 @@ export function consentCopySha256(copy: string): string {
 export const AI_ANALYSIS_CONSENT_COPY_SHA256 = consentCopySha256(AI_ANALYSIS_CONSENT_COPY)
 export const FEISHU_PROFILE_MIRROR_CONSENT_COPY_SHA256 = consentCopySha256(FEISHU_PROFILE_MIRROR_CONSENT_COPY)
 
+export interface AssessmentConsentSubject {
+  userId: string
+  familyId: string
+  studentId: string
+}
+
+export function isExactActiveCoreAssessmentConsent(
+  grant: ConsentGrant | null | undefined,
+  subject: AssessmentConsentSubject
+): grant is ConsentGrant {
+  return Boolean(
+    grant &&
+    grant.userId === subject.userId &&
+    grant.familyId === subject.familyId &&
+    grant.studentId === subject.studentId &&
+    grant.subjectType === 'STUDENT' &&
+    grant.subjectId === subject.studentId &&
+    grant.scope === 'CORE_ASSESSMENT' &&
+    grant.subjectRole === 'PARENT_GUARDIAN' &&
+    grant.copyVersion === CORE_ASSESSMENT_CONSENT_VERSION &&
+    grant.copyTextHash === consentCopySha256(CORE_ASSESSMENT_CONSENT_COPY) &&
+    grant.locale === 'zh-CN' &&
+    grant.guardianAuthorityStatus === 'CONFIRMED' &&
+    !grant.withdrawnAt
+  )
+}
+
+export function isExactActiveStudentAssessmentAssent(
+  grant: ConsentGrant | null | undefined,
+  subject: AssessmentConsentSubject
+): grant is ConsentGrant {
+  return Boolean(
+    grant &&
+    grant.userId === subject.userId &&
+    grant.familyId === subject.familyId &&
+    grant.studentId === subject.studentId &&
+    grant.subjectType === 'STUDENT' &&
+    grant.subjectId === subject.studentId &&
+    grant.scope === 'STUDENT_ASSESSMENT_ASSENT' &&
+    grant.subjectRole === 'STUDENT' &&
+    grant.copyVersion === STUDENT_ASSESSMENT_ASSENT_VERSION &&
+    grant.copyTextHash === consentCopySha256(STUDENT_ASSESSMENT_ASSENT_COPY) &&
+    grant.locale === 'zh-CN' &&
+    grant.guardianAuthorityStatus === 'NOT_APPLICABLE' &&
+    !grant.withdrawnAt
+  )
+}
+
 export function isExactActiveAiAnalysisConsent(
   grant: ConsentGrant | null | undefined,
   userId: string,

@@ -5,6 +5,7 @@ const analytics = require('../../services/analytics')
 const educationCompass = require('../../services/education-compass')
 const questionnaireModel = require('../../models/education-compass-questionnaire')
 const reportModel = require('../../models/education-compass-report')
+const educationNavigation = require('../../utils/education-compass-navigation')
 const runtime = require('../../config/runtime')
 const { PRODUCT } = require('../../config/compass')
 
@@ -171,7 +172,7 @@ Page({
         if (!reportId) {
           try {
             const state = await educationCompass.getState()
-            if (!state.assessmentId || state.assessmentId === this.data.assessmentId) reportId = state.reportId || ''
+            reportId = educationNavigation.reportIdForAssessment(state, this.data.assessmentId)
           } catch (error) {}
         }
         this.setData({ viewKind: 'growth-full', rendered, reportId, product: null, loading: false })
@@ -278,7 +279,15 @@ Page({
   },
 
   openFreeAnalysis() {
-    if (!this.data.preview || !this.data.assessmentId) return
+    if (!this.data.assessmentId) return
+    if (!runtime.isDemo()) {
+      if (this.data.viewKind !== 'family') return
+      wx.navigateTo({
+        url: `/pages/assessment-analysis/index?mode=free&assessmentId=${encodeURIComponent(this.data.assessmentId)}`
+      })
+      return
+    }
+    if (!this.data.preview) return
     wx.showModal({
       title: '后端联调能力',
       content: '本地演示不会把测评数据发送给外部 AI。切换到已配置的 Phoenix remote API 后，监护人可单独同意并生成免费有限分析。',

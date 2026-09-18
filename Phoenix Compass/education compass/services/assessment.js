@@ -10,27 +10,35 @@ const REFERENCES_KEY = 'PFS_COMPASS_ASSESSMENT_REFS_V1'
 const ANSWERS_PREFIX = 'PFS_COMPASS_DRAFT_'
 const remoteAnswers = {}
 
-function references() { return wx.getStorageSync(REFERENCES_KEY) || {} }
+function record(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+}
+
+function references() { return record(wx.getStorageSync(REFERENCES_KEY)) }
 
 function setReference(studentId, value) {
   const next = references()
-  next[studentId] = { ...(next[studentId] || {}), ...value }
+  next[studentId] = { ...record(next[studentId]), ...record(value) }
   wx.setStorageSync(REFERENCES_KEY, next)
   return next[studentId]
 }
 
-function referenceForStudent(studentId) { return references()[studentId] || null }
+function referenceForStudent(studentId) {
+  const value = record(references()[studentId])
+  return Object.keys(value).length ? value : null
+}
 function answersKey(assessmentId) { return `${ANSWERS_PREFIX}${assessmentId}` }
 function cachedAnswers(assessmentId) {
-  if (!runtime.isDemo()) return remoteAnswers[assessmentId] || {}
-  return wx.getStorageSync(answersKey(assessmentId)) || {}
+  if (!runtime.isDemo()) return record(remoteAnswers[assessmentId])
+  return record(wx.getStorageSync(answersKey(assessmentId)))
 }
 function cacheAnswers(assessmentId, answers) {
+  const safeAnswers = record(answers)
   if (!runtime.isDemo()) {
-    remoteAnswers[assessmentId] = answers || {}
+    remoteAnswers[assessmentId] = safeAnswers
     return
   }
-  wx.setStorageSync(answersKey(assessmentId), answers || {})
+  wx.setStorageSync(answersKey(assessmentId), safeAnswers)
 }
 function clearRemoteSessionData() { Object.keys(remoteAnswers).forEach((key) => { delete remoteAnswers[key] }) }
 
@@ -87,6 +95,9 @@ async function createForStudent({ student, family, consent }) {
 }
 
 async function saveDraft(assessmentId, studentId, answers, options = {}) {
+  if (runtime.isDemo() && !repository.getById('assessments', assessmentId)) {
+    throw new api.ApiError('问卷不存在', { code: 'ASSESSMENT_NOT_FOUND', statusCode: 404 })
+  }
   cacheAnswers(assessmentId, answers)
   let result
   if (runtime.isDemo()) {

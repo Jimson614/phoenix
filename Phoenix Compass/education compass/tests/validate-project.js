@@ -6,8 +6,20 @@ const root = path.resolve(__dirname, '..')
 const appConfig = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'))
 const projectConfig = JSON.parse(fs.readFileSync(path.join(root, 'project.config.json'), 'utf8'))
 const ignoredUploadPaths = (projectConfig.packOptions && projectConfig.packOptions.ignore || []).map((item) => typeof item === 'string' ? item : item.value)
-for (const required of ['server', 'tests', 'docs', 'scripts', 'dist', 'node_modules', '.npm-cache']) {
+for (const required of ['server', 'tests', 'docs', 'scripts', 'dist', 'node_modules', '.npm-cache', '.next']) {
   assert(ignoredUploadPaths.includes(required), `source project upload boundary must exclude ${required}`)
+}
+const expectedMiniProgramRoot = path.resolve(root, 'dist', 'development')
+for (const field of ['miniprogramRoot', 'srcMiniprogramRoot']) {
+  const configuredRoot = projectConfig[field]
+  assert.strictEqual(typeof configuredRoot, 'string', `${field} must be a relative path`)
+  assert(!path.isAbsolute(configuredRoot), `${field} must stay relative to the repository root`)
+  assert.strictEqual(path.resolve(root, configuredRoot), expectedMiniProgramRoot,
+    `${field} must resolve to the generated development Mini Program`)
+}
+const ignoredWatchPaths = projectConfig.watchOptions && projectConfig.watchOptions.ignore || []
+for (const required of ['.next', '.next/**']) {
+  assert(ignoredWatchPaths.includes(required), `source project watcher must exclude ${required}`)
 }
 
 assert(appConfig.pages.includes('pages/agent-chat/index'), 'paid-report Agent page must be registered')
@@ -32,6 +44,15 @@ function clientJavaScriptFiles() {
     const target = path.join(root, name)
     if (!fs.existsSync(target)) return []
     return fs.statSync(target).isDirectory() ? walk(target).filter((file) => file.endsWith('.js')) : [target]
+  })
+}
+
+function miniProgramSourceFiles() {
+  const roots = ['app.js', 'app.json', 'app.wxss', 'sitemap.json', 'components', 'config', 'models', 'pages', 'services', 'utils']
+  return roots.flatMap((name) => {
+    const target = path.join(root, name)
+    if (!fs.existsSync(target)) return []
+    return fs.statSync(target).isDirectory() ? walk(target) : [target]
   })
 }
 
@@ -64,8 +85,7 @@ try {
   else global.Page = previousPage
 }
 
-for (const file of walk(root)) {
-  if (file.includes(`${path.sep}node_modules${path.sep}`)) continue
+for (const file of miniProgramSourceFiles()) {
   const content = fs.readFileSync(file, 'utf8')
   if (file.endsWith('.json')) JSON.parse(content)
   if (file.endsWith('.js')) new Function('require', 'module', 'exports', 'getApp', 'wx', content)
@@ -117,6 +137,9 @@ assert(/if \(runtime\.isDemo\(\)\) \{\s*repository\.initialize\(\)/.test(appSour
 const runtimeSource = fs.readFileSync(path.join(root, 'config', 'runtime.js'), 'utf8')
 assert(runtimeSource.includes("return 'unknown'") && runtimeSource.includes("return 'remote'"), 'unknown mini-program environments must fail closed to remote')
 assert(runtimeSource.includes('API_BASE_URL_INSECURE'), 'remote API must require HTTPS')
+assert(runtimeSource.includes('function allowsDevelopmentLoopbackHttp() { return false }'),
+  'source runtime must deny plaintext loopback transport')
+assert(!runtimeSource.includes('http://1.12.77.180'), 'source runtime must not hard-code a public HTTP API')
 const analyticsSource = fs.readFileSync(path.join(root, 'services', 'analytics.js'), 'utf8')
 assert(analyticsSource.includes("if (!runtime.isDemo()) return null"), 'remote analytics must fail closed without local persistence')
 const assessmentSource = fs.readFileSync(path.join(root, 'services', 'assessment.js'), 'utf8')

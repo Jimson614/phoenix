@@ -22,7 +22,7 @@
       <text class="h3">完整报告尚未交付</text>
       <text class="muted">当前结果仍处于锁定或生成状态。页面不会用占位内容冒充六项结果，也不会依据客户端支付回调自行解锁。</text>
       <button class="btn btn--outline report-state__button" bindtap="retry">刷新服务端状态</button>
-      <button wx:if="{{rendered.assessmentId && userRole === 'family_user'}}" class="btn btn--text report-state__button" bindtap="unlock">返回解锁页面</button>
+      <button wx:if="{{userRole === 'family_user'}}" class="btn btn--text report-state__button" bindtap="unlock">返回解锁页面</button>
     </view>
 
     <view wx:else class="page report__body report__body--growth" data-ui-screen="growth-report">
