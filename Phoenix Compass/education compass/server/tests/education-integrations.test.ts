@@ -659,11 +659,15 @@ test('V0.5 Paid Agent rejects a legacy entitlement and queues only the matching 
   await store.transaction((tx) => tx.update('entitlements', 'ent_agent_paid_internal_9201', {
     productCode: GROWTH_DISCOVERY_PRODUCT_CODE
   }))
+  // First visit, before any AI consent: "latest" reports no analysis instead of AI_ANALYSIS_CONSENT_REQUIRED.
+  assert.deepEqual(await service.getLatestReportAnalysis(assessment.userId, report.id), { analysis: null })
   const queued = await service.createReportAnalysis(
     assessment.userId, report.id, consent, 'v05-correct-sku-analysis-9201'
   )
   assert.equal(queued.status, 'QUEUED')
   assert.equal(queued.analysisType, 'REPORT_ANALYSIS')
+  const latest = await service.getLatestReportAnalysis(assessment.userId, report.id) as { analysis: { runId: string } | null }
+  assert.equal(latest.analysis?.runId, queued.runId)
 
   const run = await store.read((tx) => tx.findById('agentRuns', queued.runId))
   assert.ok(run?.requestEnvelope)

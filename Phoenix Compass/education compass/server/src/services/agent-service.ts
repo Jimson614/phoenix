@@ -379,12 +379,14 @@ export class AgentService {
   }
 
   async getLatestAssessmentAnalysis(userId: string, assessmentId: string): Promise<Record<string, unknown>> {
-    const source = await this.requireAssessmentSource(userId, assessmentId)
+    const source = await this.requireAssessmentSource(userId, assessmentId, false)
+    if (!(await this.hasActiveAiConsent(userId, source.assessment))) return { analysis: null }
     return this.latestAnalysis(userId, source.report.id, 'ASSESSMENT_ANALYSIS')
   }
 
   async getLatestReportAnalysis(userId: string, reportId: string): Promise<Record<string, unknown>> {
-    await this.requirePaidReportSource(userId, reportId)
+    const source = await this.requirePaidReportSource(userId, reportId, false)
+    if (!(await this.hasActiveAiConsent(userId, source.assessment))) return { analysis: null }
     return this.latestAnalysis(userId, reportId, 'REPORT_ANALYSIS')
   }
 
@@ -816,6 +818,17 @@ export class AgentService {
         grantedAt: now, withdrawnAt: null, createdAt: now, updatedAt: now
       })
     })
+  }
+
+  // A first visit has no AI consent yet: "latest" must report no analysis so the client shows the
+  // consent form instead of an error. Earlier runs stay hidden until consent is active again.
+  private async hasActiveAiConsent(userId: string, assessment: Assessment): Promise<boolean> {
+    if (!this.isV05Assessment(assessment)) return true
+    const ai = await this.store.read((tx) => tx.findOne('consentGrants', {
+      userId, subjectType: 'STUDENT', subjectId: assessment.studentId,
+      scope: 'AI_ANALYSIS', withdrawnAt: null
+    }))
+    return isExactActiveAiAnalysisConsent(ai, userId, assessment.studentId)
   }
 
   private isV05Assessment(assessment: Assessment): boolean {
