@@ -32,15 +32,14 @@ function requireId(value, field) {
   return id
 }
 
+let keySequence = 0
+
+// wx.getRandomValues is asynchronous in the Mini Program runtime and never fills a
+// caller-supplied array, so it produced an all-zero, constant idempotency key.
+// Keys only need to be unique per user: time + in-process sequence + Math.random.
 function randomPart() {
-  try {
-    if (typeof wx !== 'undefined' && wx.getRandomValues) {
-      const bytes = new Uint8Array(12)
-      wx.getRandomValues(bytes)
-      return Array.prototype.map.call(bytes, (value) => value.toString(16).padStart(2, '0')).join('')
-    }
-  } catch (error) {}
-  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`
+  keySequence = (keySequence + 1) % 1679616
+  return `${Date.now().toString(36)}${keySequence.toString(36).padStart(4, '0')}${Math.random().toString(36).slice(2, 12)}`
 }
 
 function createIdempotencyKey(purpose = 'education') {

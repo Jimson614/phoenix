@@ -908,6 +908,17 @@ async function testApiAdapter() {
   }
 
   try {
+    // The Mini Program runtime's wx.getRandomValues is async and leaves a passed array untouched;
+    // keys must still be unique, otherwise a second student hits IDEMPOTENCY_KEY_REUSED.
+    const previousGetRandomValues = global.wx && global.wx.getRandomValues
+    if (global.wx) global.wx.getRandomValues = () => Promise.resolve({ randomValues: new ArrayBuffer(12) })
+    const keys = new Set()
+    for (let i = 0; i < 500; i++) keys.add(client.createIdempotencyKey('level1_create'))
+    assert.strictEqual(keys.size, 500, 'idempotency keys must be unique per call')
+    assert(![...keys].some((key) => /_0{24}$/.test(key)), 'idempotency keys must not be all-zero')
+    assert.notStrictEqual(require('../services/agent').createIdempotencyKey('message'), require('../services/agent').createIdempotencyKey('message'))
+    if (global.wx) global.wx.getRandomValues = previousGetRandomValues
+
     assert.strictEqual((await client.getState()).studentId, 'stu_1')
     assert.strictEqual((await client.getQuestionnaireVersion('free_parent_compass_v1.0.0-rc1')).version, 'free_parent_compass_v1')
     const freeKey = client.createIdempotencyKey('free_create')
