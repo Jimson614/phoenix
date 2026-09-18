@@ -35,10 +35,12 @@ export interface AppConfig {
   feishuSyncIntervalMs: number
   feishuSyncBatchSize: number
   openaiAgentEnabled: boolean
-  agentProvider: 'mock' | 'openai'
+  agentProvider: 'mock' | 'openai' | 'deepseek'
   openaiApiKey: string
   openaiModel: string
   openaiModerationModel: string
+  deepseekApiKey: string
+  deepseekModel: string
   openaiRequestTimeoutMs: number
   openaiMaxOutputTokens: number
   openaiSafetyHmacKey: string
@@ -156,7 +158,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const openaiAgentEnabled = booleanSetting(env.OPENAI_AGENT_ENABLED, false, 'OPENAI_AGENT_ENABLED')
   const aiWorkerEnabled = booleanSetting(env.AI_WORKER_ENABLED, false, 'AI_WORKER_ENABLED')
   const agentProvider = (env.AGENT_PROVIDER ?? 'mock') as AppConfig['agentProvider']
-  invariant(['mock', 'openai'].includes(agentProvider), 500, 'CONFIG_INVALID', 'AGENT_PROVIDER 无效')
+  invariant(['mock', 'openai', 'deepseek'].includes(agentProvider), 500, 'CONFIG_INVALID', 'AGENT_PROVIDER 无效')
   const aiContentKeyring = parseAgentKeyring(env.AI_CONTENT_KEYRING_JSON ?? '{}')
   const feishuBitableTables = Object.fromEntries(Object.entries(FEISHU_TABLE_ENV).map(([entityType, envName]) => [
     entityType,
@@ -199,6 +201,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     openaiApiKey: env.OPENAI_API_KEY ?? '',
     openaiModel: env.OPENAI_MODEL ?? '',
     openaiModerationModel: env.OPENAI_MODERATION_MODEL ?? '',
+    deepseekApiKey: env.DEEPSEEK_API_KEY ?? '',
+    deepseekModel: env.DEEPSEEK_MODEL || 'deepseek-chat',
     openaiRequestTimeoutMs: boundedInteger(env.OPENAI_REQUEST_TIMEOUT_MS, 30_000, 1_000, 120_000, 'OPENAI_REQUEST_TIMEOUT_MS'),
     openaiMaxOutputTokens: boundedInteger(env.OPENAI_MAX_OUTPUT_TOKENS, 1200, 128, 4000, 'OPENAI_MAX_OUTPUT_TOKENS'),
     openaiSafetyHmacKey: env.OPENAI_SAFETY_HMAC_KEY ?? '',
@@ -240,8 +244,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   invariant(!feishuCustomerProfileFieldsEnabled || feishuBitableEnabled, 500, 'CONFIG_INVALID',
     '开启飞书客户资料字段前必须启用 FEISHU_BITABLE_ENABLED')
   invariant(!config.aiWorkerEnabled || config.openaiAgentEnabled, 500, 'CONFIG_INVALID', '启用 Agent worker 前必须启用 Agent')
-  if (config.openaiAgentEnabled || config.agentProvider === 'openai') {
-    invariant(config.databaseUrl, 500, 'CONFIG_INVALID', '启用 OpenAI Agent 必须使用持久化 PostgreSQL 数据库')
+  if (config.openaiAgentEnabled || config.agentProvider !== 'mock') {
+    invariant(config.databaseUrl, 500, 'CONFIG_INVALID', '启用 AI Agent 必须使用持久化 PostgreSQL 数据库')
     validatePostgresUrl(config.databaseUrl, 'DATABASE_URL')
   }
   if (config.openaiAgentEnabled) {
@@ -263,6 +267,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (config.agentProvider === 'openai') {
     invariant(config.openaiApiKey && config.openaiModel && config.openaiModerationModel,
       500, 'CONFIG_INVALID', 'OpenAI API Key、生成模型或审核模型未配置')
+  }
+  if (config.agentProvider === 'deepseek') {
+    invariant(config.deepseekApiKey.trim(), 500, 'CONFIG_INVALID', 'DEEPSEEK_API_KEY 未配置')
+    invariant(/^[A-Za-z0-9._-]{1,100}$/.test(config.deepseekModel), 500, 'CONFIG_INVALID', 'DEEPSEEK_MODEL 无效')
   }
   return config
 }

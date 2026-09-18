@@ -445,7 +445,7 @@ test('migration transaction wrapper is removed without changing its statements',
 
 test('evidence integrity baseline covers every immutable existing migration', async () => {
   const manifest = await migrationManifest(new Date(0).toISOString(), 'test-source-digest')
-  assert.equal(manifest.migrations.length, 5)
+  assert.equal(manifest.migrations.length, 6)
   assert.equal(manifest.historicalMigrationsUnchanged, true)
   assert(manifest.migrations.every((item) => item.historicalBaselineMatch === true))
 })

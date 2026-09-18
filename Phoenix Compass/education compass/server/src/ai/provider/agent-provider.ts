@@ -71,7 +71,7 @@ export interface AgentProviderResult {
 }
 
 export interface AgentProvider {
-  readonly name: 'mock' | 'openai'
+  readonly name: 'mock' | 'openai' | 'deepseek'
   readonly model: string
   moderate(input: string, signal?: AbortSignal): Promise<AgentModerationResult>
   createReportFollowup(input: AgentProviderInput, signal?: AbortSignal): Promise<AgentProviderResult>

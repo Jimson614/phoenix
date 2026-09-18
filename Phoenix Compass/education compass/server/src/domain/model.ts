@@ -504,7 +504,7 @@ export interface AgentRun {
   requestEnvelope: AgentEncryptedEnvelope | null
   reportVersion: string
   contextDigest: string
-  provider: 'openai' | 'mock'
+  provider: 'openai' | 'mock' | 'deepseek'
   model: string
   promptVersion: string
   attempts: number

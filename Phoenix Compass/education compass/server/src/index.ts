@@ -6,8 +6,7 @@ import { AgentContentCrypto } from './ai/crypto'
 import { contextDigestForAssessment, contextDigestForPaidReportAnalysis } from './ai/context/assessment-context'
 import { contextDigestForReport } from './ai/context/report-context'
 import { AgentProvider } from './ai/provider/agent-provider'
-import { MockAgentProvider } from './ai/provider/mock-agent-provider'
-import { OpenAIResponsesProvider } from './ai/provider/openai-responses-provider'
+import { createAgentProvider } from './ai/provider/create-agent-provider'
 import { createAppServer } from './http/app'
 import { FeishuBitableClient } from './integrations/feishu/bitable-client'
 import { FeishuSyncService } from './integrations/feishu/sync-service'
@@ -83,15 +82,7 @@ async function main(): Promise<void> {
       (assessment, report) => contextDigestForAssessment(assessment, report, agentCrypto),
       (assessment, report) => contextDigestForPaidReportAnalysis(assessment, report, agentCrypto)
     )
-    const agentProvider: AgentProvider = config.agentProvider === 'openai'
-      ? new OpenAIResponsesProvider({
-          apiKey: config.openaiApiKey,
-          model: config.openaiModel,
-          moderationModel: config.openaiModerationModel,
-          timeoutMs: config.openaiRequestTimeoutMs,
-          maxOutputTokens: config.openaiMaxOutputTokens
-        })
-      : new MockAgentProvider()
+    const agentProvider: AgentProvider = createAgentProvider(config)
     agent = new AgentService(store, agentRepository, agentCrypto, agentProvider, {
       enabled: config.openaiAgentEnabled,
       safetyHmacKey: config.openaiSafetyHmacKey,

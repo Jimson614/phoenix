@@ -3,8 +3,7 @@ import { AgentContentCrypto } from '../ai/crypto'
 import { contextDigestForAssessment, contextDigestForPaidReportAnalysis } from '../ai/context/assessment-context'
 import { contextDigestForReport } from '../ai/context/report-context'
 import { AgentProvider } from '../ai/provider/agent-provider'
-import { MockAgentProvider } from '../ai/provider/mock-agent-provider'
-import { OpenAIResponsesProvider } from '../ai/provider/openai-responses-provider'
+import { createAgentProvider } from '../ai/provider/create-agent-provider'
 import { loadConfig } from '../config'
 import { invariant } from '../domain/errors'
 import { AgentRepository } from '../store/agent-repository'
@@ -38,15 +37,7 @@ async function main(): Promise<void> {
     (assessment, report) => contextDigestForAssessment(assessment, report, crypto),
     (assessment, report) => contextDigestForPaidReportAnalysis(assessment, report, crypto)
   )
-  const provider: AgentProvider = config.agentProvider === 'openai'
-    ? new OpenAIResponsesProvider({
-        apiKey: config.openaiApiKey,
-        model: config.openaiModel,
-        moderationModel: config.openaiModerationModel,
-        timeoutMs: config.openaiRequestTimeoutMs,
-        maxOutputTokens: config.openaiMaxOutputTokens
-      })
-    : new MockAgentProvider()
+  const provider: AgentProvider = createAgentProvider(config)
   const executor = new AgentService(store, repository, crypto, provider, {
     enabled: config.openaiAgentEnabled,
     safetyHmacKey: config.openaiSafetyHmacKey,
