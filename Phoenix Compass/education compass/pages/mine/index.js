@@ -7,7 +7,7 @@ const agent = require('../../services/agent')
 const runtime = require('../../config/runtime')
 
 Page({
-  data: { user: { name: '', initial: '家' }, family: null, primaryStudent: null, studentCount: 0, reportCount: 0, orderCount: 0, unlockedReportCount: 0, recentOrders: [], loading: true, isV05: !runtime.isDemo(), consentBusy: false },
+  data: { user: { name: '', initial: '家' }, family: null, primaryStudent: null, consentStudents: [], consentStudentNames: [], consentStudentIndex: 0, consentStudent: null, studentCount: 0, reportCount: 0, orderCount: 0, unlockedReportCount: 0, recentOrders: [], loading: true, isV05: !runtime.isDemo(), consentBusy: false },
   async onShow() {
     const user = session.guard(['family_user'])
     if (!user) return
@@ -17,9 +17,16 @@ Page({
       const students = family ? await familyData.getStudents(family.id) : []
       const reports = family ? await familyData.getReports(family.id) : []
       const orders = (await payment.refreshCachedOrders()).map((order) => ({ ...order, statusLabel: payment.statusLabel(order.status), amountLabel: `${(order.amountFen / 100).toFixed(2)} 元` }))
+      // Consent withdrawal must target the child the guardian picks, not silently the first one.
+      const previousId = this.data.consentStudent && this.data.consentStudent.id
+      const consentStudentIndex = Math.max(0, students.findIndex((student) => student.id === previousId))
       this.setData({
         user: { ...user, name: (family && family.parent_name) || user.name || '', initial: family && family.parent_name ? family.parent_name.charAt(0) : (user.name ? user.name.charAt(0) : '家') }, family,
         primaryStudent: students[0] || null,
+        consentStudents: students,
+        consentStudentNames: students.map((student) => student.name || '未填写姓名的学生档案'),
+        consentStudentIndex,
+        consentStudent: students[consentStudentIndex] || null,
         studentCount: students.length, reportCount: reports.length,
         orderCount: orders.length,
         unlockedReportCount: reports.filter((report) => report.product_code && report.entitled).length,
@@ -45,15 +52,21 @@ Page({
     if (order.status === 'PAID') wx.navigateTo({ url: `/pages/report/index?id=${order.reportId}` })
     else wx.navigateTo({ url: `/pages/payment-result/index?orderId=${order.orderId}&reportId=${order.reportId}` })
   },
+  pickConsentStudent({ detail }) {
+    const index = Number(detail.value)
+    const student = this.data.consentStudents[index]
+    if (student) this.setData({ consentStudentIndex: index, consentStudent: student })
+  },
   confirmWithdrawal(title, content, action) {
-    if (this.data.consentBusy || !this.data.primaryStudent) return
+    const student = this.data.consentStudent
+    if (this.data.consentBusy || !student) return
     wx.showModal({
-      title, content, confirmText: '确认撤回', confirmColor: '#9a3f35',
+      title, content: `学生：${student.name || '未填写姓名的学生档案'}。${content}`, confirmText: '确认撤回', confirmColor: '#9a3f35',
       success: async ({ confirm }) => {
         if (!confirm) return
         this.setData({ consentBusy: true })
         try {
-          await action(this.data.primaryStudent.id)
+          await action(student.id)
           wx.showToast({ title: '已撤回', icon: 'success' })
         } catch (error) {
           wx.showModal({ title: '撤回失败', content: error.message || '请稍后重试', showCancel: false })
@@ -85,6 +98,7 @@ Page({
       (studentId) => familyData.updateAdvisorContactConsent(studentId, false))
   },
   logout() {
-    wx.showModal({ title: '退出当前身份？', content: '家庭档案仍会保留在本机演示数据中。', success: ({ confirm }) => { if (confirm) { auth.logout(); wx.reLaunch({ url: '/pages/welcome/index' }) } } })
+    const content = runtime.isDemo() ? '家庭档案仍会保留在本机演示数据中。' : '退出后需要重新微信登录；家庭档案保存在 Phoenix 服务端，不会被删除。'
+    wx.showModal({ title: '退出当前身份？', content, success: ({ confirm }) => { if (confirm) { auth.logout(); wx.reLaunch({ url: '/pages/welcome/index' }) } } })
   }
 })

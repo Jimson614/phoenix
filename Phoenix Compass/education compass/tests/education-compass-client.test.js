@@ -279,6 +279,45 @@ async function testStudentEditRejectsInvalidAgeBeforeRequest() {
   }
 }
 
+async function testMineConsentWithdrawalTargetsPickedStudent() {
+  const educationCompass = require('../services/education-compass')
+  const originalPage = global.Page
+  const originalShowModal = wx.showModal
+  const originalShowToast = wx.showToast
+  const originalWithdraw = educationCompass.withdrawAssessmentConsent
+  const withdrawn = []
+  const modals = []
+  let definition
+  try {
+    global.Page = (value) => { definition = value }
+    wx.showToast = () => undefined
+    wx.showModal = (options) => { modals.push(options); if (options.success) return options.success({ confirm: true }) }
+    educationCompass.withdrawAssessmentConsent = async (studentId, scope) => { withdrawn.push([studentId, scope]); return {} }
+    delete require.cache[require.resolve('../pages/mine/index')]
+    require('../pages/mine/index')
+    const students = [{ id: 'stu_first', name: '甲' }, { id: 'stu_second', name: '乙' }]
+    const instance = {
+      ...definition,
+      data: { ...definition.data, consentStudents: students, consentStudentNames: ['甲', '乙'], consentStudentIndex: 0, consentStudent: students[0], primaryStudent: students[0] }
+    }
+    instance.setData = function setData(update) { Object.assign(this.data, update) }
+
+    definition.pickConsentStudent.call(instance, { detail: { value: '1' } })
+    assert.strictEqual(instance.data.consentStudent.id, 'stu_second')
+    await definition.withdrawCoreConsent.call(instance)
+    assert.deepStrictEqual(withdrawn, [['stu_second', 'CORE_ASSESSMENT']], 'withdrawal must target the picked child, not the first one')
+    assert(modals[0].content.includes('乙'), 'the confirmation must name the child whose consent is withdrawn')
+  } finally {
+    educationCompass.withdrawAssessmentConsent = originalWithdraw
+    if (originalShowModal === undefined) delete wx.showModal
+    else wx.showModal = originalShowModal
+    if (originalShowToast === undefined) delete wx.showToast
+    else wx.showToast = originalShowToast
+    if (originalPage === undefined) delete global.Page
+    else global.Page = originalPage
+  }
+}
+
 function testHomeActionCopy() {
   const previousPage = global.Page
   try {
@@ -992,6 +1031,7 @@ async function run() {
   testQuestionnaireModel()
   testStudentProfileNormalization()
   await testStudentEditRejectsInvalidAgeBeforeRequest()
+  await testMineConsentWithdrawalTargetsPickedStudent()
   testReportRegistry()
   testNavigation()
   testHomeActionCopy()

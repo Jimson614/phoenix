@@ -79,13 +79,16 @@
         </view>
       </view>
 
-      <view wx:if="{{isV05 && primaryStudent}}" class="consent-panel">
+      <view wx:if="{{isV05 && consentStudent}}" class="consent-panel">
         <view class="consent-panel__header">
           <view class="consent-panel__shield" aria-hidden="true">◇</view>
           <view class="grow"><text class="eyebrow">PRIVACY CONTROL</text><text class="h3 consent-panel__title">授权与撤回</text></view>
           <text class="consent-panel__independent">独立管理</text>
         </view>
-        <text class="consent-panel__note">当前管理：{{primaryStudent.name || '未填写姓名的学生档案'}}。各项授权互相独立，可分别撤回。</text>
+        <text class="consent-panel__note">当前管理：{{consentStudent.name || '未填写姓名的学生档案'}}。各项授权互相独立，可分别撤回。</text>
+        <picker wx:if="{{consentStudentNames.length > 1}}" range="{{consentStudentNames}}" value="{{consentStudentIndex}}" bindchange="pickConsentStudent">
+          <view class="consent-panel__switch"><text>切换要管理的孩子</text><text aria-hidden="true">⌄</text></view>
+        </picker>
         <view wx:if="{{consentBusy}}" class="consent-panel__busy" aria-busy="true"><text>正在处理撤回请求，请稍候…</text></view>
         <button class="consent-action" disabled="{{consentBusy}}" bindtap="withdrawAiConsent"><text>撤回 AI 分析授权</text><text aria-hidden="true">→</text></button>
         <button class="consent-action" disabled="{{consentBusy}}" bindtap="withdrawFeishuConsent"><text>停止飞书资料镜像</text><text aria-hidden="true">→</text></button>
