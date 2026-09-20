@@ -19,7 +19,7 @@ class FeishuError extends Error {
 }
 
 class FeishuClient {
-  constructor({ appId, appSecret, appToken, baseUrl = DEFAULT_BASE_URL, timeoutMs = 15000 }) {
+  constructor({ appId, appSecret, appToken, baseUrl = DEFAULT_BASE_URL, timeoutMs = 15000, retries = 3 }) {
     if (!appId || !appSecret || !appToken) {
       throw new FeishuError('飞书连接配置不完整（需要 app id / app secret / base app token）', { code: 'CONFIG_INVALID' })
     }
@@ -28,28 +28,61 @@ class FeishuClient {
     this.appToken = appToken
     this.baseUrl = baseUrl.replace(/\/$/, '')
     this.timeoutMs = timeoutMs
+    this.retries = Math.max(1, retries)
     this.token = null
     this.tokenExpiresAt = 0
+  }
+
+  /** fetch failed 把真正的原因埋在 cause 链里，逐层拆出来才看得懂 */
+  static describeNetworkError(error) {
+    const parts = []
+    let current = error
+    for (let depth = 0; current && depth < 4; depth += 1) {
+      const code = current.code ? `${current.code} ` : ''
+      const message = current.message || String(current)
+      const text = `${code}${message}`.trim()
+      if (text && !parts.includes(text)) parts.push(text)
+      current = current.cause
+    }
+    return parts.join(' ← ')
   }
 
   async request(endpoint, { method = 'GET', body, auth = true } = {}) {
     const headers = { 'Content-Type': 'application/json; charset=utf-8' }
     if (auth) headers.Authorization = `Bearer ${await this.tenantAccessToken()}`
 
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs)
     let response
-    try {
-      response = await fetch(`${this.baseUrl}${endpoint}`, {
-        method,
-        headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
-        signal: controller.signal
+    let lastError
+    // 网络层失败才重试；HTTP 错误码直接抛，不会把写操作重放一遍
+    for (let attempt = 1; attempt <= this.retries; attempt += 1) {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), this.timeoutMs)
+      try {
+        response = await fetch(`${this.baseUrl}${endpoint}`, {
+          method,
+          headers,
+          body: body === undefined ? undefined : JSON.stringify(body),
+          signal: controller.signal
+        })
+        lastError = null
+        break
+      } catch (error) {
+        lastError = error
+        const reason = FeishuClient.describeNetworkError(error)
+        if (attempt < this.retries) {
+          const waitMs = 400 * attempt
+          console.warn(`  第 ${attempt}/${this.retries} 次请求失败（${reason}），${waitMs}ms 后重试`)
+          await new Promise((resolve) => setTimeout(resolve, waitMs))
+        }
+      } finally {
+        clearTimeout(timer)
+      }
+    }
+    if (lastError) {
+      throw new FeishuError(`请求飞书失败：${FeishuClient.describeNetworkError(lastError)}`, {
+        code: 'NETWORK_ERROR',
+        endpoint
       })
-    } catch (error) {
-      throw new FeishuError(`请求飞书失败：${error.message}`, { code: 'NETWORK_ERROR', endpoint })
-    } finally {
-      clearTimeout(timer)
     }
 
     const text = await response.text()
