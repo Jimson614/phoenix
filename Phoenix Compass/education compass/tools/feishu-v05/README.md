@@ -17,7 +17,9 @@
 | `core.js` | Core/Founder OS 事实源样本、链路记录、Integration_Links、10 条 Gate |
 | `feishu-client.js` | 多维表格最小客户端：token、建表、字段预检、按主字段 upsert |
 | `run-min-chain.js` | 执行器，默认 dry-run，`--live` 才写飞书 |
+| `align-tables.js` | 把飞书表结构对齐到母版（改列名、改字段类型），默认只打印计划 |
 | `gates.test.js` | 反向测试：逐条注入违规，确认 Gate 拦得住 |
+| `align.test.js` | 对齐计划的单元测试（分隔符识别、类型推导、缺列不乱认） |
 
 ## 运行
 
@@ -26,9 +28,13 @@ python tools/feishu-v05/extract-master.py          # 母版改动后重新抽取
 node tools/feishu-v05/run-min-chain.js             # dry-run，不连接飞书
 node --test tools/feishu-v05/gates.test.js         # Gate 反向测试
 node tools/feishu-v05/run-min-chain.js --verify-only            # 只读：校验飞书 11 张表是否对齐母版
+node tools/feishu-v05/align-tables.js                           # 打印表结构对齐计划，不修改
+node tools/feishu-v05/align-tables.js --apply                   # 执行对齐（默认只动 Deals/Contracts/Payments）
 node tools/feishu-v05/run-min-chain.js --live --create-tables   # 建齐 11 张空表并跑通一条链路
 node tools/feishu-v05/run-min-chain.js --live      # 表已建好时写入链路（按主字段 upsert）
 ```
+
+表是手工建的时候，字段类型很容易全建成单行文本。`align-tables.js` 对照母版算出要改的列名和字段类型（单选选项直接取母版白名单），默认只打印计划；加 `--apply` 才真改，改完自动读回复核。它只改名和改类型，不删列、不加列 —— 远端多出来的列一律不碰。
 
 表是手工建的，第一次务必先跑 `--verify-only`：它只读字段元数据，逐表列出缺字段、类型不符、主字段错位和母版之外的多余列，一个记录都不写。
 

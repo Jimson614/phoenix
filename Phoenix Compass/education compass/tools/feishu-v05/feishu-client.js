@@ -138,13 +138,34 @@ class FeishuClient {
       )
       const data = payload.data ?? {}
       for (const item of data.items ?? []) {
-        fields.push({ name: item.field_name, type: Number(item.type), isPrimary: item.is_primary === true })
+        fields.push({
+          id: item.field_id,
+          name: item.field_name,
+          type: Number(item.type),
+          isPrimary: item.is_primary === true
+        })
       }
       if (data.has_more !== true) return fields
       pageToken = data.page_token ?? ''
       if (!pageToken) return fields
     }
     return fields
+  }
+
+  /**
+   * 改字段的名字和类型。飞书要求 PUT 时带上完整定义，
+   * 所以改名和改类型合并成一次调用。
+   */
+  async updateField({ tableId, fieldId, name, type, options }) {
+    const body = { field_name: name, type }
+    if (Array.isArray(options)) {
+      body.property = { options: options.map((option) => ({ name: option })) }
+    }
+    await this.request(
+      `/open-apis/bitable/v1/apps/${encodeURIComponent(this.appToken)}/tables/${encodeURIComponent(tableId)}/fields/${encodeURIComponent(fieldId)}`,
+      { method: 'PUT', body }
+    )
+    return fieldId
   }
 
   async findRecordId({ tableId, uniqueField, uniqueValue }) {
