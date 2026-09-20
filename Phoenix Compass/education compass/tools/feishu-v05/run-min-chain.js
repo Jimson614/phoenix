@@ -29,21 +29,33 @@ const { buildCoreFixture, buildChainRecords, buildLinks, applyBackfills, runGate
 const { FeishuClient } = require('./feishu-client')
 
 function parseArgs(argv) {
-  const args = { live: false, createTables: false, out: null }
+  const args = { live: false, createTables: false, verifyOnly: false, appToken: null, out: null }
   for (const raw of argv) {
     if (raw === '--live') args.live = true
     else if (raw === '--create-tables') args.createTables = true
+    else if (raw === '--verify-only') args.verifyOnly = true
+    else if (raw.startsWith('--app-token=')) args.appToken = raw.slice('--app-token='.length)
     else if (raw.startsWith('--out=')) args.out = raw.slice('--out='.length)
     else if (raw === '--help' || raw === '-h') args.help = true
     else throw new Error(`未知参数 ${raw}`)
   }
+  if (args.verifyOnly) args.live = true
   return args
+}
+
+/** 允许直接粘贴 Base 链接：https://<租户>.feishu.cn/base/<app_token>?… */
+function parseAppToken(value) {
+  if (!value) return value
+  const matched = String(value).match(/\/base\/([A-Za-z0-9]+)/)
+  return matched ? matched[1] : String(value).trim()
 }
 
 const HELP = `V0.5 最小链路执行器（基线：${MASTER.source_workbook}）
 
-  --live            真正写入飞书（需要 FEISHU_APP_ID / FEISHU_APP_SECRET / FEISHU_V05_BITABLE_APP_TOKEN）
+  --live            真正写入飞书（需要 FEISHU_APP_ID / FEISHU_APP_SECRET 和 Base App Token）
+  --verify-only     只读：按母版校验 Base 里 11 张表的字段合同，不写任何记录（隐含 --live）
   --create-tables   Base 中缺表时按母版建空表（配合 --live，会建齐 11 张）
+  --app-token=<v>   Base App Token，也可直接粘贴 Base 链接；默认读 FEISHU_V05_BITABLE_APP_TOKEN
   --out=<dir>       证据输出目录，默认 artifacts/feishu-v05/<时间戳>
 
 表 ID 可用环境变量指定，例如 FEISHU_V05_TABLE_DEALS、FEISHU_V05_TABLE_FAMILY_STUDENT_VIEW。
@@ -171,17 +183,21 @@ async function main() {
   }
 
   // ── LIVE ──────────────────────────────────────────────────────────────
+  const appToken = parseAppToken(
+    args.appToken || process.env.FEISHU_V05_BITABLE_APP_TOKEN || process.env.FEISHU_BITABLE_APP_TOKEN
+  )
   const client = new FeishuClient({
     appId: process.env.FEISHU_APP_ID,
     appSecret: process.env.FEISHU_APP_SECRET,
-    appToken: process.env.FEISHU_V05_BITABLE_APP_TOKEN || process.env.FEISHU_BITABLE_APP_TOKEN,
+    appToken,
     baseUrl: process.env.FEISHU_API_BASE_URL || undefined
   })
 
-  console.log('\n【6】LIVE：解析 Base 中的表')
+  console.log(`\n【6】LIVE：解析 Base 中的表（app_token=${appToken}）`)
   const remoteTables = await client.listTables()
   const tableIds = {}
-  const needed = args.createTables ? TABLES.map((table) => table.sheet) : CHAIN.concat([LINKS_SHEET])
+  const needed =
+    args.createTables || args.verifyOnly ? TABLES.map((table) => table.sheet) : CHAIN.concat([LINKS_SHEET])
   for (const sheet of needed) {
     const table = tableBySheet(sheet)
     const fromEnv = process.env[envKey(sheet)]
@@ -198,8 +214,9 @@ async function main() {
     tableIds[sheet] = tableId
   }
 
-  console.log('\n【7】LIVE：字段合同预检')
-  for (const sheet of CHAIN.concat([LINKS_SHEET])) {
+  console.log('\n【7】LIVE：字段合同预检（对照母版）')
+  const preflight = []
+  for (const sheet of needed) {
     const table = tableBySheet(sheet)
     const remoteFields = await client.listFields(tableIds[sheet])
     const byName = new Map(remoteFields.map((field) => [field.name, field]))
@@ -207,13 +224,42 @@ async function main() {
     const mismatched = table.fields
       .filter((field) => byName.has(field.name) && byName.get(field.name).type !== field.type)
       .map((field) => `${field.name}(期望 ${field.type}，实际 ${byName.get(field.name).type})`)
+    const extra = remoteFields
+      .filter((field) => !table.fields.some((item) => item.name === field.name))
+      .map((field) => field.name)
     const primary = remoteFields.find((field) => field.isPrimary)
-    if (missing.length || mismatched.length || primary?.name !== table.unique) {
-      throw new Error(
-        `表「${sheet}」不符合母版：缺字段 ${missing.join('、') || '无'}；类型不符 ${mismatched.join('、') || '无'}；主字段 ${primary?.name ?? '未知'}（应为 ${table.unique}）`
-      )
+    const primaryOk = primary?.name === table.unique
+    const ok = missing.length === 0 && mismatched.length === 0 && primaryOk
+    preflight.push({ sheet, table_id: tableIds[sheet], ok, missing, mismatched, extra, primary: primary?.name ?? null })
+
+    console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${pad(sheet, 24)} 远端 ${remoteFields.length} 列 / 母版 ${table.fields.length} 列，主字段 ${primary?.name ?? '未知'}`)
+    if (missing.length) console.log(`        缺字段（${missing.length}）：${missing.join('、')}`)
+    if (mismatched.length) console.log(`        类型不符：${mismatched.join('、')}`)
+    if (!primaryOk) console.log(`        主字段应为 ${table.unique}`)
+    if (extra.length) console.log(`        母版之外的多余列（不阻断）：${extra.join('、')}`)
+  }
+
+  const broken = preflight.filter((item) => !item.ok)
+  evidence.live_result = { app_token: appToken, table_ids: tableIds, preflight }
+
+  if (args.verifyOnly) {
+    fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2))
+    console.log(line())
+    console.log(`  预检结果：${preflight.length - broken.length}/${preflight.length} 张表符合母版`)
+    console.log(`证据：${path.relative(process.cwd(), evidencePath)}`)
+    if (broken.length) {
+      console.log('先按上面的差异改齐飞书表结构，再跑 --live 写入链路。')
+      return 1
     }
-    console.log(`  PASS  ${pad(sheet, 24)} 字段 ${remoteFields.length}，主字段 ${primary.name}`)
+    console.log('表结构已对齐母版，可以跑 --live 写入最小链路。')
+    return 0
+  }
+
+  if (broken.length) {
+    fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2))
+    throw new Error(
+      `${broken.length} 张表不符合母版：${broken.map((item) => item.sheet).join('、')}；详见 ${path.relative(process.cwd(), evidencePath)}`
+    )
   }
 
   console.log('\n【8】LIVE：按主链顺序写入')
@@ -279,7 +325,7 @@ async function main() {
     console.log(`  PASS  ${pad(sheet, 24)} ${found}`)
   }
 
-  evidence.live_result = { table_ids: tableIds, records: written, integration_links: linkResults }
+  evidence.live_result = { ...evidence.live_result, records: written, integration_links: linkResults }
   fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2))
   console.log(`\n最小链路已在飞书跑通。证据：${path.relative(process.cwd(), evidencePath)}`)
   console.log('下一步：确认 Founder OS 与飞书通过 Integration_Links 映射无误后，再接 Delivery / Applications / Settlements。')

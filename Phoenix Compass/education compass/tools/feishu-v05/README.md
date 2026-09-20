@@ -25,9 +25,14 @@
 python tools/feishu-v05/extract-master.py          # 母版改动后重新抽取合同
 node tools/feishu-v05/run-min-chain.js             # dry-run，不连接飞书
 node --test tools/feishu-v05/gates.test.js         # Gate 反向测试
+node tools/feishu-v05/run-min-chain.js --verify-only            # 只读：校验飞书 11 张表是否对齐母版
 node tools/feishu-v05/run-min-chain.js --live --create-tables   # 建齐 11 张空表并跑通一条链路
-node tools/feishu-v05/run-min-chain.js --live      # 之后的重复执行（按主字段 upsert）
+node tools/feishu-v05/run-min-chain.js --live      # 表已建好时写入链路（按主字段 upsert）
 ```
+
+表是手工建的，第一次务必先跑 `--verify-only`：它只读字段元数据，逐表列出缺字段、类型不符、主字段错位和母版之外的多余列，一个记录都不写。
+
+`--app-token=` 可以直接粘 Base 链接（`https://<租户>.feishu.cn/base/<app_token>`），不必手动截取 token。
 
 证据写入 `artifacts/feishu-v05/<时间戳>-<运行标记>/min-chain-evidence.json`：事实源、飞书记录、回填项、Integration_Links、Gate 结果，live 模式再加 table_id 与 record_id。
 
