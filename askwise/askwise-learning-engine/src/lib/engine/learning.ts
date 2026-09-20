@@ -81,7 +81,7 @@ export class StudentProfile {
     return state.correctCount / state.attempts;
   }
 
-  private topicMastery(subject: string, topic: string): number {
+  private topicMastery(subject: Subject, topic: string): number {
     const state = this.ensureState(subject, topic);
     const accuracy = this.topicAccuracy(state);
     if (state.attempts === 0) return 0.0;

@@ -8,6 +8,8 @@ export default function EvidencePage() {
     subject: string;
     topic: string;
     question: string;
+    initial_attempt: string;
+    diagnosis: string;
     final_result: string;
     independence: string;
     hint_level: number;

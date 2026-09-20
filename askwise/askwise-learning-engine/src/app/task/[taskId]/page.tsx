@@ -19,7 +19,7 @@ import { diagnose } from "@/lib/engine/diagnosis";
 import { chooseLearningMode } from "@/lib/engine/learning-mode";
 import { buildHint, nextHintLevel } from "@/lib/engine/hint-policy";
 import { SessionLogger, createSessionLogEntry } from "@/lib/engine/session";
-import type { Subject } from "@/lib/engine/engine-types";
+import type { Subject, HintLevel } from "@/lib/engine/engine-types";
 import type { Attempt } from "@/lib/types";
 
 import AoyuCompanion from "@/components/aoyu/aoyu-companion";
@@ -54,7 +54,7 @@ function getFlowState(solved: boolean, attempts: Array<unknown>, hasDiagnosis: b
 
 export default function TaskPage({ params }: { params: { taskId: string } }) {
   const taskId = Number(params.taskId);
-  const task = getTaskById(taskId) as
+  const taskRow = getTaskById(taskId) as
     | {
         id: number;
         subject: Subject;
@@ -63,9 +63,10 @@ export default function TaskPage({ params }: { params: { taskId: string } }) {
         status: string;
       }
     | undefined;
-  if (!task) {
+  if (!taskRow) {
     return <div className="askwise-card">Task not found.</div>;
   }
+  const task = taskRow;
 
   const taskSession = getSessionByTask(task.id);
   if (!taskSession) {
@@ -165,7 +166,7 @@ export default function TaskPage({ params }: { params: { taskId: string } }) {
         diagnosis: diagnosis.explanation,
         errorType: "OK",
         learningMode: modeDecision.mode,
-        hintLevel: currentHint,
+        hintLevel: currentHint as HintLevel,
         firstStepTime,
         outcome: "correct",
       })

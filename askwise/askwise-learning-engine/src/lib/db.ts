@@ -375,7 +375,7 @@ export function createTask(input: {
   const attemptText = input.initialAttempt.trim();
   let firstAttempt: Attempt | undefined;
   if (attemptText) {
-    firstAttempt = addAttempt(sessionId, attemptText, 0, 0);
+    firstAttempt = addAttempt(sessionId, attemptText, 0, false);
   }
   return {
     taskId,
@@ -404,7 +404,18 @@ export function getSessionByTask(taskId: number) {
     SELECT * FROM learning_sessions WHERE task_id = ? ORDER BY updated_at DESC LIMIT 1
     `
     )
-    .get(taskId);
+    .get(taskId) as
+    | {
+        id: number;
+        task_id: number;
+        attempt_number: number;
+        hint_count: number;
+        retry_count: number;
+        solved: number;
+        independent: number;
+        final_result: string;
+      }
+    | undefined;
 }
 
 export function getSessionSnapshot(sessionId: number) {
@@ -582,7 +593,7 @@ export function getSessionById(sessionId: number) {
   return db
     .prepare("SELECT * FROM learning_sessions WHERE id = ?")
     .get(sessionId) as
-    | { id: number; task_id: number; attempt_number: number; hint_count: number; retry_count: number }
+    | { id: number; task_id: number; attempt_number: number; hint_count: number; retry_count: number; independent: number }
     | undefined;
 }
 
@@ -898,4 +909,4 @@ export function getEvidenceForTask(taskId: number) {
     .get(taskId);
 }
 
-export { studentDbReady: true as const };
+export const studentDbReady = true;

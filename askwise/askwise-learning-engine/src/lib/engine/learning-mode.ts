@@ -1,6 +1,6 @@
 import { type Subject, type LearningModeDecision, type LearningMode as LearningModeType } from "./engine-types";
 import { StudentProfile } from "./learning";
-import type { DiagnosisResult } from "./diagnosis";
+import type { DiagnosisResult } from "./engine-types";
 
 export const LearningMode = {
   TEACHING: "Teaching Mode",
