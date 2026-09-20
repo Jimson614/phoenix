@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "status": "structure-foundation",
+  "applicationRoot": ".",
+  "runtimeEntrypoints": [
+    "app.js",
+    "app.json",
+    "app.wxss",
+    "project.config.json",
+    "backend/server.js"
+  ],
+  "migrationSource": "backend/migrations/001_questionnaire_submissions.sql",
+  "reservedDirectories": [
+    "apps/mini-program",
+    "apps/web",
+    "apps/advisor-dashboard",
+    "apps/admin-console",
+    "packages/family-core",
+    "packages/timeline-engine",
+    "packages/permissions",
+    "packages/auth",
+    "packages/ui",
+    "packages/types",
+    "packages/utils",
+    "database/schema",
+    "database/migrations",
+    "database/seeds",
+    "database/docs",
+    "ai/agents/family-agent",
+    "ai/agents/timeline-agent",
+    "ai/agents/insight-agent",
+    "ai/context",
+    "ai/memory/short-term",
+    "ai/memory/event-memory",
+    "ai/memory/family-summary",
+    "ai/prompts",
+    "ai/evaluation",
+    "infrastructure/docker",
+    "infrastructure/cloud",
+    "infrastructure/deployment",
+    "infrastructure/monitoring",
+    "infrastructure/security",
+    "tests/unit",
+    "tests/integration",
+    "tests/ai",
+    "tests/security",
+    "docs/architecture",
+    "docs/product",
+    "docs/decisions",
+    "docs/security",
+    "docs/api",
+    "docs/roadmap",
+    "docs/governance",
+    "scripts"
+  ],
+  "modules": [
+    {
+      "path": "packages/family-core",
+      "status": "reserved",
+      "purpose": "家庭、成员、孩子、目标、事件、决策的纯业务逻辑",
+      "sources": [
+        "models/schema.js",
+        "services/repository.js"
+      ]
+    },
+    {
+      "path": "packages/timeline-engine",
+      "status": "reserved",
+      "purpose": "事件添加、查询、家庭关联与时间排序",
+      "sources": [
+        "services/repository.js",
+        "utils/date.js"
+      ]
+    },
+    {
+      "path": "packages/permissions",
+      "status": "reserved",
+      "purpose": "消费 Core 授权结果，检查用途、家庭归属与角色",
+      "sources": [
+        "services/session.js",
+        "backend/auth.js"
+      ]
+    },
+    {
+      "path": "packages/auth",
+      "status": "reserved",
+      "purpose": "平台认证与服务端身份的适配边界",
+      "sources": [
+        "services/auth.js",
+        "services/backend-api.js",
+        "backend/auth.js"
+      ]
+    },
+    {
+      "path": "packages/ui",
+      "status": "reserved",
+      "purpose": "可以跨已实现应用复用的基础界面资源",
+      "sources": [
+        "components/brand-mark/index.wxml",
+        "app.wxss"
+      ]
+    },
+    {
+      "path": "packages/types",
+      "status": "reserved",
+      "purpose": "经确认的跨模块类型与版本契约",
+      "sources": [
+        "models/schema.js",
+        "models/partner-experience.d.ts"
+      ]
+    },
+    {
+      "path": "packages/utils",
+      "status": "reserved",
+      "purpose": "通用日期、ID 与平台无关工具",
+      "sources": [
+        "utils/date.js",
+        "utils/id.js",
+        "utils/navigation.js"
+      ]
+    }
+  ]
+}
