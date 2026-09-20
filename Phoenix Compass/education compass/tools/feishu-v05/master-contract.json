@@ -1,0 +1,1936 @@
+{
+  "source_workbook": "Phoenix_Feishu_Operating_Model_V0.5_Clean_Master.xlsx",
+  "generated_by": "tools/feishu-v05/extract-master.py",
+  "readme": [
+    [
+      "Phoenix Feishu Operating Model V0.5 Clean Master"
+    ],
+    [
+      "原则",
+      "说明",
+      "",
+      "对象",
+      "用途",
+      "是否 Source of Truth"
+    ],
+    [
+      "定位",
+      "飞书仅作为 Operational Workspace / Projection；不是 Phoenix Core、Founder OS 或第二套主数据库。",
+      "",
+      "Family_Student_View",
+      "家庭/学生运营投影",
+      "否，Core 为准"
+    ],
+    [
+      "权威身份",
+      "Family / Student 等身份事实来自 Core；飞书只引用，不生成新的公开 member_id。",
+      "",
+      "Partners",
+      "渠道角色与归属",
+      "Founder OS"
+    ],
+    [
+      "Consent / Entitlement",
+      "不使用通用 grant_id；仅在实际业务需要时引用 consent_id / entitlement_id。",
+      "",
+      "Deals",
+      "商业机会/成交",
+      "Founder OS"
+    ],
+    [
+      "Client",
+      "client_id 仅为 Founder OS 经营记录 ID，不是身份主键。",
+      "",
+      "Contracts",
+      "合同状态与编号引用",
+      "Founder OS"
+    ],
+    [
+      "Service",
+      "不使用 service_order_id；统一使用 service_project_id。",
+      "",
+      "Payments",
+      "客户收款核验",
+      "Founder OS"
+    ],
+    [
+      "合同编号",
+      "Contract Code 仅由 Founder OS 生成；飞书不得自行生成或改号。",
+      "",
+      "Service_Projects",
+      "服务承接",
+      "Founder OS"
+    ],
+    [
+      "Partner",
+      "Partner 可挂在 Person 或 Organization 上；partner_id 是合作角色/关系 ID，不替代主体 ID。",
+      "",
+      "Delivery",
+      "课消/交付/里程碑",
+      "交付模块 / Founder OS"
+    ],
+    [
+      "School",
+      "School 不是普通 Partner；若同一机构兼具 School + Partner，保持角色与资金语义独立。",
+      "",
+      "Applications",
+      "学校申请及提交证据",
+      "经营交付底座"
+    ],
+    [
+      "资金",
+      "Customer Revenue / Partner Commission / Instructor Settlement / School Commission 账务语义严格分离。",
+      "",
+      "Settlements",
+      "四类资金义务与结算",
+      "Founder OS 财务/结算"
+    ],
+    [
+      "同步",
+      "跨系统通过 integration_links；PHX-* projection key 不得直接当 Core Canonical ID Join。",
+      "",
+      "Products_Services",
+      "统一产品与收费/交付规则",
+      "发布后的产品目录"
+    ],
+    [
+      "主链",
+      "Family/Student → Deal → Contract/Payment → ServiceProject → Delivery/Application → Settlement。",
+      "",
+      "Integration_Links",
+      "跨系统映射",
+      "受控集成登记"
+    ],
+    [
+      "实施",
+      "当前模板可先建结构；在 Founder OS Remote D1 Gate 完成前，不接真实自动同步与生产写入。"
+    ],
+    [
+      "版本",
+      "V0.4 废止；以 V0.5 Clean Master 为唯一飞书建表基线。"
+    ]
+  ],
+  "tables": [
+    {
+      "sheet": "Family_Student_View",
+      "unique": "Client ID",
+      "fields": [
+        {
+          "name": "Client ID",
+          "column": "A",
+          "type": 1,
+          "primary": true,
+          "sample": "PN-CLI-0001"
+        },
+        {
+          "name": "Family ID",
+          "column": "B",
+          "type": 1,
+          "primary": false,
+          "sample": "FAM-REF-0001"
+        },
+        {
+          "name": "Student ID",
+          "column": "C",
+          "type": 1,
+          "primary": false,
+          "sample": "STU-REF-0001"
+        },
+        {
+          "name": "Display Name",
+          "column": "D",
+          "type": 1,
+          "primary": false,
+          "sample": "示例学生"
+        },
+        {
+          "name": "Client Stage",
+          "column": "E",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "NEW",
+            "DATA_COLLECTING",
+            "DATA_COMPLETE",
+            "QUALIFIED",
+            "ACTIVE",
+            "CLOSED"
+          ],
+          "sample": "DATA_COLLECTING"
+        },
+        {
+          "name": "Consent Status",
+          "column": "F",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PENDING",
+            "GRANTED",
+            "WITHDRAWN",
+            "NOT_REQUIRED"
+          ],
+          "sample": "PENDING"
+        },
+        {
+          "name": "Consent ID",
+          "column": "G",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Entitlement Status",
+          "column": "H",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PENDING",
+            "ACTIVE",
+            "EXPIRED",
+            "REVOKED",
+            "NOT_REQUIRED"
+          ],
+          "sample": "PENDING"
+        },
+        {
+          "name": "Entitlement ID",
+          "column": "I",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Primary Deal ID",
+          "column": "J",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Service Project ID",
+          "column": "K",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Owner",
+          "column": "L",
+          "type": 1,
+          "primary": false,
+          "sample": "Katrina"
+        },
+        {
+          "name": "Source Type",
+          "column": "M",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "FOUNDER_DIRECT",
+            "FOUNDER_PARTNER",
+            "EMPLOYEE_DIRECT",
+            "EMPLOYEE_PARTNER",
+            "COMPANY_EXISTING_PARTNER",
+            "FAMILY_REFERRAL",
+            "WEBSITE",
+            "COMPASS",
+            "WECHAT_WORK",
+            "OTHER"
+          ],
+          "sample": "FOUNDER_DIRECT"
+        },
+        {
+          "name": "Partner ID",
+          "column": "N",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Source System",
+          "column": "O",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "FEISHU",
+            "PHOENIX_FOUNDER_OS",
+            "PHOENIX_CORE",
+            "IMPORT_LEGACY"
+          ],
+          "sample": "FEISHU"
+        },
+        {
+          "name": "System Record ID",
+          "column": "P",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Sync Status",
+          "column": "Q",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "NOT_SYNCED",
+            "SYNCED",
+            "ERROR",
+            "CONFLICT",
+            "STALE"
+          ],
+          "sample": "NOT_SYNCED"
+        },
+        {
+          "name": "Last Synced At",
+          "column": "R",
+          "type": 1,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "sheet": "Partners",
+      "unique": "Partner ID",
+      "fields": [
+        {
+          "name": "Partner ID",
+          "column": "A",
+          "type": 1,
+          "primary": true,
+          "sample": "PN-PARTNER-0001"
+        },
+        {
+          "name": "Partner Type",
+          "column": "B",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "INDIVIDUAL",
+            "ORGANIZATION"
+          ],
+          "sample": "INDIVIDUAL"
+        },
+        {
+          "name": "Subject Type",
+          "column": "C",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PERSON",
+            "ORGANIZATION"
+          ],
+          "sample": "PERSON"
+        },
+        {
+          "name": "Subject Ref",
+          "column": "D",
+          "type": 1,
+          "primary": false,
+          "sample": "PERSON-REF-0001"
+        },
+        {
+          "name": "Partner Name",
+          "column": "E",
+          "type": 1,
+          "primary": false,
+          "sample": "示例合作伙伴"
+        },
+        {
+          "name": "Tier",
+          "column": "F",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "STANDARD",
+            "CORE",
+            "GOLD",
+            "ACE",
+            "STRATEGIC"
+          ],
+          "sample": "STANDARD"
+        },
+        {
+          "name": "Status",
+          "column": "G",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "ACTIVE",
+            "INACTIVE",
+            "SUSPENDED",
+            "ARCHIVED"
+          ],
+          "sample": "ACTIVE"
+        },
+        {
+          "name": "Source Owner",
+          "column": "H",
+          "type": 1,
+          "primary": false,
+          "sample": "Founder"
+        },
+        {
+          "name": "Account Manager",
+          "column": "I",
+          "type": 1,
+          "primary": false,
+          "sample": "Katrina"
+        },
+        {
+          "name": "Attribution Locked At",
+          "column": "J",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Commission Rule ID",
+          "column": "K",
+          "type": 1,
+          "primary": false,
+          "sample": "CR-DEFAULT"
+        },
+        {
+          "name": "Total Leads",
+          "column": "L",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Signed Deals",
+          "column": "M",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Verified Revenue",
+          "column": "N",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Payable Commission",
+          "column": "O",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Paid Commission",
+          "column": "P",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Source System",
+          "column": "Q",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "FEISHU",
+            "PHOENIX_FOUNDER_OS",
+            "IMPORT_LEGACY"
+          ],
+          "sample": "FEISHU"
+        },
+        {
+          "name": "System Record ID",
+          "column": "R",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Sync Status",
+          "column": "S",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "NOT_SYNCED",
+            "SYNCED",
+            "ERROR",
+            "CONFLICT",
+            "STALE"
+          ],
+          "sample": "NOT_SYNCED"
+        },
+        {
+          "name": "Last Synced At",
+          "column": "T",
+          "type": 1,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "sheet": "Products_Services",
+      "unique": "Product ID",
+      "fields": [
+        {
+          "name": "Product ID",
+          "column": "A",
+          "type": 1,
+          "primary": true,
+          "sample": "PN-PROD-AW-001"
+        },
+        {
+          "name": "Business Line",
+          "column": "B",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "ASKWISE",
+            "PHOENIX_ACADEMY",
+            "ADMISSION",
+            "IDENTITY",
+            "OTHER"
+          ],
+          "sample": "ASKWISE"
+        },
+        {
+          "name": "Product Name",
+          "column": "C",
+          "type": 1,
+          "primary": false,
+          "sample": "AskWise IELTS Coaching"
+        },
+        {
+          "name": "Product Type",
+          "column": "D",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "TRAINING",
+            "ADMISSION",
+            "IDENTITY",
+            "MEMBERSHIP",
+            "OTHER"
+          ],
+          "sample": "TRAINING"
+        },
+        {
+          "name": "Billing Model",
+          "column": "E",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PACKAGE",
+            "COURSE",
+            "PER_SESSION",
+            "PER_HOUR",
+            "SUBSCRIPTION",
+            "MILESTONE",
+            "CUSTOM"
+          ],
+          "sample": "PACKAGE"
+        },
+        {
+          "name": "Currency",
+          "column": "F",
+          "type": 1,
+          "primary": false,
+          "sample": "CNY"
+        },
+        {
+          "name": "List Price",
+          "column": "G",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Unit",
+          "column": "H",
+          "type": 1,
+          "primary": false,
+          "sample": "PACKAGE"
+        },
+        {
+          "name": "Delivery Model",
+          "column": "I",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "SESSION",
+            "MILESTONE",
+            "PROJECT",
+            "CUSTOM"
+          ],
+          "sample": "SESSION"
+        },
+        {
+          "name": "Default Service Owner",
+          "column": "J",
+          "type": 1,
+          "primary": false,
+          "sample": "AskWise Team"
+        },
+        {
+          "name": "Refund Policy ID",
+          "column": "K",
+          "type": 1,
+          "primary": false,
+          "sample": "RP-AW"
+        },
+        {
+          "name": "Sales Commission Rule ID",
+          "column": "L",
+          "type": 1,
+          "primary": false,
+          "sample": "CR-AW"
+        },
+        {
+          "name": "Instructor Settlement Rule ID",
+          "column": "M",
+          "type": 1,
+          "primary": false,
+          "sample": "ISR-AW"
+        },
+        {
+          "name": "Revenue Recognition Rule",
+          "column": "N",
+          "type": 1,
+          "primary": false,
+          "sample": "DELIVERED_UNITS"
+        },
+        {
+          "name": "Status",
+          "column": "O",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "ACTIVE",
+            "INACTIVE",
+            "DRAFT",
+            "ARCHIVED"
+          ],
+          "sample": "ACTIVE"
+        },
+        {
+          "name": "Effective From",
+          "column": "P",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Effective To",
+          "column": "Q",
+          "type": 1,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "sheet": "Deals",
+      "unique": "Deal ID",
+      "fields": [
+        {
+          "name": "Deal ID",
+          "column": "A",
+          "type": 1,
+          "primary": true,
+          "sample": "PN-DEAL-0001"
+        },
+        {
+          "name": "Client ID",
+          "column": "B",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-CLI-0001"
+        },
+        {
+          "name": "Family ID",
+          "column": "C",
+          "type": 1,
+          "primary": false,
+          "sample": "FAM-REF-0001"
+        },
+        {
+          "name": "Student ID",
+          "column": "D",
+          "type": 1,
+          "primary": false,
+          "sample": "STU-REF-0001"
+        },
+        {
+          "name": "Partner ID",
+          "column": "E",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Source Type",
+          "column": "F",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "FOUNDER_DIRECT",
+            "FOUNDER_PARTNER",
+            "EMPLOYEE_DIRECT",
+            "EMPLOYEE_PARTNER",
+            "COMPANY_EXISTING_PARTNER",
+            "FAMILY_REFERRAL",
+            "WEBSITE",
+            "COMPASS",
+            "WECHAT_WORK",
+            "OTHER"
+          ],
+          "sample": "FOUNDER_DIRECT"
+        },
+        {
+          "name": "Source Owner",
+          "column": "G",
+          "type": 1,
+          "primary": false,
+          "sample": "Founder"
+        },
+        {
+          "name": "Account Manager",
+          "column": "H",
+          "type": 1,
+          "primary": false,
+          "sample": "Katrina"
+        },
+        {
+          "name": "Product ID",
+          "column": "I",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-PROD-ADM-001"
+        },
+        {
+          "name": "Quoted Amount",
+          "column": "J",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Approved Amount",
+          "column": "K",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Currency",
+          "column": "L",
+          "type": 1,
+          "primary": false,
+          "sample": "CNY"
+        },
+        {
+          "name": "Deal Status",
+          "column": "M",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "DRAFT",
+            "SOLUTION_READY",
+            "PRICING_APPROVED",
+            "CONTRACT_PENDING",
+            "SIGNED",
+            "PAYMENT_PENDING",
+            "PAYMENT_VERIFIED",
+            "SERVICE_ACTIVE",
+            "COMPLETED",
+            "BLOCKED",
+            "LOST"
+          ],
+          "sample": "DRAFT"
+        },
+        {
+          "name": "Proposal Status",
+          "column": "N",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "DRAFT",
+            "APPROVED",
+            "PRESENTED",
+            "ACCEPTED",
+            "REJECTED",
+            "EXPIRED"
+          ],
+          "sample": "DRAFT"
+        },
+        {
+          "name": "Contract ID",
+          "column": "O",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Payment Status",
+          "column": "P",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PENDING",
+            "RECEIVED_UNVERIFIED",
+            "VERIFIED",
+            "REFUNDED",
+            "DISPUTED"
+          ],
+          "sample": "PENDING"
+        },
+        {
+          "name": "Service Project ID",
+          "column": "Q",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Founder Review Required",
+          "column": "R",
+          "type": 7,
+          "primary": false,
+          "sample": false
+        },
+        {
+          "name": "Created At",
+          "column": "S",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Updated At",
+          "column": "T",
+          "type": 1,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "sheet": "Contracts",
+      "unique": "Contract ID",
+      "fields": [
+        {
+          "name": "Contract ID",
+          "column": "A",
+          "type": 1,
+          "primary": true,
+          "sample": "CONTRACT-REF-0001"
+        },
+        {
+          "name": "Contract Code",
+          "column": "B",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-EDU-202609-0001"
+        },
+        {
+          "name": "Deal ID",
+          "column": "C",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-DEAL-0001"
+        },
+        {
+          "name": "Client ID",
+          "column": "D",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-CLI-0001"
+        },
+        {
+          "name": "Product ID",
+          "column": "E",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-PROD-ADM-001"
+        },
+        {
+          "name": "Template ID",
+          "column": "F",
+          "type": 1,
+          "primary": false,
+          "sample": "TPL-HK-MASTER"
+        },
+        {
+          "name": "Version",
+          "column": "G",
+          "type": 1,
+          "primary": false,
+          "sample": "1.0"
+        },
+        {
+          "name": "Contract Amount",
+          "column": "H",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Currency",
+          "column": "I",
+          "type": 1,
+          "primary": false,
+          "sample": "CNY"
+        },
+        {
+          "name": "Contract Status",
+          "column": "J",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "DRAFT",
+            "READY_TO_SIGN",
+            "SENT_TO_SIGN",
+            "SIGNED",
+            "ARCHIVED",
+            "VOID"
+          ],
+          "sample": "DRAFT"
+        },
+        {
+          "name": "Risk Gate",
+          "column": "K",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "STANDARD_PASS",
+            "BAIHU_REVIEW",
+            "FOUNDER_REVIEW",
+            "BLOCKED"
+          ],
+          "sample": "STANDARD_PASS"
+        },
+        {
+          "name": "Contract Owner",
+          "column": "L",
+          "type": 1,
+          "primary": false,
+          "sample": "Katrina"
+        },
+        {
+          "name": "Partner ID",
+          "column": "M",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Sent At",
+          "column": "N",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Signed At",
+          "column": "O",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Archived At",
+          "column": "P",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Final PDF / Link",
+          "column": "Q",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Payment Status",
+          "column": "R",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PENDING",
+            "RECEIVED_UNVERIFIED",
+            "VERIFIED",
+            "REFUNDED",
+            "DISPUTED"
+          ],
+          "sample": "PENDING"
+        }
+      ]
+    },
+    {
+      "sheet": "Payments",
+      "unique": "Payment ID",
+      "fields": [
+        {
+          "name": "Payment ID",
+          "column": "A",
+          "type": 1,
+          "primary": true,
+          "sample": "PN-PAY-0001"
+        },
+        {
+          "name": "Contract ID",
+          "column": "B",
+          "type": 1,
+          "primary": false,
+          "sample": "CONTRACT-REF-0001"
+        },
+        {
+          "name": "Deal ID",
+          "column": "C",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-DEAL-0001"
+        },
+        {
+          "name": "Client ID",
+          "column": "D",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-CLI-0001"
+        },
+        {
+          "name": "Amount Due",
+          "column": "E",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Amount Received",
+          "column": "F",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Currency",
+          "column": "G",
+          "type": 1,
+          "primary": false,
+          "sample": "CNY"
+        },
+        {
+          "name": "Payment Status",
+          "column": "H",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PENDING",
+            "RECEIVED_UNVERIFIED",
+            "VERIFIED",
+            "FAILED",
+            "REFUNDED",
+            "DISPUTED"
+          ],
+          "sample": "PENDING"
+        },
+        {
+          "name": "Official Account ID",
+          "column": "I",
+          "type": 1,
+          "primary": false,
+          "sample": "OFFICIAL-ACC-REF"
+        },
+        {
+          "name": "Received At",
+          "column": "J",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Verified By",
+          "column": "K",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Verified At",
+          "column": "L",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Receipt / Evidence",
+          "column": "M",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Refund Amount",
+          "column": "N",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Refund Status",
+          "column": "O",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "NONE",
+            "PENDING",
+            "PARTIAL",
+            "FULL",
+            "DISPUTED"
+          ],
+          "sample": "NONE"
+        },
+        {
+          "name": "Service Activation Eligible",
+          "column": "P",
+          "type": 7,
+          "primary": false,
+          "sample": false
+        }
+      ]
+    },
+    {
+      "sheet": "Service_Projects",
+      "unique": "Service Project ID",
+      "fields": [
+        {
+          "name": "Service Project ID",
+          "column": "A",
+          "type": 1,
+          "primary": true,
+          "sample": "PN-SP-0001"
+        },
+        {
+          "name": "Deal ID",
+          "column": "B",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-DEAL-0001"
+        },
+        {
+          "name": "Contract ID",
+          "column": "C",
+          "type": 1,
+          "primary": false,
+          "sample": "CONTRACT-REF-0001"
+        },
+        {
+          "name": "Client ID",
+          "column": "D",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-CLI-0001"
+        },
+        {
+          "name": "Family ID",
+          "column": "E",
+          "type": 1,
+          "primary": false,
+          "sample": "FAM-REF-0001"
+        },
+        {
+          "name": "Student ID",
+          "column": "F",
+          "type": 1,
+          "primary": false,
+          "sample": "STU-REF-0001"
+        },
+        {
+          "name": "Product ID",
+          "column": "G",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-PROD-ADM-001"
+        },
+        {
+          "name": "Business Line",
+          "column": "H",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "ASKWISE",
+            "PHOENIX_ACADEMY",
+            "ADMISSION",
+            "IDENTITY",
+            "OTHER"
+          ],
+          "sample": "ADMISSION"
+        },
+        {
+          "name": "Project Type",
+          "column": "I",
+          "type": 1,
+          "primary": false,
+          "sample": "ADMISSION"
+        },
+        {
+          "name": "Status",
+          "column": "J",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PENDING",
+            "READY",
+            "ACTIVE",
+            "ON_HOLD",
+            "COMPLETED",
+            "CANCELLED"
+          ],
+          "sample": "PENDING"
+        },
+        {
+          "name": "Service Owner",
+          "column": "K",
+          "type": 1,
+          "primary": false,
+          "sample": "Katrina"
+        },
+        {
+          "name": "Start Date",
+          "column": "L",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "End Date",
+          "column": "M",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Entitlement ID",
+          "column": "N",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Delivery Progress",
+          "column": "O",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Application Count",
+          "column": "P",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Refund Status",
+          "column": "Q",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "NONE",
+            "PENDING",
+            "PARTIAL",
+            "FULL",
+            "DISPUTED"
+          ],
+          "sample": "NONE"
+        },
+        {
+          "name": "Notes",
+          "column": "R",
+          "type": 1,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "sheet": "Delivery",
+      "unique": "Delivery Event ID",
+      "fields": [
+        {
+          "name": "Delivery Event ID",
+          "column": "A",
+          "type": 1,
+          "primary": true,
+          "sample": "PN-DEL-0001"
+        },
+        {
+          "name": "Service Project ID",
+          "column": "B",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-SP-0001"
+        },
+        {
+          "name": "Product ID",
+          "column": "C",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-PROD-AW-001"
+        },
+        {
+          "name": "Business Line",
+          "column": "D",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "ASKWISE",
+            "PHOENIX_ACADEMY",
+            "ADMISSION",
+            "IDENTITY",
+            "OTHER"
+          ],
+          "sample": "ASKWISE"
+        },
+        {
+          "name": "Delivery Type",
+          "column": "E",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "SESSION",
+            "CLASS",
+            "CONSULTATION",
+            "DOCUMENT_REVIEW",
+            "MILESTONE",
+            "OTHER"
+          ],
+          "sample": "SESSION"
+        },
+        {
+          "name": "Session / Milestone Ref",
+          "column": "F",
+          "type": 1,
+          "primary": false,
+          "sample": "SESSION-REF-0001"
+        },
+        {
+          "name": "Participant Ref",
+          "column": "G",
+          "type": 1,
+          "primary": false,
+          "sample": "STU-REF-0001"
+        },
+        {
+          "name": "Participant Type",
+          "column": "H",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "STUDENT",
+            "ADULT_PARTICIPANT",
+            "FAMILY_MEMBER",
+            "OTHER"
+          ],
+          "sample": "STUDENT"
+        },
+        {
+          "name": "Instructor / Trainer Ref",
+          "column": "I",
+          "type": 1,
+          "primary": false,
+          "sample": "PERSON-REF-TRAINER-001"
+        },
+        {
+          "name": "Scheduled At",
+          "column": "J",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Delivered At",
+          "column": "K",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Units Delivered",
+          "column": "L",
+          "type": 2,
+          "primary": false,
+          "sample": 1
+        },
+        {
+          "name": "Unit Type",
+          "column": "M",
+          "type": 1,
+          "primary": false,
+          "sample": "SESSION"
+        },
+        {
+          "name": "Attendance Status",
+          "column": "N",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PENDING",
+            "PRESENT",
+            "ABSENT",
+            "LATE",
+            "CANCELLED",
+            "NOT_REQUIRED"
+          ],
+          "sample": "PENDING"
+        },
+        {
+          "name": "Evidence Status",
+          "column": "O",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PENDING",
+            "COMPLETE",
+            "REJECTED",
+            "NOT_REQUIRED"
+          ],
+          "sample": "PENDING"
+        },
+        {
+          "name": "Evidence Link / Ref",
+          "column": "P",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "QA Status",
+          "column": "Q",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PENDING",
+            "PASS",
+            "FAIL",
+            "NOT_REQUIRED"
+          ],
+          "sample": "PENDING"
+        },
+        {
+          "name": "Revenue Eligible",
+          "column": "R",
+          "type": 7,
+          "primary": false,
+          "sample": false
+        },
+        {
+          "name": "Settlement Eligible",
+          "column": "S",
+          "type": 7,
+          "primary": false,
+          "sample": false
+        },
+        {
+          "name": "Exception Reason",
+          "column": "T",
+          "type": 1,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "sheet": "Applications",
+      "unique": "Application ID",
+      "fields": [
+        {
+          "name": "Application ID",
+          "column": "A",
+          "type": 1,
+          "primary": true,
+          "sample": "PN-APP-0001"
+        },
+        {
+          "name": "Service Project ID",
+          "column": "B",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-SP-0001"
+        },
+        {
+          "name": "Student ID",
+          "column": "C",
+          "type": 1,
+          "primary": false,
+          "sample": "STU-REF-0001"
+        },
+        {
+          "name": "School Subject Ref",
+          "column": "D",
+          "type": 1,
+          "primary": false,
+          "sample": "ORG-REF-0001"
+        },
+        {
+          "name": "School Role Ref",
+          "column": "E",
+          "type": 1,
+          "primary": false,
+          "sample": "SCHOOL-ROLE-REF-0001"
+        },
+        {
+          "name": "School Name",
+          "column": "F",
+          "type": 1,
+          "primary": false,
+          "sample": "示例大学"
+        },
+        {
+          "name": "Program / Major",
+          "column": "G",
+          "type": 1,
+          "primary": false,
+          "sample": "示例专业"
+        },
+        {
+          "name": "Intake",
+          "column": "H",
+          "type": 1,
+          "primary": false,
+          "sample": "2027-FALL"
+        },
+        {
+          "name": "Application Round",
+          "column": "I",
+          "type": 1,
+          "primary": false,
+          "sample": "ROUND-1"
+        },
+        {
+          "name": "Application Status",
+          "column": "J",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "DRAFT",
+            "WAITING_CLIENT",
+            "DATA_COMPLETE",
+            "READY_TO_SUBMIT",
+            "SUBMITTED",
+            "SCHOOL_ACKNOWLEDGED",
+            "OFFERED",
+            "REJECTED",
+            "WITHDRAWN",
+            "ENROLLED",
+            "CLOSED"
+          ],
+          "sample": "DRAFT"
+        },
+        {
+          "name": "Internal Owner",
+          "column": "K",
+          "type": 1,
+          "primary": false,
+          "sample": "Katrina"
+        },
+        {
+          "name": "Data Package Version",
+          "column": "L",
+          "type": 1,
+          "primary": false,
+          "sample": "1.0"
+        },
+        {
+          "name": "Consent ID",
+          "column": "M",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Submitted At",
+          "column": "N",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Submission Channel",
+          "column": "O",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PORTAL",
+            "API",
+            "EMAIL",
+            "MANUAL",
+            "OTHER"
+          ]
+        },
+        {
+          "name": "School Portal Ref / Receipt",
+          "column": "P",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Offer Status",
+          "column": "Q",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "NONE",
+            "CONDITIONAL",
+            "UNCONDITIONAL",
+            "REJECTED",
+            "WAITLISTED",
+            "WITHDRAWN"
+          ],
+          "sample": "NONE"
+        },
+        {
+          "name": "Offer Date",
+          "column": "R",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Deposit Status",
+          "column": "S",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PENDING",
+            "PAID",
+            "WAIVED",
+            "NOT_REQUIRED",
+            "REFUNDED"
+          ],
+          "sample": "PENDING"
+        },
+        {
+          "name": "Enrolment Status",
+          "column": "T",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PENDING",
+            "CONFIRMED",
+            "ENROLLED",
+            "DEFERRED",
+            "CANCELLED"
+          ],
+          "sample": "PENDING"
+        },
+        {
+          "name": "School Commission Trigger",
+          "column": "U",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Notes",
+          "column": "V",
+          "type": 1,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "sheet": "Settlements",
+      "unique": "Settlement ID",
+      "fields": [
+        {
+          "name": "Settlement ID",
+          "column": "A",
+          "type": 1,
+          "primary": true,
+          "sample": "PN-SET-0001"
+        },
+        {
+          "name": "Money Type",
+          "column": "B",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "CUSTOMER_REVENUE",
+            "PARTNER_COMMISSION",
+            "INSTRUCTOR_SETTLEMENT",
+            "SCHOOL_COMMISSION"
+          ],
+          "sample": "PARTNER_COMMISSION"
+        },
+        {
+          "name": "Direction",
+          "column": "C",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "IN",
+            "OUT"
+          ],
+          "sample": "OUT"
+        },
+        {
+          "name": "Counterparty Subject Ref",
+          "column": "D",
+          "type": 1,
+          "primary": false,
+          "sample": "PERSON-REF-0001"
+        },
+        {
+          "name": "Counterparty Role",
+          "column": "E",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "CUSTOMER",
+            "PARTNER",
+            "INSTRUCTOR",
+            "TRAINER",
+            "SCHOOL",
+            "EMPLOYEE",
+            "OTHER"
+          ],
+          "sample": "PARTNER"
+        },
+        {
+          "name": "Source Ref Type",
+          "column": "F",
+          "type": 1,
+          "primary": false,
+          "sample": "DEAL"
+        },
+        {
+          "name": "Source Ref ID",
+          "column": "G",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-DEAL-0001"
+        },
+        {
+          "name": "Deal ID",
+          "column": "H",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-DEAL-0001"
+        },
+        {
+          "name": "Payment ID",
+          "column": "I",
+          "type": 1,
+          "primary": false,
+          "sample": "PN-PAY-0001"
+        },
+        {
+          "name": "Service Project ID",
+          "column": "J",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Application ID",
+          "column": "K",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Rule Version",
+          "column": "L",
+          "type": 1,
+          "primary": false,
+          "sample": "1.0"
+        },
+        {
+          "name": "Trigger Event Ref",
+          "column": "M",
+          "type": 1,
+          "primary": false,
+          "sample": "TRIGGER-REF-0001"
+        },
+        {
+          "name": "Amount",
+          "column": "N",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Currency",
+          "column": "O",
+          "type": 1,
+          "primary": false,
+          "sample": "CNY"
+        },
+        {
+          "name": "Obligation Status",
+          "column": "P",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "ESTIMATED",
+            "CONFIRMED",
+            "HELD",
+            "REVERSED"
+          ],
+          "sample": "ESTIMATED"
+        },
+        {
+          "name": "Cash Status",
+          "column": "Q",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "UNPAID",
+            "PARTIAL",
+            "VERIFIED_PAID"
+          ],
+          "sample": "UNPAID"
+        },
+        {
+          "name": "Settlement Status",
+          "column": "R",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PENDING",
+            "APPROVED",
+            "PROCESSING",
+            "CLOSED"
+          ],
+          "sample": "PENDING"
+        },
+        {
+          "name": "Original Settlement ID",
+          "column": "S",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Reversal / Clawback Amount",
+          "column": "T",
+          "type": 2,
+          "primary": false,
+          "sample": 0
+        },
+        {
+          "name": "Approved By",
+          "column": "U",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Approved At",
+          "column": "V",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Paid / Received At",
+          "column": "W",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Payment Ref",
+          "column": "X",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Notes",
+          "column": "Y",
+          "type": 1,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "sheet": "Integration_Links",
+      "unique": "Integration Link ID",
+      "fields": [
+        {
+          "name": "Integration Link ID",
+          "column": "A",
+          "type": 1,
+          "primary": true,
+          "sample": "PN-LINK-0001"
+        },
+        {
+          "name": "Source System",
+          "column": "B",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "FEISHU",
+            "PHOENIX_FOUNDER_OS",
+            "PHOENIX_CORE",
+            "FAMILY_OS",
+            "ASKWISE",
+            "OTHER"
+          ],
+          "sample": "FEISHU"
+        },
+        {
+          "name": "Source Entity Type",
+          "column": "C",
+          "type": 1,
+          "primary": false,
+          "sample": "CLIENT_PROJECTION"
+        },
+        {
+          "name": "Source Record ID",
+          "column": "D",
+          "type": 1,
+          "primary": false,
+          "sample": "FS-ROW-0001"
+        },
+        {
+          "name": "Target System",
+          "column": "E",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PHOENIX_CORE",
+            "PHOENIX_FOUNDER_OS",
+            "FAMILY_OS",
+            "FEISHU",
+            "ASKWISE",
+            "OTHER"
+          ],
+          "sample": "PHOENIX_CORE"
+        },
+        {
+          "name": "Target Entity Type",
+          "column": "F",
+          "type": 1,
+          "primary": false,
+          "sample": "FAMILY"
+        },
+        {
+          "name": "Target Record ID",
+          "column": "G",
+          "type": 1,
+          "primary": false,
+          "sample": "FAM-REF-0001"
+        },
+        {
+          "name": "Status",
+          "column": "H",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "ACTIVE",
+            "CONFLICT",
+            "SUPERSEDED",
+            "RETIRED"
+          ],
+          "sample": "ACTIVE"
+        },
+        {
+          "name": "Valid From",
+          "column": "I",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Valid To",
+          "column": "J",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Correction Reason",
+          "column": "K",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Created By",
+          "column": "L",
+          "type": 1,
+          "primary": false,
+          "sample": "Founder"
+        },
+        {
+          "name": "Created At",
+          "column": "M",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Last Verified At",
+          "column": "N",
+          "type": 1,
+          "primary": false
+        }
+      ]
+    }
+  ]
+}
