@@ -1,0 +1,8 @@
+# Local runtime data and backups only; schema/migrations remain visible.
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.dump
+/data/
+/backups/

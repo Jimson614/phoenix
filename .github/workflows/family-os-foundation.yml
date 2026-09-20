@@ -1,0 +1,46 @@
+name: Family OS foundation checks
+
+on:
+  pull_request:
+    paths:
+      - 'Phoenix Family OS/phoenix-family-os-mvp/**'
+      - '.github/workflows/family-os-foundation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: family-os-foundation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: Phoenix Family OS/phoenix-family-os-mvp
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: '11.19.0'
+          package_json_file: 'Phoenix Family OS/phoenix-family-os-mvp/package.json'
+          run_install: false
+      - name: Install existing locked dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Check architecture and documentation links
+        run: node scripts/check-architecture.cjs
+      - name: Run existing regression suite
+        run: npm test
+      - name: Check configured types
+        run: npm run typecheck
+      - name: Validate project structure (not WeChat compilation)
+        run: npm run build
