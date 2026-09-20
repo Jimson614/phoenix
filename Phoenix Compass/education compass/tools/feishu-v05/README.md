@@ -16,6 +16,7 @@
 | `schema.js` | 读取合同，另声明最小链路顺序、表间引用、V0.5 红线常量 |
 | `core.js` | Core/Founder OS 事实源样本、链路记录、Integration_Links、10 条 Gate |
 | `feishu-client.js` | 多维表格最小客户端：token、建表、字段预检、按主字段 upsert |
+| `load-env.js` | 从仓库根的 `.env.feishu-v05` 读凭据；已设的环境变量优先 |
 | `run-min-chain.js` | 执行器，默认 dry-run，`--live` 才写飞书 |
 | `align-tables.js` | 把飞书表结构对齐到母版（改列名、改字段类型），默认只打印计划 |
 | `gates.test.js` | 反向测试：逐条注入违规，确认 Gate 拦得住 |
@@ -50,6 +51,16 @@ node tools/feishu-v05/run-min-chain.js --live      # 表已建好时写入链路
 | `FEISHU_V05_BITABLE_APP_TOKEN` | live | V0.5 经营 Base 的 App Token |
 | `FEISHU_V05_TABLE_<SHEET>` | 否 | 指定已有表 ID，`<SHEET>` 为母版表名大写，如 `FEISHU_V05_TABLE_DEALS` |
 | `FEISHU_API_BASE_URL` | 否 | 默认 `https://open.feishu.cn` |
+
+也可以把凭据写进仓库根目录的 `.env.feishu-v05`，工具启动时自动读取：
+
+```
+FEISHU_APP_ID=cli_xxxxxxxx
+FEISHU_APP_SECRET=xxxxxxxx
+FEISHU_V05_BITABLE_APP_TOKEN=<FEISHU_V05_BITABLE_APP_TOKEN>
+```
+
+这个文件命中 `.gitignore` 的 `.env.*` 规则，不会进仓库。已经设在环境变量里的值优先，文件只补没设的那些。
 
 ## 最小链路写了什么
 

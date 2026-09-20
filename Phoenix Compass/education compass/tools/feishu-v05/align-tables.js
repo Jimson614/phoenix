@@ -22,6 +22,7 @@ const path = require('node:path')
 
 const { MASTER, T, tableBySheet } = require('./schema')
 const { FeishuClient } = require('./feishu-client')
+const { loadEnvFile, ENV_FILENAME } = require('./load-env')
 
 /** 最小链路里还没对齐的三张表 */
 const DEFAULT_SHEETS = ['Deals', 'Contracts', 'Payments']
@@ -132,6 +133,7 @@ async function main() {
   }
 
   const now = new Date()
+  const env = loadEnvFile()
   const appToken = parseAppToken(
     args.appToken || process.env.FEISHU_V05_BITABLE_APP_TOKEN || process.env.FEISHU_BITABLE_APP_TOKEN
   )
@@ -146,6 +148,7 @@ async function main() {
   console.log(`表结构对齐到母版：${MASTER.source_workbook}`)
   console.log(`模式：${args.apply ? 'APPLY（真正修改飞书表结构）' : 'PLAN（只打印，不修改）'}    app_token=${appToken}`)
   console.log(`范围：${args.sheets.join('、')}`)
+  if (env.loaded.length) console.log(`凭据：${ENV_FILENAME} 提供了 ${env.loaded.join('、')}`)
   console.log(line('═'))
 
   const remoteTables = await client.listTables()

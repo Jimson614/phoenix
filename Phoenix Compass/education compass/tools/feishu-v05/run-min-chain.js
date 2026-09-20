@@ -27,6 +27,7 @@ const {
 } = require('./schema')
 const { buildCoreFixture, buildChainRecords, buildLinks, applyBackfills, runGates } = require('./core')
 const { FeishuClient } = require('./feishu-client')
+const { loadEnvFile, ENV_FILENAME } = require('./load-env')
 
 function parseArgs(argv) {
   const args = { live: false, createTables: false, verifyOnly: false, appToken: null, out: null }
@@ -183,6 +184,8 @@ async function main() {
   }
 
   // ── LIVE ──────────────────────────────────────────────────────────────
+  const env = loadEnvFile()
+  if (env.loaded.length) console.log(`\n凭据：${ENV_FILENAME} 提供了 ${env.loaded.join('、')}`)
   const appToken = parseAppToken(
     args.appToken || process.env.FEISHU_V05_BITABLE_APP_TOKEN || process.env.FEISHU_BITABLE_APP_TOKEN
   )
