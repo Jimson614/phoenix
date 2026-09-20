@@ -242,19 +242,29 @@ async function main() {
     if (extra.length) console.log(`        母版之外的多余列（不阻断）：${extra.join('、')}`)
   }
 
-  const broken = preflight.filter((item) => !item.ok)
+  // 只有最小链路用到的表会挡住 --live；其余几张留到接 Delivery/Application/Settlement 时再对
+  const required = new Set(CHAIN.concat([LINKS_SHEET]))
+  const chainPreflight = preflight.filter((item) => required.has(item.sheet))
+  const otherPreflight = preflight.filter((item) => !required.has(item.sheet))
+  const broken = chainPreflight.filter((item) => !item.ok)
   evidence.live_result = { app_token: appToken, table_ids: tableIds, preflight }
 
   if (args.verifyOnly) {
     fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2))
+    const otherBroken = otherPreflight.filter((item) => !item.ok)
     console.log(line())
-    console.log(`  预检结果：${preflight.length - broken.length}/${preflight.length} 张表符合母版`)
-    console.log(`证据：${path.relative(process.cwd(), evidencePath)}`)
+    console.log(`  最小链路必需：${chainPreflight.length - broken.length}/${chainPreflight.length} 张表符合母版`)
+    if (otherPreflight.length) {
+      console.log(
+        `  链路外（不阻断）：${otherPreflight.length - otherBroken.length}/${otherPreflight.length} 张表符合母版${otherBroken.length ? ` —— ${otherBroken.map((item) => item.sheet).join('、')} 待接 Delivery/Application/Settlement 时再对` : ''}`
+      )
+    }
+    console.log(`  证据：${path.relative(process.cwd(), evidencePath)}`)
     if (broken.length) {
-      console.log('先按上面的差异改齐飞书表结构，再跑 --live 写入链路。')
+      console.log(`  ${broken.map((item) => item.sheet).join('、')} 还没对齐，先改齐再跑 --live。`)
       return 1
     }
-    console.log('表结构已对齐母版，可以跑 --live 写入最小链路。')
+    console.log('  链路表已对齐母版，可以跑 --live 写入最小链路。')
     return 0
   }
 
