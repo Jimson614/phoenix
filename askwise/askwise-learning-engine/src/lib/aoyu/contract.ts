@@ -20,7 +20,7 @@ export interface AoyuPresentationEvent {
 
 type EventIdentity = { eventId: string };
 export type AoyuSystemEvent = EventIdentity & (
-  | { type: "READY" | "STARTED" | "WAITING_FOR_INPUT" | "PAUSED" | "RETRY" | "FAILED" }
+  | { type: "READY" | "STARTED" | "WAITING_FOR_INPUT" | "RETRY" | "FAILED" }
   | { type: "HINT"; hintLevel: number }
   | { type: "COMPLETED"; evidenceConfirmed: boolean; completionKey: string }
 );
@@ -37,7 +37,6 @@ export function mapSystemEventToAoyu(event: AoyuSystemEvent): AoyuPresentationEv
       if (![1, 2, 3].includes(event.hintLevel)) return null;
       state = "HINT";
       break;
-    case "PAUSED":
     case "RETRY": state = "ENCOURAGE"; break;
     case "FAILED": state = "SAFE_ERROR"; break;
     case "COMPLETED":
