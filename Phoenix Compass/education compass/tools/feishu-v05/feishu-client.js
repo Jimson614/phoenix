@@ -255,6 +255,36 @@ class FeishuClient {
     return found?.recordId ?? null
   }
 
+  /** 按条件查一批记录；conditions 直接透传给飞书的 filter */
+  async searchRecords({ tableId, conditions, pageSize = 100 }) {
+    const payload = await this.request(
+      `/open-apis/bitable/v1/apps/${encodeURIComponent(this.appToken)}/tables/${encodeURIComponent(tableId)}/records/search?page_size=${pageSize}`,
+      {
+        method: 'POST',
+        body: { filter: { conjunction: 'and', conditions }, automatic_fields: false }
+      }
+    )
+    const items = payload.data?.items ?? []
+    return items.map((item) => {
+      const fields = {}
+      for (const [name, value] of Object.entries(item.fields ?? {})) {
+        fields[name] = FeishuClient.normalizeCellValue(value)
+      }
+      return { recordId: item.record_id ?? null, fields }
+    })
+  }
+
+  /** 批量删除；飞书单次上限 500 条 */
+  async batchDeleteRecords({ tableId, recordIds }) {
+    if (recordIds.length === 0) return 0
+    if (recordIds.length > 500) throw new FeishuError('单次删除超过 500 条', { code: 'BATCH_TOO_LARGE' })
+    await this.request(
+      `/open-apis/bitable/v1/apps/${encodeURIComponent(this.appToken)}/tables/${encodeURIComponent(tableId)}/records/batch_delete`,
+      { method: 'POST', body: { records: recordIds } }
+    )
+    return recordIds.length
+  }
+
   async createRecord({ tableId, fields }) {
     const payload = await this.request(
       `/open-apis/bitable/v1/apps/${encodeURIComponent(this.appToken)}/tables/${encodeURIComponent(tableId)}/records`,

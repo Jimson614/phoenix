@@ -19,6 +19,7 @@
 | `load-env.js` | 从仓库根的 `.env.feishu-v05` 读凭据；已设的环境变量优先 |
 | `run-min-chain.js` | 执行器，默认 dry-run，`--live` 才写飞书 |
 | `align-tables.js` | 把飞书表结构对齐到母版（改列名、改字段类型），默认只打印计划 |
+| `cleanup-runs.js` | 按运行标记删掉某次验收留下的记录，默认只打印计划 |
 | `gates.test.js` | 反向测试：逐条注入违规，确认 Gate 拦得住 |
 | `align.test.js` | 对齐计划的单元测试（分隔符识别、类型推导、缺列不乱认） |
 | `client.test.js` | 客户端单元测试（读回值归一化、网络错误拆解） |
@@ -34,7 +35,11 @@ node tools/feishu-v05/align-tables.js                           # 打印表结�
 node tools/feishu-v05/align-tables.js --apply                   # 执行对齐（默认只动 Deals/Contracts/Payments）
 node tools/feishu-v05/run-min-chain.js --live --create-tables   # 建齐 11 张空表并跑通一条链路
 node tools/feishu-v05/run-min-chain.js --live      # 表已建好时写入链路（按主字段 upsert）
+node tools/feishu-v05/cleanup-runs.js --run=CF4F9628          # 打印某次验收的删除计划
+node tools/feishu-v05/cleanup-runs.js --run=CF4F9628 --apply  # 执行删除（不可逆）
 ```
+
+每次 live 运行的 ID 都带一个 8 位运行标记（`PN-CLI-CF4F9628`），`cleanup-runs.js` 按标记回收那一次写进去的记录。标记格式限死 8 位十六进制，且单表单次运行匹配超过 10 条就中止 —— 避免一个宽泛的关键字扫掉整张表。删除顺序是创建顺序的倒序，先删 `Integration_Links`。删完会复查残留。
 
 表是手工建的时候，字段类型很容易全建成单行文本。`align-tables.js` 对照母版算出要改的列名和字段类型（单选选项直接取母版白名单），默认只打印计划；加 `--apply` 才真改，改完自动读回复核。它只改名和改类型，不删列、不加列 —— 远端多出来的列一律不碰。
 
