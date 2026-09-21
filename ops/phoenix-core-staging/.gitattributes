@@ -1,0 +1,3 @@
+# 这些文件在 Linux 主机上执行；CRLF 会使 shebang 失效。
+# 无论客户端 core.autocrlf 如何设置，检出时一律保持 LF。
+* text eol=lf

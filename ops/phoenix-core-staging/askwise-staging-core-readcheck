@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${APP_ENV:-}" != "staging" ]]; then
+  echo "Refusing to run outside staging" >&2
+  exit 20
+fi
+
+if [[ "${PHOENIX_CORE_ENVIRONMENT:-}" != "phoenix-core-staging" ]]; then
+  echo "Unexpected Phoenix Core environment" >&2
+  exit 21
+fi
+
+if [[ "${PHOENIX_CORE_READ_ONLY:-}" != "true" ]]; then
+  echo "Read-only guard is not enabled" >&2
+  exit 22
+fi
+
+if [[ "${PGDATABASE:-}" != "phoenix_core_staging" || "${PGUSER:-}" != "askwise_staging_ro" ]]; then
+  echo "Unexpected database target or role" >&2
+  exit 23
+fi
+
+probe="$({
+  /usr/bin/psql --no-password -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN TRANSACTION READ ONLY;
+SELECT concat_ws(
+  '|',
+  current_database(),
+  current_user,
+  current_setting('transaction_read_only'),
+  current_setting('phoenix.environment', true),
+  r.rolsuper,
+  r.rolcreatedb,
+  r.rolcreaterole,
+  r.rolbypassrls,
+  has_database_privilege(current_user, current_database(), 'CONNECT'),
+  has_database_privilege(current_user, current_database(), 'TEMP')
+)
+FROM pg_roles AS r
+WHERE r.rolname = current_user;
+ROLLBACK;
+SQL
+} 2>&1)" || {
+  printf '%s\n' "$probe" >&2
+  exit 24
+}
+
+expected="phoenix_core_staging|askwise_staging_ro|on|staging|f|f|f|f|t|f"
+if [[ "$probe" != "$expected" ]]; then
+  echo "Read-only identity verification failed" >&2
+  printf '%s\n' "$probe" >&2
+  exit 25
+fi
+
+echo "Phoenix Core staging PostgreSQL read-only connectivity verified"
