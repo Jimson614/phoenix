@@ -54,6 +54,10 @@ RECORD_TYPE_OPTIONS = ['SERVICE_DELIVERY', 'SCHOOL_APPLICATION']
 # 未决：Deliveries 的 School Subject Ref 是否改为引用 Schools.School ID。
 SCHOOLS_DRAFT = [
     ('School ID', TEXT, None, 'PN-SCH-0001'),
+    # 照 Partners 的主体/角色分离：School ID 是学校角色 ID，Subject Ref 才是机构主体 ID。
+    # Deliveries 引用 School ID 之后，主体 ID 只能落在这里，否则就丢了。
+    ('Subject Type', SELECT, ['ORGANIZATION', 'PERSON'], 'ORGANIZATION'),
+    ('Subject Ref', TEXT, None, 'ORG-REF-0001'),
     ('School Code', TEXT, None, 'SCH-HK-0001'),
     ('School Name', TEXT, None, '示例大学'),
     ('Region', TEXT, None, 'HK'),
@@ -103,6 +107,10 @@ DECISIONS = [
     ('Applications', 'Enrolled At', 'keep', '同上'),
     ('Applications', 'Created At', 'keep', '审计时间戳'),
     ('Applications', 'Updated At', 'drop', 'Delivery 侧已采纳同名列，合并后只留一个'),
+    # 学校改为引用 Schools 表
+    ('Applications', 'School Subject Ref', 'drop', '机构主体 ID 移到 Schools.Subject Ref'),
+    ('Applications', 'School Role Ref', 'rename', '改为引用 Schools.School ID'),
+    ('Applications', 'School Name', 'drop', '学校名称只在 Schools 维护，申请侧可用查找列显示'),
     # Settlements
     ('Settlements', 'Money Type', 'rename', 'docx 指定用 Settlement Type 区分四类资金'),
     ('Settlements', 'Business Basis Key', 'drop', '底稿 Source Ref Type + Source Ref ID 已表达业务依据'),
@@ -162,6 +170,9 @@ def build_tables(base):
     dropped = {col for col, _ in decisions_for('Delivery', 'drop')} | {
         col for col, _ in decisions_for('Applications', 'drop')}
 
+    # 学校三列换成一个对 Schools 的引用
+    school_ref_replacement = {'School Role Ref': 'School ID'}
+
     merged = [
         field('Delivery Record ID', TEXT, sample='PN-DLV-0001'),
         field('Record Type', SELECT, RECORD_TYPE_OPTIONS, sample='SERVICE_DELIVERY'),
@@ -177,6 +188,11 @@ def build_tables(base):
             if name in ('Delivery Event ID', 'Application ID'):
                 continue
             seen.add(name)
+            renamed = school_ref_replacement.get(name)
+            if renamed:
+                merged.append(field(renamed, TEXT, None, 'PN-SCH-0001'))
+                seen.add(renamed)
+                continue
             merged.append(field(name, f['type'], f.get('options'), f.get('sample')))
     for col, _ in decisions_for('Delivery', 'keep'):
         if col in seen:

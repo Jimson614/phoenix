@@ -90,7 +90,7 @@
     [
       "Deliveries",
       "Delivery Record ID",
-      "48"
+      "46"
     ],
     [
       "Settlements",
@@ -100,7 +100,7 @@
     [
       "Schools（草案）",
       "School ID",
-      "12"
+      "14"
     ],
     [
       "Integration_Links",
@@ -289,6 +289,24 @@
       "Updated At",
       "丢弃",
       "Delivery 侧已采纳同名列，合并后只留一个"
+    ],
+    [
+      "Applications",
+      "School Subject Ref",
+      "丢弃",
+      "机构主体 ID 移到 Schools.Subject Ref"
+    ],
+    [
+      "Applications",
+      "School Role Ref",
+      "改名",
+      "改为引用 Schools.School ID"
+    ],
+    [
+      "Applications",
+      "School Name",
+      "丢弃",
+      "学校名称只在 Schools 维护，申请侧可用查找列显示"
     ],
     [
       "Settlements",
@@ -1659,50 +1677,36 @@
           "sample": "STU-REF-0001"
         },
         {
-          "name": "School Subject Ref",
+          "name": "School ID",
           "column": "W",
           "type": 1,
           "primary": false,
-          "sample": "ORG-REF-0001"
-        },
-        {
-          "name": "School Role Ref",
-          "column": "X",
-          "type": 1,
-          "primary": false,
-          "sample": "SCHOOL-ROLE-REF-0001"
-        },
-        {
-          "name": "School Name",
-          "column": "Y",
-          "type": 1,
-          "primary": false,
-          "sample": "示例大学"
+          "sample": "PN-SCH-0001"
         },
         {
           "name": "Program / Major",
-          "column": "Z",
+          "column": "X",
           "type": 1,
           "primary": false,
           "sample": "示例专业"
         },
         {
           "name": "Intake",
-          "column": "AA",
+          "column": "Y",
           "type": 1,
           "primary": false,
           "sample": "2027-FALL"
         },
         {
           "name": "Application Round",
-          "column": "AB",
+          "column": "Z",
           "type": 1,
           "primary": false,
           "sample": "ROUND-1"
         },
         {
           "name": "Application Status",
-          "column": "AC",
+          "column": "AA",
           "type": 3,
           "primary": false,
           "options": [
@@ -1722,33 +1726,33 @@
         },
         {
           "name": "Internal Owner",
-          "column": "AD",
+          "column": "AB",
           "type": 1,
           "primary": false,
           "sample": "Katrina"
         },
         {
           "name": "Data Package Version",
-          "column": "AE",
+          "column": "AC",
           "type": 1,
           "primary": false,
           "sample": "1.0"
         },
         {
           "name": "Consent ID",
-          "column": "AF",
+          "column": "AD",
           "type": 1,
           "primary": false
         },
         {
           "name": "Submitted At",
-          "column": "AG",
+          "column": "AE",
           "type": 1,
           "primary": false
         },
         {
           "name": "Submission Channel",
-          "column": "AH",
+          "column": "AF",
           "type": 3,
           "primary": false,
           "options": [
@@ -1761,13 +1765,13 @@
         },
         {
           "name": "School Portal Ref / Receipt",
-          "column": "AI",
+          "column": "AG",
           "type": 1,
           "primary": false
         },
         {
           "name": "Offer Status",
-          "column": "AJ",
+          "column": "AH",
           "type": 3,
           "primary": false,
           "options": [
@@ -1782,13 +1786,13 @@
         },
         {
           "name": "Offer Date",
-          "column": "AK",
+          "column": "AI",
           "type": 1,
           "primary": false
         },
         {
           "name": "Deposit Status",
-          "column": "AL",
+          "column": "AJ",
           "type": 3,
           "primary": false,
           "options": [
@@ -1802,7 +1806,7 @@
         },
         {
           "name": "Enrolment Status",
-          "column": "AM",
+          "column": "AK",
           "type": 3,
           "primary": false,
           "options": [
@@ -1816,55 +1820,55 @@
         },
         {
           "name": "School Commission Trigger",
-          "column": "AN",
+          "column": "AL",
           "type": 1,
           "primary": false
         },
         {
           "name": "Notes",
-          "column": "AO",
+          "column": "AM",
           "type": 1,
           "primary": false
         },
         {
           "name": "Total Quantity",
-          "column": "AP",
+          "column": "AN",
           "type": 1,
           "primary": false
         },
         {
           "name": "Owner",
-          "column": "AQ",
+          "column": "AO",
           "type": 1,
           "primary": false
         },
         {
           "name": "Updated At",
-          "column": "AR",
+          "column": "AP",
           "type": 1,
           "primary": false
         },
         {
           "name": "Offer Received At",
-          "column": "AS",
+          "column": "AQ",
           "type": 1,
           "primary": false
         },
         {
           "name": "Deposit Paid At",
-          "column": "AT",
+          "column": "AR",
           "type": 1,
           "primary": false
         },
         {
           "name": "Enrolled At",
-          "column": "AU",
+          "column": "AS",
           "type": 1,
           "primary": false
         },
         {
           "name": "Created At",
-          "column": "AV",
+          "column": "AT",
           "type": 1,
           "primary": false
         }
@@ -2103,29 +2107,47 @@
           "sample": "PN-SCH-0001"
         },
         {
-          "name": "School Code",
+          "name": "Subject Type",
           "column": "B",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "ORGANIZATION",
+            "PERSON"
+          ],
+          "sample": "ORGANIZATION"
+        },
+        {
+          "name": "Subject Ref",
+          "column": "C",
+          "type": 1,
+          "primary": false,
+          "sample": "ORG-REF-0001"
+        },
+        {
+          "name": "School Code",
+          "column": "D",
           "type": 1,
           "primary": false,
           "sample": "SCH-HK-0001"
         },
         {
           "name": "School Name",
-          "column": "C",
+          "column": "E",
           "type": 1,
           "primary": false,
           "sample": "示例大学"
         },
         {
           "name": "Region",
-          "column": "D",
+          "column": "F",
           "type": 1,
           "primary": false,
           "sample": "HK"
         },
         {
           "name": "School Type",
-          "column": "E",
+          "column": "G",
           "type": 3,
           "primary": false,
           "options": [
@@ -2138,7 +2160,7 @@
         },
         {
           "name": "Cooperation Status",
-          "column": "F",
+          "column": "H",
           "type": 3,
           "primary": false,
           "options": [
@@ -2153,27 +2175,27 @@
         },
         {
           "name": "Account Manager",
-          "column": "G",
+          "column": "I",
           "type": 1,
           "primary": false,
           "sample": "Katrina"
         },
         {
           "name": "Agreement Ref",
-          "column": "H",
+          "column": "J",
           "type": 1,
           "primary": false
         },
         {
           "name": "Commission Eligible",
-          "column": "I",
+          "column": "K",
           "type": 7,
           "primary": false,
           "sample": false
         },
         {
           "name": "Status",
-          "column": "J",
+          "column": "L",
           "type": 3,
           "primary": false,
           "options": [
@@ -2186,13 +2208,13 @@
         },
         {
           "name": "Created At",
-          "column": "K",
+          "column": "M",
           "type": 1,
           "primary": false
         },
         {
           "name": "Updated At",
-          "column": "L",
+          "column": "N",
           "type": 1,
           "primary": false
         }
