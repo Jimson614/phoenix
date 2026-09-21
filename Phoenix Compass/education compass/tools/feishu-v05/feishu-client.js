@@ -185,6 +185,21 @@ class FeishuClient {
     return fields
   }
 
+  /** 在已有表上加一列 */
+  async createField({ tableId, name, type, options }) {
+    const body = { field_name: name, type }
+    if (Array.isArray(options)) {
+      body.property = { options: options.map((option) => ({ name: option })) }
+    }
+    const payload = await this.request(
+      `/open-apis/bitable/v1/apps/${encodeURIComponent(this.appToken)}/tables/${encodeURIComponent(tableId)}/fields`,
+      { method: 'POST', body }
+    )
+    const fieldId = payload.data?.field?.field_id
+    if (!fieldId) throw new FeishuError('新建字段未返回 field_id', { code: 'FIELD_ID_MISSING' })
+    return fieldId
+  }
+
   /**
    * 改字段的名字和类型。飞书要求 PUT 时带上完整定义，
    * 所以改名和改类型合并成一次调用。

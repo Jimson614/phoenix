@@ -41,7 +41,7 @@ test('Payments：6 个类型错 + 1 个列名错，算出 7 步', () => {
   })
   const plan = planForTable('Payments', remote)
 
-  assert.deepEqual(plan.unresolved, [])
+  assert.deepEqual(plan.extra, [])
   assert.equal(plan.steps.length, 7)
 
   const rename = plan.steps.find((step) => step.rename)
@@ -76,11 +76,30 @@ test('Deals：5 个类型错、列名全对，算出 5 步且都不改名', () =
 test('已经对齐的表算出 0 步', () => {
   const plan = planForTable('Service_Projects', remoteLike('Service_Projects'))
   assert.deepEqual(plan.steps, [])
-  assert.deepEqual(plan.unresolved, [])
+  assert.deepEqual(plan.extra, [])
 })
 
-test('远端真的少一列时报 unresolved，不会乱认', () => {
+test('远端真的少一列时算成新增，不会误认到别的列上', () => {
   const remote = remoteLike('Contracts').filter((field) => field.name !== 'Risk Gate')
   const plan = planForTable('Contracts', remote)
-  assert.deepEqual(plan.unresolved, ['Risk Gate'])
+  assert.equal(plan.steps.length, 1)
+  const [step] = plan.steps
+  assert.equal(step.kind, 'add-field')
+  assert.equal(step.to, 'Risk Gate')
+  assert.deepEqual(step.options, tableBySheet('Contracts').fields.find((f) => f.name === 'Risk Gate').options)
+})
+
+test('Base 里没有这张表时整张新建', () => {
+  const plan = planForTable('Deliveries', null)
+  assert.equal(plan.missingTable, true)
+  assert.equal(plan.steps.length, 1)
+  assert.equal(plan.steps[0].kind, 'create-table')
+  assert.equal(plan.steps[0].fieldCount, tableBySheet('Deliveries').fields.length)
+})
+
+test('母版之外的远端列只报告，不产生改动', () => {
+  const remote = remoteLike('Payments').concat([{ id: 'fldX', name: 'Business Basis Key', type: 1, isPrimary: false }])
+  const plan = planForTable('Payments', remote)
+  assert.deepEqual(plan.steps, [])
+  assert.deepEqual(plan.extra, ['Business Basis Key'])
 })

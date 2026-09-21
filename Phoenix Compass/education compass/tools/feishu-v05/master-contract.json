@@ -1,113 +1,318 @@
 {
-  "source_workbook": "Phoenix_Feishu_Operating_Model_V0.5_Clean_Master.xlsx",
+  "source_workbook": "Phoenix_Feishu_Operating_Model_V0.5.1_Master.xlsx",
   "generated_by": "tools/feishu-v05/extract-master.py",
   "readme": [
     [
-      "Phoenix Feishu Operating Model V0.5 Clean Master"
+      "Phoenix Feishu Operating Model V0.5.1 Master"
     ],
     [
-      "原则",
-      "说明",
-      "",
-      "对象",
-      "用途",
-      "是否 Source of Truth"
+      "来源",
+      "说明"
     ],
     [
-      "定位",
-      "飞书仅作为 Operational Workspace / Projection；不是 Phoenix Core、Founder OS 或第二套主数据库。",
-      "",
+      "底稿",
+      "Phoenix_Feishu_Operating_Model_V0.5_Clean_Master.xlsx（2026-09-11）"
+    ],
+    [
+      "要求",
+      "feishuv0.5.docx（2026-09-20，最新，冲突时以它为准）"
+    ],
+    [
+      "飞书现状",
+      "AI 按优化提示词 + 底稿展开所建，新增列逐列裁定，不整批采信"
+    ],
+    [
+      "取舍规则",
+      "与底稿语义重复的一律丢弃并保留底稿列名；底稿未覆盖的能力才采纳"
+    ],
+    [
+      "本版相对底稿的三处结构改动"
+    ],
+    [
+      "1",
+      "Delivery 与 Applications 合并为 Deliveries，用 Record Type 区分 SERVICE_DELIVERY / SCHOOL_APPLICATION"
+    ],
+    [
+      "2",
+      "Settlements 的 Money Type 改名为 Settlement Type"
+    ],
+    [
+      "3",
+      "Integration_Links 增加 Source of Truth"
+    ],
+    [
+      "表",
+      "主字段",
+      "列数"
+    ],
+    [
       "Family_Student_View",
-      "家庭/学生运营投影",
-      "否，Core 为准"
+      "Client ID",
+      "18"
     ],
     [
-      "权威身份",
-      "Family / Student 等身份事实来自 Core；飞书只引用，不生成新的公开 member_id。",
-      "",
       "Partners",
-      "渠道角色与归属",
-      "Founder OS"
+      "Partner ID",
+      "23"
     ],
     [
-      "Consent / Entitlement",
-      "不使用通用 grant_id；仅在实际业务需要时引用 consent_id / entitlement_id。",
-      "",
-      "Deals",
-      "商业机会/成交",
-      "Founder OS"
-    ],
-    [
-      "Client",
-      "client_id 仅为 Founder OS 经营记录 ID，不是身份主键。",
-      "",
-      "Contracts",
-      "合同状态与编号引用",
-      "Founder OS"
-    ],
-    [
-      "Service",
-      "不使用 service_order_id；统一使用 service_project_id。",
-      "",
-      "Payments",
-      "客户收款核验",
-      "Founder OS"
-    ],
-    [
-      "合同编号",
-      "Contract Code 仅由 Founder OS 生成；飞书不得自行生成或改号。",
-      "",
-      "Service_Projects",
-      "服务承接",
-      "Founder OS"
-    ],
-    [
-      "Partner",
-      "Partner 可挂在 Person 或 Organization 上；partner_id 是合作角色/关系 ID，不替代主体 ID。",
-      "",
-      "Delivery",
-      "课消/交付/里程碑",
-      "交付模块 / Founder OS"
-    ],
-    [
-      "School",
-      "School 不是普通 Partner；若同一机构兼具 School + Partner，保持角色与资金语义独立。",
-      "",
-      "Applications",
-      "学校申请及提交证据",
-      "经营交付底座"
-    ],
-    [
-      "资金",
-      "Customer Revenue / Partner Commission / Instructor Settlement / School Commission 账务语义严格分离。",
-      "",
-      "Settlements",
-      "四类资金义务与结算",
-      "Founder OS 财务/结算"
-    ],
-    [
-      "同步",
-      "跨系统通过 integration_links；PHX-* projection key 不得直接当 Core Canonical ID Join。",
-      "",
       "Products_Services",
-      "统一产品与收费/交付规则",
-      "发布后的产品目录"
+      "Product ID",
+      "17"
     ],
     [
-      "主链",
-      "Family/Student → Deal → Contract/Payment → ServiceProject → Delivery/Application → Settlement。",
-      "",
+      "Deals",
+      "Deal ID",
+      "20"
+    ],
+    [
+      "Contracts",
+      "Contract ID",
+      "18"
+    ],
+    [
+      "Payments",
+      "Payment ID",
+      "16"
+    ],
+    [
+      "Service_Projects",
+      "Service Project ID",
+      "18"
+    ],
+    [
+      "Deliveries",
+      "Delivery Record ID",
+      "48"
+    ],
+    [
+      "Settlements",
+      "Settlement ID",
+      "27"
+    ],
+    [
       "Integration_Links",
-      "跨系统映射",
-      "受控集成登记"
+      "Integration Link ID",
+      "15"
     ],
     [
-      "实施",
-      "当前模板可先建结构；在 Founder OS Remote D1 Gate 完成前，不接真实自动同步与生产写入。"
+      "飞书新增列的逐列裁定"
     ],
     [
-      "版本",
-      "V0.4 废止；以 V0.5 Clean Master 为唯一飞书建表基线。"
+      "原表",
+      "列",
+      "处理",
+      "理由"
+    ],
+    [
+      "Partners",
+      "Agreement Ref",
+      "采纳",
+      "底稿只有 Commission Rule ID，没有合作协议引用"
+    ],
+    [
+      "Partners",
+      "Source Owner Type",
+      "丢弃",
+      "底稿 Source Owner 已表达原始归属，docx 未要求再拆类型"
+    ],
+    [
+      "Partners",
+      "Source Owner ID",
+      "丢弃",
+      "同上，避免与 Source Owner 语义重复"
+    ],
+    [
+      "Partners",
+      "Created At",
+      "采纳",
+      "审计时间戳，底稿在 Deals 上已有此惯例"
+    ],
+    [
+      "Partners",
+      "Updated At",
+      "采纳",
+      "同上"
+    ],
+    [
+      "Products_Services",
+      "Record ID",
+      "丢弃",
+      "与 Product ID 重复"
+    ],
+    [
+      "Products_Services",
+      "Record Type",
+      "丢弃",
+      "父子结构本次不做"
+    ],
+    [
+      "Products_Services",
+      "Package ID",
+      "丢弃",
+      "父子结构本次不做"
+    ],
+    [
+      "Products_Services",
+      "Service ID",
+      "丢弃",
+      "父子结构本次不做"
+    ],
+    [
+      "Products_Services",
+      "Code",
+      "丢弃",
+      "与 Product ID 重复"
+    ],
+    [
+      "Products_Services",
+      "Name",
+      "丢弃",
+      "与 Product Name 重复"
+    ],
+    [
+      "Products_Services",
+      "Delivery Unit",
+      "丢弃",
+      "与 Unit 重复"
+    ],
+    [
+      "Products_Services",
+      "Included Quantity",
+      "丢弃",
+      "父子结构本次不做"
+    ],
+    [
+      "Products_Services",
+      "Parent Record Ref",
+      "丢弃",
+      "父子结构本次不做"
+    ],
+    [
+      "Delivery",
+      "Delivery ID",
+      "丢弃",
+      "与 Delivery Event ID 重复"
+    ],
+    [
+      "Delivery",
+      "Service ID",
+      "丢弃",
+      "依附于已放弃的父子结构"
+    ],
+    [
+      "Delivery",
+      "Milestone Type",
+      "丢弃",
+      "Delivery Type 的 MILESTONE 取值已覆盖"
+    ],
+    [
+      "Delivery",
+      "Total Quantity",
+      "采纳",
+      "应交付总量，底稿只有已交付的 Units Delivered"
+    ],
+    [
+      "Delivery",
+      "Owner",
+      "采纳",
+      "合并后需要统一的负责人列"
+    ],
+    [
+      "Delivery",
+      "Completed At",
+      "丢弃",
+      "与 Delivered At 重复"
+    ],
+    [
+      "Delivery",
+      "Updated At",
+      "采纳",
+      "审计时间戳"
+    ],
+    [
+      "Applications",
+      "School Role",
+      "丢弃",
+      "与 School Role Ref 重复"
+    ],
+    [
+      "Applications",
+      "School Ref",
+      "丢弃",
+      "与 School Subject Ref 重复"
+    ],
+    [
+      "Applications",
+      "Consent Snapshot",
+      "丢弃",
+      "docx 要求只在必要时引用 consent_id，不留快照"
+    ],
+    [
+      "Applications",
+      "Offer Received At",
+      "采纳",
+      "底稿只有 Offer Date，里程碑时间补全"
+    ],
+    [
+      "Applications",
+      "Deposit Paid At",
+      "采纳",
+      "同上"
+    ],
+    [
+      "Applications",
+      "Enrolled At",
+      "采纳",
+      "同上"
+    ],
+    [
+      "Applications",
+      "Created At",
+      "采纳",
+      "审计时间戳"
+    ],
+    [
+      "Applications",
+      "Updated At",
+      "丢弃",
+      "Delivery 侧已采纳同名列，合并后只留一个"
+    ],
+    [
+      "Settlements",
+      "Money Type",
+      "改名",
+      "docx 指定用 Settlement Type 区分四类资金"
+    ],
+    [
+      "Settlements",
+      "Business Basis Key",
+      "丢弃",
+      "底稿 Source Ref Type + Source Ref ID 已表达业务依据"
+    ],
+    [
+      "Settlements",
+      "Beneficiary / Counterparty ID",
+      "丢弃",
+      "与 Counterparty Subject Ref 重复"
+    ],
+    [
+      "Settlements",
+      "Period Start",
+      "采纳",
+      "结算周期，底稿没有"
+    ],
+    [
+      "Settlements",
+      "Period End",
+      "采纳",
+      "同上"
+    ],
+    [
+      "Integration_Links",
+      "Source of Truth",
+      "采纳",
+      "docx 点名要求的列，底稿没有"
     ]
   ],
   "tables": [
@@ -453,6 +658,24 @@
         {
           "name": "Last Synced At",
           "column": "T",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Agreement Ref",
+          "column": "U",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Created At",
+          "column": "V",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Updated At",
+          "column": "W",
           "type": 1,
           "primary": false
         }
@@ -1225,33 +1448,44 @@
       ]
     },
     {
-      "sheet": "Delivery",
-      "unique": "Delivery Event ID",
+      "sheet": "Deliveries",
+      "unique": "Delivery Record ID",
       "fields": [
         {
-          "name": "Delivery Event ID",
+          "name": "Delivery Record ID",
           "column": "A",
           "type": 1,
           "primary": true,
-          "sample": "PN-DEL-0001"
+          "sample": "PN-DLV-0001"
+        },
+        {
+          "name": "Record Type",
+          "column": "B",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "SERVICE_DELIVERY",
+            "SCHOOL_APPLICATION"
+          ],
+          "sample": "SERVICE_DELIVERY"
         },
         {
           "name": "Service Project ID",
-          "column": "B",
+          "column": "C",
           "type": 1,
           "primary": false,
           "sample": "PN-SP-0001"
         },
         {
           "name": "Product ID",
-          "column": "C",
+          "column": "D",
           "type": 1,
           "primary": false,
           "sample": "PN-PROD-AW-001"
         },
         {
           "name": "Business Line",
-          "column": "D",
+          "column": "E",
           "type": 3,
           "primary": false,
           "options": [
@@ -1265,7 +1499,7 @@
         },
         {
           "name": "Delivery Type",
-          "column": "E",
+          "column": "F",
           "type": 3,
           "primary": false,
           "options": [
@@ -1280,21 +1514,21 @@
         },
         {
           "name": "Session / Milestone Ref",
-          "column": "F",
+          "column": "G",
           "type": 1,
           "primary": false,
           "sample": "SESSION-REF-0001"
         },
         {
           "name": "Participant Ref",
-          "column": "G",
+          "column": "H",
           "type": 1,
           "primary": false,
           "sample": "STU-REF-0001"
         },
         {
           "name": "Participant Type",
-          "column": "H",
+          "column": "I",
           "type": 3,
           "primary": false,
           "options": [
@@ -1307,40 +1541,40 @@
         },
         {
           "name": "Instructor / Trainer Ref",
-          "column": "I",
+          "column": "J",
           "type": 1,
           "primary": false,
           "sample": "PERSON-REF-TRAINER-001"
         },
         {
           "name": "Scheduled At",
-          "column": "J",
-          "type": 1,
-          "primary": false
-        },
-        {
-          "name": "Delivered At",
           "column": "K",
           "type": 1,
           "primary": false
         },
         {
-          "name": "Units Delivered",
+          "name": "Delivered At",
           "column": "L",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Units Delivered",
+          "column": "M",
           "type": 2,
           "primary": false,
           "sample": 1
         },
         {
           "name": "Unit Type",
-          "column": "M",
+          "column": "N",
           "type": 1,
           "primary": false,
           "sample": "SESSION"
         },
         {
           "name": "Attendance Status",
-          "column": "N",
+          "column": "O",
           "type": 3,
           "primary": false,
           "options": [
@@ -1355,7 +1589,7 @@
         },
         {
           "name": "Evidence Status",
-          "column": "O",
+          "column": "P",
           "type": 3,
           "primary": false,
           "options": [
@@ -1368,13 +1602,13 @@
         },
         {
           "name": "Evidence Link / Ref",
-          "column": "P",
+          "column": "Q",
           "type": 1,
           "primary": false
         },
         {
           "name": "QA Status",
-          "column": "Q",
+          "column": "R",
           "type": 3,
           "primary": false,
           "options": [
@@ -1387,96 +1621,76 @@
         },
         {
           "name": "Revenue Eligible",
-          "column": "R",
-          "type": 7,
-          "primary": false,
-          "sample": false
-        },
-        {
-          "name": "Settlement Eligible",
           "column": "S",
           "type": 7,
           "primary": false,
           "sample": false
         },
         {
-          "name": "Exception Reason",
+          "name": "Settlement Eligible",
           "column": "T",
-          "type": 1,
-          "primary": false
-        }
-      ]
-    },
-    {
-      "sheet": "Applications",
-      "unique": "Application ID",
-      "fields": [
-        {
-          "name": "Application ID",
-          "column": "A",
-          "type": 1,
-          "primary": true,
-          "sample": "PN-APP-0001"
+          "type": 7,
+          "primary": false,
+          "sample": false
         },
         {
-          "name": "Service Project ID",
-          "column": "B",
+          "name": "Exception Reason",
+          "column": "U",
           "type": 1,
-          "primary": false,
-          "sample": "PN-SP-0001"
+          "primary": false
         },
         {
           "name": "Student ID",
-          "column": "C",
+          "column": "V",
           "type": 1,
           "primary": false,
           "sample": "STU-REF-0001"
         },
         {
           "name": "School Subject Ref",
-          "column": "D",
+          "column": "W",
           "type": 1,
           "primary": false,
           "sample": "ORG-REF-0001"
         },
         {
           "name": "School Role Ref",
-          "column": "E",
+          "column": "X",
           "type": 1,
           "primary": false,
           "sample": "SCHOOL-ROLE-REF-0001"
         },
         {
           "name": "School Name",
-          "column": "F",
+          "column": "Y",
           "type": 1,
           "primary": false,
           "sample": "示例大学"
         },
         {
           "name": "Program / Major",
-          "column": "G",
+          "column": "Z",
           "type": 1,
           "primary": false,
           "sample": "示例专业"
         },
         {
           "name": "Intake",
-          "column": "H",
+          "column": "AA",
           "type": 1,
           "primary": false,
           "sample": "2027-FALL"
         },
         {
           "name": "Application Round",
-          "column": "I",
+          "column": "AB",
           "type": 1,
           "primary": false,
           "sample": "ROUND-1"
         },
         {
           "name": "Application Status",
-          "column": "J",
+          "column": "AC",
           "type": 3,
           "primary": false,
           "options": [
@@ -1496,33 +1710,33 @@
         },
         {
           "name": "Internal Owner",
-          "column": "K",
+          "column": "AD",
           "type": 1,
           "primary": false,
           "sample": "Katrina"
         },
         {
           "name": "Data Package Version",
-          "column": "L",
+          "column": "AE",
           "type": 1,
           "primary": false,
           "sample": "1.0"
         },
         {
           "name": "Consent ID",
-          "column": "M",
+          "column": "AF",
           "type": 1,
           "primary": false
         },
         {
           "name": "Submitted At",
-          "column": "N",
+          "column": "AG",
           "type": 1,
           "primary": false
         },
         {
           "name": "Submission Channel",
-          "column": "O",
+          "column": "AH",
           "type": 3,
           "primary": false,
           "options": [
@@ -1535,13 +1749,13 @@
         },
         {
           "name": "School Portal Ref / Receipt",
-          "column": "P",
+          "column": "AI",
           "type": 1,
           "primary": false
         },
         {
           "name": "Offer Status",
-          "column": "Q",
+          "column": "AJ",
           "type": 3,
           "primary": false,
           "options": [
@@ -1556,13 +1770,13 @@
         },
         {
           "name": "Offer Date",
-          "column": "R",
+          "column": "AK",
           "type": 1,
           "primary": false
         },
         {
           "name": "Deposit Status",
-          "column": "S",
+          "column": "AL",
           "type": 3,
           "primary": false,
           "options": [
@@ -1576,7 +1790,7 @@
         },
         {
           "name": "Enrolment Status",
-          "column": "T",
+          "column": "AM",
           "type": 3,
           "primary": false,
           "options": [
@@ -1590,13 +1804,55 @@
         },
         {
           "name": "School Commission Trigger",
-          "column": "U",
+          "column": "AN",
           "type": 1,
           "primary": false
         },
         {
           "name": "Notes",
-          "column": "V",
+          "column": "AO",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Total Quantity",
+          "column": "AP",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Owner",
+          "column": "AQ",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Updated At",
+          "column": "AR",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Offer Received At",
+          "column": "AS",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Deposit Paid At",
+          "column": "AT",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Enrolled At",
+          "column": "AU",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Created At",
+          "column": "AV",
           "type": 1,
           "primary": false
         }
@@ -1614,7 +1870,7 @@
           "sample": "PN-SET-0001"
         },
         {
-          "name": "Money Type",
+          "name": "Settlement Type",
           "column": "B",
           "type": 3,
           "primary": false,
@@ -1808,6 +2064,18 @@
           "column": "Y",
           "type": 1,
           "primary": false
+        },
+        {
+          "name": "Period Start",
+          "column": "Z",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Period End",
+          "column": "AA",
+          "type": 1,
+          "primary": false
         }
       ]
     },
@@ -1929,6 +2197,19 @@
           "column": "N",
           "type": 1,
           "primary": false
+        },
+        {
+          "name": "Source of Truth",
+          "column": "O",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PHOENIX_CORE",
+            "PHOENIX_FOUNDER_OS",
+            "FAMILY_OS",
+            "FEISHU",
+            "ASKWISE"
+          ]
         }
       ]
     }

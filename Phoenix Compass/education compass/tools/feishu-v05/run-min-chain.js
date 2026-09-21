@@ -201,6 +201,7 @@ async function main() {
   const tableIds = {}
   const needed =
     args.createTables || args.verifyOnly ? TABLES.map((table) => table.sheet) : CHAIN.concat([LINKS_SHEET])
+  const missingTables = []
   for (const sheet of needed) {
     const table = tableBySheet(sheet)
     const fromEnv = process.env[envKey(sheet)]
@@ -211,6 +212,11 @@ async function main() {
       console.log(`  CREATE ${pad(sheet, 24)} ${tableId}  字段 ${table.fields.length}`)
     } else if (tableId) {
       console.log(`  EXISTS ${pad(sheet, 24)} ${tableId}${fromEnv ? '（环境变量指定）' : ''}`)
+    } else if (args.verifyOnly) {
+      // 只读校验：缺表是一条结论，不是中断的理由
+      missingTables.push(sheet)
+      console.log(`  ABSENT ${pad(sheet, 24)} Base 中不存在`)
+      continue
     } else {
       throw new Error(`Base 中缺少表「${sheet}」，请先建表或加 --create-tables`)
     }
@@ -219,7 +225,11 @@ async function main() {
 
   console.log('\n【7】LIVE：字段合同预检（对照母版）')
   const preflight = []
-  for (const sheet of needed) {
+  for (const sheet of missingTables) {
+    preflight.push({ sheet, table_id: null, ok: false, missing: ['(整张表)'], mismatched: [], extra: [], primary: null })
+    console.log(`  FAIL  ${pad(sheet, 24)} Base 中不存在，需按母版新建`)
+  }
+  for (const sheet of needed.filter((item) => !missingTables.includes(item))) {
     const table = tableBySheet(sheet)
     const remoteFields = await client.listFields(tableIds[sheet])
     const byName = new Map(remoteFields.map((field) => [field.name, field]))

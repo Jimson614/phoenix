@@ -20,7 +20,11 @@ const {
 /** 飞书本地运营 ID 一律 PN- 前缀；Core／Founder OS 的 canonical ID 不用这个前缀 */
 const FEISHU_ID_PREFIX = 'PN-'
 
-/** 每张链路表在 Integration_Links 里的实体语义与事实源系统（对齐母版 README 的 Source of Truth 列） */
+/**
+ * 每张链路表在 Integration_Links 里的实体语义与事实源系统。
+ * targetSystem 是记录去向，sourceOfTruth 是这条记录以谁为准 —— 对齐母版
+ * README 的 Source of Truth 列：身份归 Core，经营归 Founder OS。
+ */
 const LINK_TARGETS = {
   Family_Student_View: [
     { sourceEntity: 'CLIENT_PROJECTION', targetSystem: 'PHOENIX_CORE', targetEntity: 'FAMILY', coreKey: 'familyId' },
@@ -230,6 +234,7 @@ function buildLinks({ core, ids, runTag }) {
           'Target System': target.targetSystem,
           'Target Entity Type': target.targetEntity,
           'Target Record ID': core[target.coreKey],
+          'Source of Truth': target.targetSystem,
           Status: 'ACTIVE',
           'Valid From': core.createdAt,
           'Created By': core.owner,
@@ -383,15 +388,20 @@ function runGates({ core, ids, records, backfills, links }) {
   const canonicalLeak = links
     .filter((link) => String(link.fields['Target Record ID']).startsWith(FEISHU_ID_PREFIX))
     .map((link) => link.fields['Integration Link ID'])
-  const g7 = missingLinks.length === 0 && inactive.length === 0 && canonicalLeak.length === 0
+  // 飞书是运营投影，永远不是链路记录的事实源
+  const feishuAsTruth = links
+    .filter((link) => link.fields['Source of Truth'] === 'FEISHU')
+    .map((link) => link.fields['Integration Link ID'])
+  const g7 =
+    missingLinks.length === 0 && inactive.length === 0 && canonicalLeak.length === 0 && feishuAsTruth.length === 0
   gates.push(
     gate(
       'G7',
       '跨系统关联只经 Integration_Links，飞书 ID 未冒充 Core Canonical ID',
       g7,
       g7
-        ? `${links.length} 条 ACTIVE 映射覆盖全部 ${CHAIN.length} 张链路表`
-        : `缺映射：${missingLinks.join('、') || '无'}；非 ACTIVE：${inactive.join('、') || '无'}；Target 混入飞书 ID：${canonicalLeak.join('、') || '无'}`
+        ? `${links.length} 条 ACTIVE 映射覆盖全部 ${CHAIN.length} 张链路表，Source of Truth 均为 Core / Founder OS`
+        : `缺映射：${missingLinks.join('、') || '无'}；非 ACTIVE：${inactive.join('、') || '无'}；Target 混入飞书 ID：${canonicalLeak.join('、') || '无'}；飞书被当事实源：${feishuAsTruth.join('、') || '无'}`
     )
   )
 

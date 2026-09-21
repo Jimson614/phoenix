@@ -20,12 +20,12 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const { MASTER, T, tableBySheet } = require('./schema')
+const { MASTER, T, TABLES, tableBySheet } = require('./schema')
 const { FeishuClient } = require('./feishu-client')
 const { loadEnvFile, ENV_FILENAME } = require('./load-env')
 
-/** 最小链路里还没对齐的三张表 */
-const DEFAULT_SHEETS = ['Deals', 'Contracts', 'Payments']
+/** 默认处理母版里的全部表 */
+const DEFAULT_SHEETS = TABLES.map((table) => table.sheet)
 
 const TYPE_LABEL = { [T.TEXT]: '单行文本', [T.NUMBER]: '数字', [T.SELECT]: '单选', [T.CHECKBOX]: '复选框' }
 
@@ -45,9 +45,12 @@ function parseArgs(argv) {
 const HELP = `把飞书表结构对齐到 ${MASTER.source_workbook}
 
   --apply           真正执行；不加就只打印计划
-  --sheets=A,B      要处理的表，默认 ${DEFAULT_SHEETS.join(',')}
+  --sheets=A,B      要处理的表，默认母版全部 ${DEFAULT_SHEETS.length} 张
   --app-token=<v>   Base App Token，也可直接粘 Base 链接
   --out=<dir>       计划与结果的输出目录，默认 artifacts/feishu-v05/<时间戳>-align
+
+只做三件事：缺表按母版新建、缺列新增、列名或类型不符就改。
+永远不删列、不删表 —— 母版之外的列和表会报告出来但原样保留。
 `
 
 function parseAppToken(value) {
@@ -77,44 +80,60 @@ function line(char = '─', size = 82) {
   return char.repeat(size)
 }
 
-/** 对照母版算出每张表要做的改动 */
+/**
+ * 对照母版算出每张表要做的改动。
+ * remoteFields 传 null 表示 Base 里还没有这张表，整张按母版新建。
+ */
 function planForTable(sheet, remoteFields) {
   const table = tableBySheet(sheet)
+  if (remoteFields === null) {
+    return { sheet, missingTable: true, steps: [{ kind: 'create-table', to: sheet, fieldCount: table.fields.length }], extra: [] }
+  }
+
   const byName = new Map(remoteFields.map((field) => [field.name, field]))
   const byNormalized = new Map(remoteFields.map((field) => [normalizeName(field.name), field]))
   const steps = []
-  const unresolved = []
 
   for (const field of table.fields) {
-    const exact = byName.get(field.name)
-    const loose = byNormalized.get(normalizeName(field.name))
-    const remote = exact || loose
+    const remote = byName.get(field.name) || byNormalized.get(normalizeName(field.name))
+    const options = Array.isArray(field.options) ? field.options : null
+
     if (!remote) {
-      unresolved.push(field.name)
+      steps.push({ kind: 'add-field', to: field.name, toType: field.type, options })
       continue
     }
 
-    const renameTo = remote.name === field.name ? null : field.name
-    const retypeTo = remote.type === field.type ? null : field.type
-    if (!renameTo && !retypeTo) continue
+    const rename = remote.name !== field.name
+    const retype = remote.type !== field.type
+    if (!rename && !retype) continue
 
     steps.push({
+      kind: 'update-field',
       fieldId: remote.id,
       from: remote.name,
       to: field.name,
-      rename: Boolean(renameTo),
+      rename,
       fromType: remote.type,
       toType: field.type,
-      retype: Boolean(retypeTo),
-      options: Array.isArray(field.options) ? field.options : null,
+      retype,
+      options,
       primary: remote.isPrimary
     })
   }
 
-  return { sheet, steps, unresolved }
+  // 母版之外的远端列：只报告，不删除
+  const wanted = new Set(table.fields.flatMap((field) => [field.name, normalizeName(field.name)]))
+  const extra = remoteFields.filter((field) => !wanted.has(field.name) && !wanted.has(normalizeName(field.name)))
+
+  return { sheet, missingTable: false, steps, extra: extra.map((field) => field.name) }
 }
 
 function describe(step) {
+  if (step.kind === 'create-table') return `按母版新建整张表（${step.fieldCount} 列）`
+  if (step.kind === 'add-field') {
+    const label = TYPE_LABEL[step.toType] ?? step.toType
+    return `新增列，类型 ${label}${step.options ? `（${step.options.length} 个选项）` : ''}`
+  }
   const parts = []
   if (step.rename) parts.push(`改名 "${step.from}" → "${step.to}"`)
   if (step.retype) {
@@ -153,31 +172,36 @@ async function main() {
 
   const remoteTables = await client.listTables()
   const tableIds = {}
+  const plans = []
   for (const sheet of args.sheets) {
     tableBySheet(sheet)
     const matched = remoteTables.find((item) => item.name === sheet)
-    if (!matched) throw new Error(`Base 中没有表「${sheet}」`)
-    tableIds[sheet] = matched.tableId
-  }
-
-  const plans = []
-  for (const sheet of args.sheets) {
-    const remoteFields = await client.listFields(tableIds[sheet])
+    tableIds[sheet] = matched?.tableId ?? null
+    const remoteFields = matched ? await client.listFields(matched.tableId) : null
     plans.push({ ...planForTable(sheet, remoteFields), tableId: tableIds[sheet] })
   }
+
+  // 母版里没有、Base 里还留着的表：只报告，不删
+  const orphanTables = remoteTables
+    .filter((item) => !TABLES.some((table) => table.sheet === item.name))
+    .map((item) => item.name)
 
   console.log('\n【1】改动计划')
   let total = 0
   for (const plan of plans) {
-    console.log(`\n  ── ${plan.sheet}（${plan.tableId}）：${plan.steps.length} 处`)
+    const location = plan.tableId ?? '（Base 中不存在）'
+    console.log(`\n  ── ${plan.sheet}（${location}）：${plan.steps.length} 处`)
     for (const step of plan.steps) {
       console.log(`     ${pad(step.to, 30)} ${describe(step)}`)
       total += 1
     }
     if (plan.steps.length === 0) console.log('     已对齐母版，无需改动')
-    if (plan.unresolved.length) {
-      console.log(`     无法定位（母版有、远端连近似列名都没有）：${plan.unresolved.join('、')}`)
+    if (plan.extra.length) {
+      console.log(`     母版之外的多余列（保留不删）：${plan.extra.join('、')}`)
     }
+  }
+  if (orphanTables.length) {
+    console.log(`\n  ── 母版之外的表（保留不删）：${orphanTables.join('、')}`)
   }
 
   const artifactDir =
@@ -191,18 +215,17 @@ async function main() {
     app_token: appToken,
     sheets: args.sheets,
     plans,
+    orphan_tables: orphanTables,
     results: null
   }
 
   console.log(`\n${line()}`)
   console.log(`  合计 ${total} 处改动`)
 
-  const blocked = plans.filter((plan) => plan.unresolved.length > 0)
-  if (blocked.length) {
+  if (total === 0) {
     fs.writeFileSync(planPath, JSON.stringify(record, null, 2))
-    console.log(`  有列在远端找不到对应，请先手工确认：${blocked.map((plan) => plan.sheet).join('、')}`)
-    console.log(`  计划：${path.relative(process.cwd(), planPath)}`)
-    return 1
+    console.log('  已对齐母版，无需改动。')
+    return 0
   }
 
   if (!args.apply) {
@@ -217,17 +240,30 @@ async function main() {
   for (const plan of plans) {
     for (const step of plan.steps) {
       try {
-        await client.updateField({
-          tableId: plan.tableId,
-          fieldId: step.fieldId,
-          name: step.to,
-          type: step.toType,
-          options: step.options
-        })
-        results.push({ sheet: plan.sheet, field: step.to, ok: true })
+        if (step.kind === 'create-table') {
+          const table = tableBySheet(plan.sheet)
+          plan.tableId = await client.createTable({ name: plan.sheet, fields: table.fields })
+          tableIds[plan.sheet] = plan.tableId
+        } else if (step.kind === 'add-field') {
+          await client.createField({
+            tableId: plan.tableId,
+            name: step.to,
+            type: step.toType,
+            options: step.options
+          })
+        } else {
+          await client.updateField({
+            tableId: plan.tableId,
+            fieldId: step.fieldId,
+            name: step.to,
+            type: step.toType,
+            options: step.options
+          })
+        }
+        results.push({ sheet: plan.sheet, field: step.to, kind: step.kind, ok: true })
         console.log(`  OK    ${pad(plan.sheet, 20)} ${pad(step.to, 30)} ${describe(step)}`)
       } catch (error) {
-        results.push({ sheet: plan.sheet, field: step.to, ok: false, error: error.message })
+        results.push({ sheet: plan.sheet, field: step.to, kind: step.kind, ok: false, error: error.message })
         console.log(`  FAIL  ${pad(plan.sheet, 20)} ${pad(step.to, 30)} ${error.message}`)
       }
     }
@@ -236,10 +272,14 @@ async function main() {
   console.log('\n【3】改完读回校验')
   const remaining = []
   for (const plan of plans) {
-    const remoteFields = await client.listFields(plan.tableId)
-    const after = planForTable(plan.sheet, remoteFields)
-    const ok = after.steps.length === 0 && after.unresolved.length === 0
-    console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${pad(plan.sheet, 20)} 剩余差异 ${after.steps.length + after.unresolved.length}`)
+    if (!plan.tableId) {
+      console.log(`  FAIL  ${pad(plan.sheet, 20)} 表未建成`)
+      remaining.push(plan.sheet)
+      continue
+    }
+    const after = planForTable(plan.sheet, await client.listFields(plan.tableId))
+    const ok = after.steps.length === 0
+    console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${pad(plan.sheet, 20)} 剩余差异 ${after.steps.length}`)
     for (const step of after.steps) console.log(`        ${step.to}：${describe(step)}`)
     if (!ok) remaining.push(plan.sheet)
   }

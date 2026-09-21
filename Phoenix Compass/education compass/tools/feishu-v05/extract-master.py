@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-从 Phoenix_Feishu_Operating_Model_V0.5_Clean_Master.xlsx 抽取飞书建表合同。
+从 V0.5.1 母版抽取飞书建表合同。
 
 母版是唯一基线，这个脚本不做任何字段发明：表名、列名、列序、下拉白名单
 全部照抄，只补一件事 —— 把每列映射成飞书多维表格字段类型。
+
+V0.5.1 由 build-master-v051.py 按 feishuv0.5.docx 从 9/11 底稿生成；
+底稿 Phoenix_Feishu_Operating_Model_V0.5_Clean_Master.xlsx 留作历史参照，
+需要时可显式传参抽取它。
 
 用法：
     python tools/feishu-v05/extract-master.py
@@ -21,7 +25,7 @@ import openpyxl
 from openpyxl.utils import column_index_from_string, get_column_letter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_XLSX = os.path.join(HERE, 'Phoenix_Feishu_Operating_Model_V0.5_Clean_Master.xlsx')
+DEFAULT_XLSX = os.path.join(HERE, 'Phoenix_Feishu_Operating_Model_V0.5.1_Master.xlsx')
 DEFAULT_JSON = os.path.join(HERE, 'master-contract.json')
 
 # 飞书多维表格字段类型

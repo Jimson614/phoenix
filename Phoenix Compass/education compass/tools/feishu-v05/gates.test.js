@@ -26,8 +26,8 @@ function gateById(gates, id) {
   return found
 }
 
-test('母版合同读取正确：11 张表，主字段即首列', () => {
-  assert.equal(TABLES.length, 11)
+test('母版合同读取正确：10 张表，主字段即首列', () => {
+  assert.equal(TABLES.length, 10)
   for (const table of TABLES) {
     assert.equal(table.fields[0].name, table.unique)
     assert.equal(table.fields[0].primary, true)
@@ -93,6 +93,13 @@ const cases = [
     mutate: ({ ids, links }) => {
       const link = links.find((item) => item.fields['Source Entity Type'] === 'DEAL')
       link.fields['Target Record ID'] = ids.Deals
+    }
+  },
+  {
+    gate: 'G7',
+    title: '把飞书当成事实源会被 G7 拦截',
+    mutate: ({ links }) => {
+      links.find((item) => item.fields['Source Entity Type'] === 'CONTRACT').fields['Source of Truth'] = 'FEISHU'
     }
   },
   {
