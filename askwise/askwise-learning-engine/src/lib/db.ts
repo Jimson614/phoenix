@@ -663,6 +663,35 @@ export function listLearningEvidence() {
     .all();
 }
 
+/**
+ * The two counts behind the growth progress. Placeholder rows seeded before any
+ * real work are excluded: they are not tasks the student attempted.
+ */
+export function getIndependentSolveCounts(studentId?: number): {
+  independentCount: number;
+  totalTasks: number;
+} {
+  const student = studentId ?? getStudentId();
+  const exp = getExperiment(student);
+  if (!exp) return { independentCount: 0, totalTasks: 0 };
+  const day = getCurrentPilotDay(student);
+  const total = db
+    .prepare(
+      `SELECT COUNT(*) as c FROM daily_tasks t
+       WHERE t.student_id = ? AND t.day <= ? AND t.is_placeholder = 0`
+    )
+    .get(student, day) as { c: number };
+  const independent = db
+    .prepare(
+      `SELECT COUNT(*) as c FROM daily_tasks t
+       JOIN learning_sessions s ON s.task_id = t.id
+       WHERE t.student_id = ? AND t.day <= ? AND t.is_placeholder = 0
+         AND s.solved = 1 AND s.independent = 1`
+    )
+    .get(student, day) as { c: number };
+  return { independentCount: independent.c, totalTasks: total.c };
+}
+
 export function getDashboardStats() {
   const studentId = getStudentId();
   const exp = getExperiment(studentId);
@@ -684,6 +713,16 @@ export function getDashboardStats() {
     FROM daily_tasks t
     JOIN learning_sessions s ON s.task_id = t.id
     WHERE t.student_id = ? AND t.day <= ? AND s.solved = 1
+    `
+    )
+    .get(studentId, day) as { c: number };
+  const independentSolved = db
+    .prepare(
+      `
+    SELECT COUNT(*) as c
+    FROM daily_tasks t
+    JOIN learning_sessions s ON s.task_id = t.id
+    WHERE t.student_id = ? AND t.day <= ? AND s.solved = 1 AND s.independent = 1
     `
     )
     .get(studentId, day) as { c: number };
@@ -719,9 +758,14 @@ export function getDashboardStats() {
   return {
     tasksCompleted: solved.c,
     totalTasks: total.c,
-    independentRate:
+    solveRate:
       total.c > 0
         ? `${Math.round((solved.c / total.c) * 100)}%`
+        : "0%",
+    // Independence is the no-hint flag, not merely having solved the task.
+    independentRate:
+      total.c > 0
+        ? `${Math.round((independentSolved.c / total.c) * 100)}%`
         : "0%",
     avgHintLevel: hints.avgHint ? Number(hints.avgHint.toFixed(2)) : 0,
     mostCommonDiagnosis: topDiag?.type || "No data",
