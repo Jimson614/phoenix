@@ -325,20 +325,64 @@ async function main() {
   }
 
   console.log('\n【11】LIVE：读回校验')
+  const problems = []
+  const verified = { chain: {}, backfills: [], links: [] }
+
+  // 链路记录：记录 ID 对得上，且第 9 步回填的反向引用确实落到了远端
   for (const sheet of CHAIN) {
     const table = tableBySheet(sheet)
-    const found = await client.findRecordId({
+    const found = await client.findRecord({
       tableId: tableIds[sheet],
       uniqueField: table.unique,
       uniqueValue: ids[sheet]
     })
-    if (found !== written[sheet]) {
-      throw new Error(`读回校验失败：${sheet} 期望 ${written[sheet]}，实际 ${found}`)
+    if (!found || found.recordId !== written[sheet]) {
+      problems.push(`${sheet} 记录 ID 不符：期望 ${written[sheet]}，实际 ${found?.recordId ?? '未找到'}`)
+      console.log(`  FAIL  ${pad(sheet, 24)} ${found?.recordId ?? '未找到'}`)
+      continue
     }
-    console.log(`  PASS  ${pad(sheet, 24)} ${found}`)
+    verified.chain[sheet] = found.recordId
+
+    const expected = grouped.get(sheet) ?? {}
+    const wrong = Object.entries(expected).filter(([field, value]) => String(found.fields[field]) !== String(value))
+    for (const [field, value] of wrong) {
+      problems.push(`${sheet}.${field} 回填未生效：期望 ${value}，实际 ${found.fields[field] ?? '空'}`)
+    }
+    verified.backfills.push({ sheet, fields: Object.keys(expected), ok: wrong.length === 0 })
+
+    const suffix = Object.keys(expected).length
+      ? `，回填 ${Object.keys(expected).length} 列${wrong.length ? ' 未生效' : ' 已生效'}`
+      : ''
+    console.log(`  ${wrong.length ? 'FAIL' : 'PASS'}  ${pad(sheet, 24)} ${found.recordId}${suffix}`)
   }
 
-  evidence.live_result = { ...evidence.live_result, records: written, integration_links: linkResults }
+  // Integration_Links：六行映射同样按主字段查回来
+  for (const item of linkResults) {
+    const linkId = item[linkTable.unique]
+    const found = await client.findRecord({
+      tableId: tableIds[LINKS_SHEET],
+      uniqueField: linkTable.unique,
+      uniqueValue: linkId
+    })
+    const idOk = found?.recordId === item.feishu_record_id
+    const targetOk = idOk && String(found.fields['Target Record ID']) === String(item['Target Record ID'])
+    const statusOk = idOk && String(found.fields.Status) === 'ACTIVE'
+    if (!idOk) problems.push(`${linkId} 记录 ID 不符：期望 ${item.feishu_record_id}，实际 ${found?.recordId ?? '未找到'}`)
+    else if (!targetOk) problems.push(`${linkId} Target Record ID 不符：期望 ${item['Target Record ID']}，实际 ${found.fields['Target Record ID'] ?? '空'}`)
+    else if (!statusOk) problems.push(`${linkId} Status 不是 ACTIVE：实际 ${found.fields.Status ?? '空'}`)
+    verified.links.push({ link_id: linkId, ok: idOk && targetOk && statusOk })
+    console.log(
+      `  ${idOk && targetOk && statusOk ? 'PASS' : 'FAIL'}  ${pad(linkId, 24)} ${found?.recordId ?? '未找到'}${targetOk ? ` → ${item['Target Record ID']}` : ''}`
+    )
+  }
+
+  if (problems.length) {
+    evidence.live_result = { ...evidence.live_result, records: written, integration_links: linkResults, verified, problems }
+    fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2))
+    throw new Error(`读回校验失败 ${problems.length} 处：\n  - ${problems.join('\n  - ')}`)
+  }
+
+  evidence.live_result = { ...evidence.live_result, records: written, integration_links: linkResults, verified }
   fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2))
   console.log(`\n最小链路已在飞书跑通。证据：${path.relative(process.cwd(), evidencePath)}`)
   console.log('下一步：确认 Founder OS 与飞书通过 Integration_Links 映射无误后，再接 Delivery / Applications / Settlements。')

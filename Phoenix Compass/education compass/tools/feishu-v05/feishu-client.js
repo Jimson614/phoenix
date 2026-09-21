@@ -201,7 +201,30 @@ class FeishuClient {
     return fieldId
   }
 
-  async findRecordId({ tableId, uniqueField, uniqueValue }) {
+  /**
+   * 单元格读回来的形状按字段类型不同：文本可能是字符串，也可能是
+   * [{ type: 'text', text: '…' }] 这样的富文本分段；数字和复选框是原始值。
+   * 统一压成可以直接比对的标量。
+   */
+  static normalizeCellValue(value) {
+    if (value === null || value === undefined) return null
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => FeishuClient.normalizeCellValue(item))
+        .filter((item) => item !== null && item !== '')
+        .join('')
+    }
+    if (typeof value === 'object') {
+      if (typeof value.text === 'string') return value.text
+      if (typeof value.name === 'string') return value.name
+      if (typeof value.value !== 'undefined') return FeishuClient.normalizeCellValue(value.value)
+      return null
+    }
+    return value
+  }
+
+  /** 按唯一业务字段查一条记录，连字段值一起返回 */
+  async findRecord({ tableId, uniqueField, uniqueValue }) {
     const payload = await this.request(
       `/open-apis/bitable/v1/apps/${encodeURIComponent(this.appToken)}/tables/${encodeURIComponent(tableId)}/records/search?page_size=2`,
       {
@@ -219,7 +242,17 @@ class FeishuClient {
     if (items.length > 1) {
       throw new FeishuError(`唯一业务字段 ${uniqueField}=${uniqueValue} 在飞书中存在重复记录`, { code: 'DUPLICATE_BUSINESS_ID' })
     }
-    return items[0]?.record_id ?? null
+    if (!items[0]) return null
+    const fields = {}
+    for (const [name, value] of Object.entries(items[0].fields ?? {})) {
+      fields[name] = FeishuClient.normalizeCellValue(value)
+    }
+    return { recordId: items[0].record_id ?? null, fields }
+  }
+
+  async findRecordId({ tableId, uniqueField, uniqueValue }) {
+    const found = await this.findRecord({ tableId, uniqueField, uniqueValue })
+    return found?.recordId ?? null
   }
 
   async createRecord({ tableId, fields }) {

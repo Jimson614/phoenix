@@ -21,13 +21,14 @@
 | `align-tables.js` | 把飞书表结构对齐到母版（改列名、改字段类型），默认只打印计划 |
 | `gates.test.js` | 反向测试：逐条注入违规，确认 Gate 拦得住 |
 | `align.test.js` | 对齐计划的单元测试（分隔符识别、类型推导、缺列不乱认） |
+| `client.test.js` | 客户端单元测试（读回值归一化、网络错误拆解） |
 
 ## 运行
 
 ```bash
 python tools/feishu-v05/extract-master.py          # 母版改动后重新抽取合同
 node tools/feishu-v05/run-min-chain.js             # dry-run，不连接飞书
-node --test tools/feishu-v05/gates.test.js         # Gate 反向测试
+node --test tools/feishu-v05/*.test.js             # 全部单元测试（28 条）
 node tools/feishu-v05/run-min-chain.js --verify-only            # 只读：校验飞书 11 张表是否对齐母版
 node tools/feishu-v05/align-tables.js                           # 打印表结构对齐计划，不修改
 node tools/feishu-v05/align-tables.js --apply                   # 执行对齐（默认只动 Deals/Contracts/Payments）
@@ -74,6 +75,8 @@ FEISHU_V05_BITABLE_APP_TOKEN=<FEISHU_V05_BITABLE_APP_TOKEN>
 | `Integration_Links` | `Integration Link ID` | 6 行 ACTIVE 映射，把上面 5 条记录接回 Core / Founder OS |
 
 `Deals.Contract ID`、`Deals.Service Project ID`、`Family_Student_View.Primary Deal ID`、`Family_Student_View.Service Project ID` 是反向引用，写完链路再回填，所以 live 模式下这四列走一次 PATCH。
+
+写完的读回校验覆盖三件事：5 条链路记录按主字段查回来、record_id 对得上；那 4 列回填值确实落到了远端；6 行 `Integration_Links` 的 record_id、`Target Record ID` 和 `Status=ACTIVE` 都对。任何一处不符就抛错并把差异写进证据文件。读回的单元格会先归一化 —— 飞书的文本字段可能返回富文本分段而不是字符串。
 
 ## 10 条 V0.5 Gate
 
