@@ -25,3 +25,6 @@ Thumbs.db
 
 __pycache__/
 *.pyc
+
+# 飞书 V0.5 运行证据:内含真实 Bitable app_token,只留本机,不入库
+artifacts/feishu-v05/
