@@ -20,7 +20,7 @@
 
 | 脚本 | 作用 | 何时运行 |
 | --- | --- | --- |
-| `update-education-compass.sh` | 把服务器代码快进到本机推送的分支；后端有改动时跑测试、构建、重启联调后端与 AI 处理进程，测试不过就不构建、不重启 | 每次部署 |
+| `update-education-compass.sh <分支> [--switch]` | 把服务器代码快进到指定分支；后端有改动时跑测试、构建、重启联调后端与 AI 处理进程，测试不过就不构建、不重启 | 每次部署 |
 | `apply-migrations.sh [库名]` | 以数据库管理员身份应用未执行的迁移并登记到 `schema_migrations`，校验和与 `server/scripts/migrate.js` 一致，可重复运行 | 新增迁移后（默认 `phoenix_uat`） |
 | `backup-databases.sh` | 备份 `compass` 和 `phoenix_uat`，校验备份可读，保留 14 天，日志写入 `~/backups/db/backup.log` | 每天 03:30（cron） |
 | `sync-backups-to-cos.sh` | 把备份上传到腾讯云 COS，云端保留 30 天，日志写入 `~/backups/db/cos-sync.log` | 每天 04:10（cron） |
@@ -61,9 +61,17 @@
 git push fork <分支>
 git push tencent <分支>
 
-# 服务器：快进代码，必要时测试、构建并重启
-ssh phoenix-tencent ~/update-education-compass.sh
+# 服务器：快进到指定分支，必要时测试、构建并重启
+ssh phoenix-tencent '~/update-education-compass.sh <分支>'
 ```
+
+分支必须显式写出。服务器是**多个项目共用的同一个检出**（askwise、Identity Compass、Wealth Compass 都在里面），
+切换分支会一并改写它们的文件，所以脚本的规则是：
+
+- 指定分支与当前检出分支相同 → 直接快进。
+- 当前分支已包含目标分支的全部提交 → 提示无需切换并退出。
+- 两者确实不同 → 列出切换会改写哪些顶层目录，并要求追加 `--switch` 再执行一次；工作区有未提交改动时拒绝切换。
+- 不带参数运行 → 打印用法和本机已推送过来的分支列表。
 
 ## 备份与恢复
 
