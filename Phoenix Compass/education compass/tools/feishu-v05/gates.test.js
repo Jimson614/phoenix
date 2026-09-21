@@ -26,11 +26,19 @@ function gateById(gates, id) {
   return found
 }
 
-test('母版合同读取正确：10 张表，主字段即首列', () => {
-  assert.equal(TABLES.length, 10)
+test('母版合同读取正确：主字段即首列，链路表齐备', () => {
+  // 不锁表数 —— 母版会随业务增表；锁的是结构性约定
+  assert.ok(TABLES.length >= CHAIN.length + 1, '至少要有链路表加映射表')
   for (const table of TABLES) {
-    assert.equal(table.fields[0].name, table.unique)
+    assert.equal(table.fields[0].name, table.unique, `${table.sheet} 的主字段应是首列`)
     assert.equal(table.fields[0].primary, true)
+    assert.ok(table.fields.length > 0)
+  }
+  for (const sheet of CHAIN) {
+    assert.ok(
+      TABLES.some((table) => table.sheet === sheet),
+      `母版缺链路表 ${sheet}`
+    )
   }
 })
 

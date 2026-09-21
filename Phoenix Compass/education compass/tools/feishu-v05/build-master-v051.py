@@ -16,6 +16,7 @@
     python tools/feishu-v05/build-master-v051.py
 """
 
+import importlib.util
 import io
 import json
 import os
@@ -27,8 +28,17 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CONTRACT = os.path.join(HERE, 'master-contract.json')
+# 底稿，不是当前基线 —— 当前基线就是本脚本的输出，读它会自噬
+DRAFT_XLSX = os.path.join(HERE, 'Phoenix_Feishu_Operating_Model_V0.5_Clean_Master.xlsx')
 OUT_XLSX = os.path.join(HERE, 'Phoenix_Feishu_Operating_Model_V0.5.1_Master.xlsx')
+
+
+def load_draft_tables():
+    """直接从 9/11 底稿抽表结构，复用 extract-master.py 的解析逻辑"""
+    spec = importlib.util.spec_from_file_location('extract_master', os.path.join(HERE, 'extract-master.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.extract(DRAFT_XLSX)['tables']
 
 FONT = 'Arial'
 TEXT, NUMBER, SELECT, CHECKBOX = 1, 2, 3, 7
@@ -36,6 +46,27 @@ TEXT, NUMBER, SELECT, CHECKBOX = 1, 2, 3, 7
 # ── 合并后的交付表：docx「Delivery／Application 合并为一张交付表，用 Record Type 区分」
 DELIVERIES_SHEET = 'Deliveries'
 RECORD_TYPE_OPTIONS = ['SERVICE_DELIVERY', 'SCHOOL_APPLICATION']
+
+# ── Schools：按飞书 tblqZV6kUlrWdFLD 的现有结构抽出的草案。
+# docx 只说「School 仍然独立于 Partner，关系是 Student → Application → School」，
+# 没规定它是一张表还是挂在申请上的字段。这里照抄飞书现状收进母版，
+# 时间列按母版惯例统一成单行文本（飞书那边建的是日期字段）。
+# 未决：Deliveries 的 School Subject Ref 是否改为引用 Schools.School ID。
+SCHOOLS_DRAFT = [
+    ('School ID', TEXT, None, 'PN-SCH-0001'),
+    ('School Code', TEXT, None, 'SCH-HK-0001'),
+    ('School Name', TEXT, None, '示例大学'),
+    ('Region', TEXT, None, 'HK'),
+    ('School Type', SELECT, ['HIGH_SCHOOL', 'UNIVERSITY', 'GRADUATE_SCHOOL', 'OTHER'], 'UNIVERSITY'),
+    ('Cooperation Status', SELECT,
+     ['PROSPECTING', 'NEGOTIATING', 'SIGNED', 'ACTIVE', 'PAUSED', 'TERMINATED'], 'ACTIVE'),
+    ('Account Manager', TEXT, None, 'Katrina'),
+    ('Agreement Ref', TEXT, None, ''),
+    ('Commission Eligible', CHECKBOX, None, False),
+    ('Status', SELECT, ['ACTIVE', 'INACTIVE', 'DRAFT', 'ARCHIVED'], 'ACTIVE'),
+    ('Created At', TEXT, None, ''),
+    ('Updated At', TEXT, None, ''),
+]
 
 # ── 逐列裁定。action: keep 采纳 / drop 丢弃 / rename 改名
 DECISIONS = [
@@ -172,6 +203,15 @@ def build_tables(base):
         fields.append(field(col, ftype, options))
     tables.append({'sheet': 'Settlements', 'unique': settlements['unique'], 'fields': fields})
 
+    # ── Schools：草案，来源是飞书现有表，不来自底稿
+    tables.append({
+        'sheet': 'Schools',
+        'unique': SCHOOLS_DRAFT[0][0],
+        'draft': True,
+        'fields': [field(name, ftype, options, sample if sample != '' else None)
+                   for name, ftype, options, sample in SCHOOLS_DRAFT],
+    })
+
     # ── Integration_Links：补 Source of Truth
     links = by_sheet['Integration_Links']
     fields = [field(f['name'], f['type'], f.get('options'), f.get('sample')) for f in links['fields']]
@@ -203,10 +243,17 @@ def write_readme(workbook, tables):
         ['2', 'Settlements 的 Money Type 改名为 Settlement Type'],
         ['3', 'Integration_Links 增加 Source of Truth'],
         [],
+        ['草案（未经业务确认）', ''],
+        ['Schools',
+         '照飞书现有表结构收入母版。docx 只要求 School 语义独立于 Partner，未规定独立建表。'
+         '未决：Deliveries 的 School Subject Ref 是否改为引用 Schools.School ID；'
+         '学校返佣从 Application 还是从 School 侧起算。'],
+        [],
         ['表', '主字段', '列数'],
     ]
     for table in tables:
-        rows.append([table['sheet'], table['unique'], len(table['fields'])])
+        label = table['sheet'] + ('（草案）' if table.get('draft') else '')
+        rows.append([label, table['unique'], len(table['fields'])])
     rows.extend([[], ['飞书新增列的逐列裁定', '', ''], ['原表', '列', '处理', '理由']])
     for s, col, act, why in DECISIONS:
         label = {'keep': '采纳', 'drop': '丢弃', 'rename': '改名'}[act]
@@ -254,8 +301,7 @@ def write_table(workbook, table):
 
 
 def main():
-    base = json.load(io.open(CONTRACT, encoding='utf-8'))['tables']
-    tables = build_tables(base)
+    tables = build_tables(load_draft_tables())
 
     workbook = openpyxl.Workbook()
     workbook.remove(workbook.active)

@@ -41,6 +41,13 @@
       "Integration_Links 增加 Source of Truth"
     ],
     [
+      "草案（未经业务确认）"
+    ],
+    [
+      "Schools",
+      "照飞书现有表结构收入母版。docx 只要求 School 语义独立于 Partner，未规定独立建表。未决：Deliveries 的 School Subject Ref 是否改为引用 Schools.School ID；学校返佣从 Application 还是从 School 侧起算。"
+    ],
+    [
       "表",
       "主字段",
       "列数"
@@ -89,6 +96,11 @@
       "Settlements",
       "Settlement ID",
       "27"
+    ],
+    [
+      "Schools（草案）",
+      "School ID",
+      "12"
     ],
     [
       "Integration_Links",
@@ -2074,6 +2086,113 @@
         {
           "name": "Period End",
           "column": "AA",
+          "type": 1,
+          "primary": false
+        }
+      ]
+    },
+    {
+      "sheet": "Schools",
+      "unique": "School ID",
+      "fields": [
+        {
+          "name": "School ID",
+          "column": "A",
+          "type": 1,
+          "primary": true,
+          "sample": "PN-SCH-0001"
+        },
+        {
+          "name": "School Code",
+          "column": "B",
+          "type": 1,
+          "primary": false,
+          "sample": "SCH-HK-0001"
+        },
+        {
+          "name": "School Name",
+          "column": "C",
+          "type": 1,
+          "primary": false,
+          "sample": "示例大学"
+        },
+        {
+          "name": "Region",
+          "column": "D",
+          "type": 1,
+          "primary": false,
+          "sample": "HK"
+        },
+        {
+          "name": "School Type",
+          "column": "E",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "HIGH_SCHOOL",
+            "UNIVERSITY",
+            "GRADUATE_SCHOOL",
+            "OTHER"
+          ],
+          "sample": "UNIVERSITY"
+        },
+        {
+          "name": "Cooperation Status",
+          "column": "F",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "PROSPECTING",
+            "NEGOTIATING",
+            "SIGNED",
+            "ACTIVE",
+            "PAUSED",
+            "TERMINATED"
+          ],
+          "sample": "ACTIVE"
+        },
+        {
+          "name": "Account Manager",
+          "column": "G",
+          "type": 1,
+          "primary": false,
+          "sample": "Katrina"
+        },
+        {
+          "name": "Agreement Ref",
+          "column": "H",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Commission Eligible",
+          "column": "I",
+          "type": 7,
+          "primary": false,
+          "sample": false
+        },
+        {
+          "name": "Status",
+          "column": "J",
+          "type": 3,
+          "primary": false,
+          "options": [
+            "ACTIVE",
+            "INACTIVE",
+            "DRAFT",
+            "ARCHIVED"
+          ],
+          "sample": "ACTIVE"
+        },
+        {
+          "name": "Created At",
+          "column": "K",
+          "type": 1,
+          "primary": false
+        },
+        {
+          "name": "Updated At",
+          "column": "L",
           "type": 1,
           "primary": false
         }
