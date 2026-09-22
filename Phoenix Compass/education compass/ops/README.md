@@ -31,6 +31,9 @@
 | `set-uat-deepseek-key.sh` | 录入 DeepSeek API Key（隐藏输入），验证余额、应用迁移 006、切换联调 AI 供应商并重启 | 启用 DeepSeek 时 |
 | `set-wechat-pay.sh --check` | 只读体检生产 `server/.env` 的微信支付配置：格式、密钥文件权限与位数、回调地址同源 | 随时 |
 | `set-wechat-pay.sh --base-url … --key … --pub … [--cert …]` | 录入商户号、证书序列号、APIv3 密钥、公钥 ID（隐藏输入），核对私钥与证书配套，把 PEM 装到 `/etc/phoenix/wechatpay`，写好两个回调地址 | 拿到商户凭据后 |
+| `setup-postgres-tls.sh` | 生成私有 CA 和服务端证书（各 10 年），让 PostgreSQL 支持 `sslmode=verify-full` | 首次配置或轮换 CA 时 |
+| `setup-postgres-tls.sh --check` | 体检证书、`ssl_cert_file`、客户端 CA 副本和已强制 TLS 的库 | 随时 |
+| `setup-postgres-tls.sh --enforce <库名>…` | 对指定库加 `hostnossl reject` + `hostssl`，拒绝明文连接 | 目标库的连接串都改好之后 |
 | `phoenix_uat_start.sh` | pm2 进程 `phoenix_uat_api` 的启动脚本：加载 `.env.uat`，仅监听 127.0.0.1，固定 Node 24 | 由 pm2 调用 |
 | `phoenix_uat_agent_worker_start.sh` | pm2 进程 `phoenix_uat_agent_worker` 的启动脚本 | 由 pm2 调用 |
 
@@ -81,6 +84,38 @@ sudo install -m 700 -o root -g root renewal-hook-reload-nginx.sh /etc/letsencryp
 
 `phoenix-uat-tunnel.cmd`：建立 SSH 隧道，把本机 `127.0.0.1:3000` 转发到服务器的联调后端 `127.0.0.1:3010`，断线自动重连。
 微信开发者工具的开发版产物只允许访问 `127.0.0.1`，因此本机联调必须先运行它，保持窗口打开。
+
+## 数据库 TLS
+
+`server/src/config.ts` 在 production 下强制要求 `DATABASE_URL` 显式带 `sslmode=verify-full`。这台实例同时跑
+`compass`、`phoenix_uat` 和 `phoenix_core`，**`pg_hba.conf` 是四个项目共用的**，所以强制规则按库下，
+不能改全局的 `host all all`。
+
+证书由私有 CA 签发，均为 10 年期：
+
+| 文件 | 位置 | 权限 |
+| --- | --- | --- |
+| CA 私钥 | `/etc/postgresql/16/main/ssl/phoenix-db-ca.key` | 600 postgres |
+| CA 证书 | `/etc/postgresql/16/main/ssl/phoenix-db-ca.crt` | 644 postgres |
+| 服务端私钥/证书 | `/etc/postgresql/16/main/ssl/server.{key,crt}` | 600 / 644 postgres |
+| 客户端读的 CA 副本 | `/etc/phoenix/pgtls/ca.crt` | 644 root |
+
+服务端证书的 SAN 同时覆盖 `DNS:localhost`、`IP:127.0.0.1` 和 `IP:::1`——`verify-full` 校验的是连接串里
+写的那个主机名，生产用 `localhost`、联调用 `127.0.0.1`，两种写法都要能过。
+
+连接串追加两个参数（`&` 见下方注意事项）：
+
+```
+?sslmode=verify-full&sslrootcert=/etc/phoenix/pgtls/ca.crt
+```
+
+**注意：`.env` 里的值不要用 `source` 加载。** 连接串含 `&`，bash 会把它当成后台执行符，
+变量只剩前半截，服务端启动时报 `AppError` 却看不到原因（启动失败只打印 `error.name`）。
+pm2 启动脚本和生产 systemd 单元统一用 `node --env-file=`。
+
+顺序很重要：**先把目标库的连接串都改成 TLS 并重启，再 `--enforce`**。反过来会直接打断正在跑的服务。
+
+备份不受影响：`backup-databases.sh` 用 `sudo -u postgres pg_dump` 走本地 socket，`hostssl` 只管 TCP 连接。
 
 ## 部署流程
 
