@@ -7,6 +7,7 @@ import {
   closeSession,
   getAttemptsForSession,
   getEvidenceForTask,
+  getIndependentSolveCounts,
   getLatestHintLevel,
   getSessionByTask,
   getSessionSnapshot,
@@ -24,6 +25,7 @@ import type { Attempt } from "@/lib/types";
 
 import AoyuCompanion from "@/components/aoyu/aoyu-companion";
 import CompanionTaskForm from "@/components/task-flow/companion-task-form";
+import { independentSolveProgress } from "@/lib/aoyu/progress";
 import { taskCompanionEvent } from "@/lib/aoyu-task-adapter";
 import CardShell from "@/components/ui/card-shell";
 import AskwiseButton from "@/components/ui/button";
@@ -100,6 +102,10 @@ export default function TaskPage({ params }: { params: { taskId: string } }) {
     attemptCount: attempts.length,
   });
   const companionScope = `askwise:student:${task.student_id}`;
+  // Real academic progress only; too small a sample stays undefined, never 0.
+  const solveCounts = getIndependentSolveCounts(task.student_id);
+  const companionProgress =
+    independentSolveProgress(solveCounts.independentCount, solveCounts.totalTasks) ?? undefined;
 
   async function submitAttempt(formData: FormData) {
     "use server";
@@ -202,7 +208,7 @@ export default function TaskPage({ params }: { params: { taskId: string } }) {
 
       {solved && <AoyuCompanion aoyuState={companionEvent.state}
         eventKey={companionEvent.eventId} completionKey={companionEvent.completionKey}
-        scopeKey={companionScope} soundEnabled={false} />}
+        scopeKey={companionScope} progress={companionProgress} soundEnabled={false} />}
 
       <CardShell
         title="Learning Metrics"
@@ -222,7 +228,7 @@ export default function TaskPage({ params }: { params: { taskId: string } }) {
           description={flowState === "initial" ? "First step is diagnostic, not answer-dictating." : "Use one concise retry."}
         >
           <CompanionTaskForm action={submitAttempt} scopeKey={companionScope}
-            sourceEvent={companionEvent} retry={attempts.length > 0}>
+            sourceEvent={companionEvent} progress={companionProgress} retry={attempts.length > 0}>
             <label htmlFor="studentAttempt">
               {flowState === "initial" ? "Initial Attempt" : "Retry Attempt"}
             </label>

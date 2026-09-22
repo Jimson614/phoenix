@@ -7,6 +7,7 @@ import type { AoyuPresentationEvent } from "@/lib/aoyu/contract";
 
 type Props = {
   scopeKey: string;
+  progress?: number;
   sourceEvent: AoyuPresentationEvent;
   retry?: boolean;
   action: (data: FormData) => Promise<void | { redirectTo: string }>;
@@ -14,7 +15,7 @@ type Props = {
 };
 
 /** UI events describe only the existing form. All academic decisions remain server-owned. */
-export default function CompanionTaskForm({ scopeKey, sourceEvent, retry = false, action, children }: Props) {
+export default function CompanionTaskForm({ scopeKey, progress, sourceEvent, retry = false, action, children }: Props) {
   const router = useRouter();
   const serial = useRef(0);
   const refreshWhenOnline = useRef(false);
@@ -59,7 +60,7 @@ export default function CompanionTaskForm({ scopeKey, sourceEvent, retry = false
 
   return (
     <>
-      <AoYuCompanion aoyuState={event.state} eventKey={event.eventId}
+      <AoYuCompanion progress={progress} aoyuState={event.state} eventKey={event.eventId}
         completionKey={event.completionKey} scopeKey={scopeKey} soundEnabled={false} />
       <form action={submit} aria-busy={pending}
         onFocusCapture={(e) => {

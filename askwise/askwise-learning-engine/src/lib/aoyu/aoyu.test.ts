@@ -36,9 +36,14 @@ describe("approved growth bands", () => {
 describe("system events only translate academic facts", () => {
   it.each([
     ["READY", "WELCOME"], ["STARTED", "FOCUS"], ["WAITING_FOR_INPUT", "WAITING"],
-    ["PAUSED", "ENCOURAGE"], ["RETRY", "ENCOURAGE"], ["FAILED", "SAFE_ERROR"],
+    ["RETRY", "ENCOURAGE"], ["FAILED", "SAFE_ERROR"],
   ] as const)("maps %s to %s", (type, state) => {
     expect(mapSystemEventToAoyu({ type, eventId: `real:${type}` })).toEqual({ state, eventId: `real:${type}` });
+  });
+
+  it("refuses PAUSED, retired because ASKWISE never emitted it", () => {
+    const retired = { type: "PAUSED", eventId: "retired:paused" } as unknown as Parameters<typeof mapSystemEventToAoyu>[0];
+    expect(mapSystemEventToAoyu(retired)).toBeNull();
   });
   it.each([1, 2, 3])("maps actual hint level %s", (hintLevel) => {
     expect(mapSystemEventToAoyu({ type: "HINT", eventId: `hint:${hintLevel}`, hintLevel })?.state).toBe("HINT");
