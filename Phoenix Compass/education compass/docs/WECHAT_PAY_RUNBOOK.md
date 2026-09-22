@@ -42,6 +42,17 @@
 
 ### 2.1 五项支付凭据从哪里取
 
+> **⚠️ 先看这里：本节描述的普通商户号（JSAPI）这条路，对本产品很可能不适用。**
+> 微信 2026-02-27 更新《小程序虚拟支付业务管理规范》，要求小程序内销售虚拟商品
+> （含「在线教育、视频课程」形态）自 2026-04-01 起全终端接入**小程序虚拟支付**，
+> 并会关闭这类小程序在安卓等非 iOS 端的**普通微信支付**能力。付费测评报告属于该范畴，
+> 豁免只有线上问诊和法律咨询。虚拟支付走 `wx.requestVirtualPayment` 和 `/xpay/*`
+> 接口（HMAC-SHA256 + AppKey + session_key），与本手册描述的 API v3 商户证书体系
+> 完全不同，商户号也改为在小程序后台「虚拟支付」模块单独开通。
+> 在与平台确认本小程序的类目判定之前，不要按本节申请商户 API 证书。
+> 依据：[虚拟支付：企业、个体户](https://developers.weixin.qq.com/miniprogram/dev/platform-capabilities/business-capabilities/virtual-payment)、
+> [虚拟支付业务运营指南](https://developers.weixin.qq.com/community/minihome/doc/00002cf077cd4810fee42f4b865c01)
+
 全部在**微信支付商户平台** https://pay.weixin.qq.com，需要超级管理员登录并通过操作证书或短信验证。前置条件：已有微信支付商户号（申请需营业执照与对公账户），且商户号与本项目的小程序 AppID 已完成关联——商户平台「产品中心 → AppID 账号管理」发起关联，再由小程序管理员在微信公众平台确认。未关联时下单会返回 appid 与 mchid 不匹配。
 
 | 变量 | 商户平台位置 | 注意 |
