@@ -2,6 +2,10 @@
 
 下列事项不能由代码或演示数据替代。未关闭的高优先级事项会让生产购买保持 fail closed，但不阻止本地 Mock 和自动化测试。
 
+> 起草材料：OD-07 至 OD-14 的建议默认值见 [decisions/COMMERCIAL_DECISIONS_DRAFT.md](decisions/COMMERCIAL_DECISIONS_DRAFT.md)（待批准）；
+> OD-05 法律审查所需的字段、去向与保留期事实见 [DATA_INVENTORY.md](DATA_INVENTORY.md)；
+> OD-04 的文件格式与校验工具见 [SOURCE_CATALOG.md](SOURCE_CATALOG.md)。
+
 当前工作副本未附带P0批准/配置证据：OD-01至OD-06不得视为关闭，`PAID_COMPASS_ENABLED=false`；OD-05、OD-06、OD-12和OD-15不得视为关闭，`OPENAI_AGENT_ENABLED=false`、`AI_WORKER_ENABLED=false`。`.env.example`、测试Key、Mock Provider、`store:false`、占位域名和自动化通过均不能替代真实审批。
 
 | ID | 优先级 | 决策 | 负责人建议 | 未决时默认行为 |
