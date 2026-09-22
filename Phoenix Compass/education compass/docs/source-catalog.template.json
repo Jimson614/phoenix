@@ -1,0 +1,26 @@
+{
+  "version": "TEMPLATE_REPLACE_ME",
+  "dataAsOf": "2026-09-01",
+  "reviewedAt": "2026-09-01T10:00:00.000Z",
+  "reviewedBy": "TEMPLATE_REPLACE_ME",
+  "entries": [
+    {
+      "sourceId": "TEMPLATE_REPLACE_ME:MOE_CURRICULUM_PLAN",
+      "title": "教育部普通高中课程方案（示例条目，替换成你实际依据的文件全称）",
+      "applicableYear": "2026",
+      "verifiedAt": "2026-09-01T10:00:00.000Z"
+    },
+    {
+      "sourceId": "TEMPLATE_REPLACE_ME:PROVINCIAL_ADMISSION_POLICY",
+      "title": "某省教育考试院当年招生工作规定（示例条目）",
+      "applicableYear": "2026",
+      "verifiedAt": "2026-09-01T10:00:00.000Z"
+    },
+    {
+      "sourceId": "TEMPLATE_REPLACE_ME:UNIVERSITY_PROSPECTUS",
+      "title": "某高校当年本科招生章程（示例条目）",
+      "applicableYear": "2026",
+      "verifiedAt": "2026-09-01T10:00:00.000Z"
+    }
+  ]
+}

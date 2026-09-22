@@ -28,6 +28,7 @@
     "test:all": "node scripts/run-all-tests.js",
     "smoke:education": "npm --prefix server run build && node scripts/smoke-education-compass-mock.js",
     "validate:education-docs": "npm --prefix server run build && node scripts/verify-education-docs.js",
+    "validate:source-catalog": "node scripts/validate-source-catalog.js",
     "verify:education-evidence": "node scripts/generate-education-evidence.js",
     "verify:ui-evidence": "node scripts/generate-ui-review-evidence.js",
     "scan:release-secrets": "node scripts/scan-release-secrets.js",
