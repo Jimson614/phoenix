@@ -1027,6 +1027,90 @@ async function testApiAdapter() {
   }
 }
 
+async function testDraftBufferSurvivesFailedSaves() {
+  const draftBuffer = require('../services/draft-buffer')
+  const originals = {
+    getStorageSync: wx.getStorageSync,
+    setStorageSync: wx.setStorageSync,
+    removeStorageSync: wx.removeStorageSync
+  }
+  const storage = new Map()
+  const useRealStorage = () => {
+    wx.getStorageSync = (key) => storage.get(key)
+    wx.setStorageSync = (key, value) => storage.set(key, value)
+    wx.removeStorageSync = (key) => storage.delete(key)
+  }
+
+  try {
+    useRealStorage()
+    storage.clear()
+
+    // 保存失败后要留得住：这正是 2026-09-22 那次 502 丢答案的场景。
+    assert.strictEqual(draftBuffer.remember('asm_1', { answers: { EGD01: 'A' }, revision: 3 }), true)
+    const recalled = draftBuffer.recall('asm_1')
+    assert.ok(recalled, 'a buffered draft must survive to the next launch')
+    assert.deepStrictEqual(recalled.answers, { EGD01: 'A' })
+    assert.strictEqual(recalled.revision, 3)
+
+    // 存成功之后设备上不该再留答案。
+    draftBuffer.forget('asm_1')
+    assert.strictEqual(draftBuffer.recall('asm_1'), null, 'a saved draft must not linger on the device')
+
+    // 空答案不落盘，免得把一份有内容的暂存覆盖成空的。
+    assert.strictEqual(draftBuffer.remember('asm_2', { answers: {} }), false)
+    assert.strictEqual(draftBuffer.remember('asm_2', {}), false)
+    assert.strictEqual(draftBuffer.recall('asm_2'), null)
+
+    // 过期的自动丢弃，不做长期留存。
+    draftBuffer.remember('asm_3', { answers: { EGD01: 'A' }, revision: 1 })
+    const stale = storage.get(`${draftBuffer.PREFIX}asm_3`)
+    stale.failedAt = Date.now() - draftBuffer.MAX_AGE_MS - 1000
+    storage.set(`${draftBuffer.PREFIX}asm_3`, stale)
+    assert.strictEqual(draftBuffer.recall('asm_3'), null, 'expired buffers must be discarded')
+    assert.strictEqual(storage.has(`${draftBuffer.PREFIX}asm_3`), false, 'expiry must also delete the record')
+
+    // 结构坏掉的记录当作没有，并清掉。
+    storage.set(`${draftBuffer.PREFIX}asm_4`, { answers: 'not-an-object', failedAt: Date.now() })
+    assert.strictEqual(draftBuffer.recall('asm_4'), null)
+
+    // 超大的不存：问卷答案远小于上限，超了说明数据不对。
+    const huge = {}
+    for (let i = 0; i < 4000; i += 1) huge[`Q${i}`] = 'x'.repeat(64)
+    assert.strictEqual(draftBuffer.remember('asm_5', { answers: huge, revision: 1 }), false)
+
+    // 退出登录要清干净：换账号不能看见上一个人的答案。
+    draftBuffer.remember('asm_6', { answers: { EGD01: 'A' }, revision: 1 })
+    draftBuffer.remember('asm_7', { answers: { EGD02: 'B' }, revision: 1 })
+    draftBuffer.forgetAll()
+    assert.strictEqual(draftBuffer.recall('asm_6'), null)
+    assert.strictEqual(draftBuffer.recall('asm_7'), null)
+    assert.strictEqual(storage.has(draftBuffer.INDEX_KEY), false, 'the index must be cleared too')
+
+    // 只有本机确实比服务端多出答案时才提示恢复。
+    assert.strictEqual(
+      draftBuffer.hasUnsavedAnswers({ answers: { EGD01: 'A' } }, { EGD01: 'A' }), false,
+      'identical answers must not prompt the user'
+    )
+    assert.strictEqual(draftBuffer.hasUnsavedAnswers({ answers: { EGD01: 'A' } }, { EGD01: 'B' }), true)
+    assert.strictEqual(draftBuffer.hasUnsavedAnswers({ answers: { EGD01: 'A' } }, {}), true)
+    assert.strictEqual(draftBuffer.hasUnsavedAnswers({ answers: { EGD01: ['A', 'B'] } }, { EGD01: ['A', 'B'] }), false)
+    assert.strictEqual(draftBuffer.hasUnsavedAnswers(null, { EGD01: 'A' }), false)
+
+    // 存储不可用时兜底功能必须自己失败，不能把填问卷弄挂。
+    wx.getStorageSync = () => { throw new Error('storage read failed') }
+    wx.setStorageSync = () => { throw new Error('storage write failed') }
+    wx.removeStorageSync = () => { throw new Error('storage remove failed') }
+    assert.strictEqual(draftBuffer.remember('asm_8', { answers: { EGD01: 'A' }, revision: 1 }), false)
+    assert.strictEqual(draftBuffer.recall('asm_8'), null)
+    assert.doesNotThrow(() => draftBuffer.forget('asm_8'))
+    assert.doesNotThrow(() => draftBuffer.forgetAll())
+  } finally {
+    wx.getStorageSync = originals.getStorageSync
+    wx.setStorageSync = originals.setStorageSync
+    wx.removeStorageSync = originals.removeStorageSync
+  }
+}
+
 async function run() {
   testQuestionnaireModel()
   testStudentProfileNormalization()
@@ -1041,6 +1125,7 @@ async function run() {
   await testApiTransportHardening()
   await testPdfDownloadHardening()
   await testPaymentCacheStorageFailure()
+  await testDraftBufferSurvivesFailedSaves()
   await testApiAdapter()
   console.log('✓ Education Compass V0.5 client: remote adapter, canonical bank, result registry, revision and server nextAction navigation')
 }

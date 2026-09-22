@@ -70,6 +70,9 @@ function logout() {
     } catch (error) {}
     try { require('./payment').clearOrderCache() } catch (error) {}
     try { require('./assessment').clearRemoteSessionData() } catch (error) {}
+    // 上面按前缀扫存储的那段依赖 wx.getStorageInfoSync，不是所有环境都有；
+    // 草稿兜底自己维护索引，这里显式再清一次，换账号不留上一个人的答案。
+    try { require('./draft-buffer').forgetAll() } catch (error) {}
   }
   return revoke
 }

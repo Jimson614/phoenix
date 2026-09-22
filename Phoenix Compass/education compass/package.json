@@ -35,6 +35,7 @@
     "test:p0": "npm run scan:release-secrets && npm run validate:education-docs && npm run test:all && npm run smoke:education && npm run test:education-postgres",
     "build:development": "node scripts/build-development.js",
     "build:devtools": "node scripts/build-devtools.js",
+    "build:devtools:release": "node scripts/build-devtools.js --release",
     "build:release": "node scripts/build-release.js",
     "test:release": "node tests/validate-release-build.js",
     "validate": "node tests/validate-project.js"
