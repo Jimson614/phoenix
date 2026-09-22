@@ -40,6 +40,31 @@
 
 若实现中的变量名不同，以 server/.env.example 为准并同步更新本表。
 
+### 2.1 五项支付凭据从哪里取
+
+全部在**微信支付商户平台** https://pay.weixin.qq.com，需要超级管理员登录并通过操作证书或短信验证。前置条件：已有微信支付商户号（申请需营业执照与对公账户），且商户号与本项目的小程序 AppID 已完成关联——商户平台「产品中心 → AppID 账号管理」发起关联，再由小程序管理员在微信公众平台确认。未关联时下单会返回 appid 与 mchid 不匹配。
+
+| 变量 | 商户平台位置 | 注意 |
+| --- | --- | --- |
+| `WECHAT_MCH_ID` | 账户中心 → 商户信息 | 10 位数字，登录后右上角也能看到 |
+| `WECHAT_MCH_CERT_SERIAL_NO` | 账户中心 → API 安全 → API 证书 → 申请/查看证书 | 40 位十六进制。证书由「微信支付证书工具」在本机生成 |
+| `WECHAT_MCH_PRIVATE_KEY_PATH` | 同上，证书工具生成的 `apiclient_key.pem` | 私钥只在生成时那一次能拿到；丢失只能作废重申 |
+| `WECHATPAY_API_V3_KEY` | 账户中心 → API 安全 → APIv3 密钥 → 设置密钥 | 自己定的 32 个字符；设置后不可查看，只能重置 |
+| `WECHATPAY_PUBLIC_KEY_ID` / `WECHATPAY_PUBLIC_KEY_PATH` | 账户中心 → API 安全 → 微信支付公钥 → 下载公钥 | 得到 `PUB_KEY_ID_…` 和 `pub_key.pem`。本实现只支持公钥模式，不走已弃用的平台证书 |
+
+录入用 `ops/server/set-wechat-pay.sh`：隐藏输入、校验格式、核对私钥与证书是否配套、把两个 PEM 装到 `/etc/phoenix/wechatpay`（目录 700、文件 600），并按 §3 的同源固定路径规则写好两个回调地址。`--check` 是只读体检，随时可重跑。
+
+### 2.2 小程序服务器域名
+
+微信公众平台 https://mp.weixin.qq.com → 开发管理 → 开发设置 → 服务器域名 → 修改。本项目实际发起的网络请求只有两类，因此只需登记两处，且填同一个域名：
+
+- **request 合法域名**：`https://api.<域名>`（`services/api.js` 的 `wx.request`）
+- **downloadFile 合法域名**：同上（`services/report.js` 的报告 PDF 下载）
+
+uploadFile、socket、udp 合法域名都不需要——代码里没有对应调用。业务域名（web-view）也不需要，项目没有 `web-view` 组件。域名必须是已完成 ICP 备案的 HTTPS 域名，不能填 IP、端口或路径；服务器域名每月可修改的次数有限，一次填完整。
+
+支付回调地址（`WECHAT_PAY_NOTIFY_URL` / `WECHAT_REFUND_NOTIFY_URL`）是微信服务器到本服务的调用，不需要登记为合法域名，但同样要求公网可达的、已备案域名上的 HTTPS。
+
 ## 3. 生产启动闸门
 
 ### 小程序候选包

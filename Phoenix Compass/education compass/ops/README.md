@@ -28,6 +28,8 @@
 | `check-cos-access.sh` | 用已保存的凭据复测 COS 读写权限，并解释失败原因 | COS 上传失败时排查 |
 | `set-uat-wechat-secret.sh` | 录入小程序 AppSecret（隐藏输入），让联调环境改用真实微信登录并重启 | 更换 AppSecret 时 |
 | `set-uat-deepseek-key.sh` | 录入 DeepSeek API Key（隐藏输入），验证余额、应用迁移 006、切换联调 AI 供应商并重启 | 启用 DeepSeek 时 |
+| `set-wechat-pay.sh --check` | 只读体检生产 `server/.env` 的微信支付配置：格式、密钥文件权限与位数、回调地址同源 | 随时 |
+| `set-wechat-pay.sh --base-url … --key … --pub … [--cert …]` | 录入商户号、证书序列号、APIv3 密钥、公钥 ID（隐藏输入），核对私钥与证书配套，把 PEM 装到 `/etc/phoenix/wechatpay`，写好两个回调地址 | 拿到商户凭据后 |
 | `phoenix_uat_start.sh` | pm2 进程 `phoenix_uat_api` 的启动脚本：加载 `.env.uat`，仅监听 127.0.0.1，固定 Node 24 | 由 pm2 调用 |
 | `phoenix_uat_agent_worker_start.sh` | pm2 进程 `phoenix_uat_agent_worker` 的启动脚本 | 由 pm2 调用 |
 
