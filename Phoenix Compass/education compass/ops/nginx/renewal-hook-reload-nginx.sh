@@ -6,5 +6,10 @@
 set -euo pipefail
 
 # 配置坏掉时不要 reload，宁可继续用旧证书也不能把站点打挂。
-nginx -t
+# nginx -t 成功时也往 stderr 写字，certbot 会把它报成 "ran with error output"，
+# 几个月后看续期日志容易误判成失败；所以成功时静默，失败时再把原始输出打出来。
+if ! nginx -t >/dev/null 2>&1; then
+  nginx -t
+  exit 1
+fi
 systemctl reload nginx
