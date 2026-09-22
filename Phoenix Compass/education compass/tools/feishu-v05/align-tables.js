@@ -21,7 +21,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const { MASTER, T, TABLES, tableBySheet } = require('./schema')
-const { FeishuClient } = require('./feishu-client')
+const { FeishuClient, maskAppToken } = require('./feishu-client')
 const { loadEnvFile, ENV_FILENAME } = require('./load-env')
 
 /** 默认处理母版里的全部表 */
@@ -165,7 +165,7 @@ async function main() {
 
   console.log(line('═'))
   console.log(`表结构对齐到母版：${MASTER.source_workbook}`)
-  console.log(`模式：${args.apply ? 'APPLY（真正修改飞书表结构）' : 'PLAN（只打印，不修改）'}    app_token=${appToken}`)
+  console.log(`模式：${args.apply ? 'APPLY（真正修改飞书表结构）' : 'PLAN（只打印，不修改）'}    app_token=${maskAppToken(appToken)}`)
   console.log(`范围：${args.sheets.join('、')}`)
   if (env.loaded.length) console.log(`凭据：${ENV_FILENAME} 提供了 ${env.loaded.join('、')}`)
   console.log(line('═'))
@@ -212,7 +212,7 @@ async function main() {
     run_at: now.toISOString(),
     mode: args.apply ? 'apply' : 'plan',
     master_workbook: MASTER.source_workbook,
-    app_token: appToken,
+    app_token: maskAppToken(appToken),
     sheets: args.sheets,
     plans,
     orphan_tables: orphanTables,

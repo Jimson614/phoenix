@@ -26,7 +26,7 @@ const {
   tableBySheet
 } = require('./schema')
 const { buildCoreFixture, buildChainRecords, buildLinks, applyBackfills, runGates } = require('./core')
-const { FeishuClient } = require('./feishu-client')
+const { FeishuClient, maskAppToken } = require('./feishu-client')
 const { loadEnvFile, ENV_FILENAME } = require('./load-env')
 
 function parseArgs(argv) {
@@ -196,7 +196,7 @@ async function main() {
     baseUrl: process.env.FEISHU_API_BASE_URL || undefined
   })
 
-  console.log(`\n【6】LIVE：解析 Base 中的表（app_token=${appToken}）`)
+  console.log(`\n【6】LIVE：解析 Base 中的表（app_token=${maskAppToken(appToken)}）`)
   const remoteTables = await client.listTables()
   const tableIds = {}
   const needed =
@@ -257,7 +257,8 @@ async function main() {
   const chainPreflight = preflight.filter((item) => required.has(item.sheet))
   const otherPreflight = preflight.filter((item) => !required.has(item.sheet))
   const broken = chainPreflight.filter((item) => !item.ok)
-  evidence.live_result = { app_token: appToken, table_ids: tableIds, preflight }
+  // 证据文件不入库，但可能被复制出去：只留可追溯的前缀，不留完整 app_token
+  evidence.live_result = { app_token: maskAppToken(appToken), table_ids: tableIds, preflight }
 
   if (args.verifyOnly) {
     fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2))

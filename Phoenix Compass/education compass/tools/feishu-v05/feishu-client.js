@@ -9,12 +9,14 @@
 const DEFAULT_BASE_URL = 'https://open.feishu.cn'
 
 class FeishuError extends Error {
-  constructor(message, { code, status, endpoint } = {}) {
+  constructor(message, { code, status, endpoint, retried } = {}) {
     super(message)
     this.name = 'FeishuError'
     this.code = code
     this.status = status
     this.endpoint = endpoint
+    // 网络失败时告诉调用方这次请求有没有被重放过，写操作据此判断是否需要人工核对
+    if (retried !== undefined) this.retried = retried
   }
 }
 
@@ -47,14 +49,25 @@ class FeishuClient {
     return parts.join(' ← ')
   }
 
+  /**
+   * 只有幂等请求才能重试。写操作在网络层超时后，飞书那边可能已经写成功，
+   * 重放就会多出一条重复记录，所以写操作一次失败就抛。
+   * 记录检索虽然是 POST，但只读，可以重试。
+   */
+  static isIdempotent(method, endpoint) {
+    if (method === 'GET') return true
+    return endpoint.includes('/records/search') || endpoint.includes('/tenant_access_token/')
+  }
+
   async request(endpoint, { method = 'GET', body, auth = true } = {}) {
     const headers = { 'Content-Type': 'application/json; charset=utf-8' }
     if (auth) headers.Authorization = `Bearer ${await this.tenantAccessToken()}`
 
     let response
     let lastError
-    // 网络层失败才重试；HTTP 错误码直接抛，不会把写操作重放一遍
-    for (let attempt = 1; attempt <= this.retries; attempt += 1) {
+    // 网络层失败才重试，且只重试幂等请求；HTTP 错误码一律直接抛
+    const attempts = FeishuClient.isIdempotent(method, endpoint) ? this.retries : 1
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), this.timeoutMs)
       try {
@@ -69,9 +82,9 @@ class FeishuClient {
       } catch (error) {
         lastError = error
         const reason = FeishuClient.describeNetworkError(error)
-        if (attempt < this.retries) {
+        if (attempt < attempts) {
           const waitMs = 400 * attempt
-          console.warn(`  第 ${attempt}/${this.retries} 次请求失败（${reason}），${waitMs}ms 后重试`)
+          console.warn(`  第 ${attempt}/${attempts} 次请求失败（${reason}），${waitMs}ms 后重试`)
           await new Promise((resolve) => setTimeout(resolve, waitMs))
         }
       } finally {
@@ -79,10 +92,13 @@ class FeishuClient {
       }
     }
     if (lastError) {
-      throw new FeishuError(`请求飞书失败：${FeishuClient.describeNetworkError(lastError)}`, {
-        code: 'NETWORK_ERROR',
-        endpoint
-      })
+      const reason = FeishuClient.describeNetworkError(lastError)
+      throw new FeishuError(
+        attempts === 1
+          ? `请求飞书失败：${reason}（写操作不重试：这一次可能已经在飞书生效，重跑前请先到飞书核对记录）`
+          : `请求飞书失败：${reason}`,
+        { code: 'NETWORK_ERROR', endpoint, retried: attempts > 1 }
+      )
     }
 
     const text = await response.text()
@@ -319,4 +335,14 @@ class FeishuClient {
   }
 }
 
-module.exports = { FeishuClient, FeishuError, DEFAULT_BASE_URL }
+/**
+ * 打印用的 app_token 掩码。app_token 配上 App Secret 就能访问整个 Base，
+ * 而终端输出经常被复制、截图或贴进工单，所以只显示前 6 位。
+ */
+function maskAppToken(token) {
+  const value = String(token ?? '')
+  if (value.length <= 6) return value ? `${value.slice(0, 2)}***` : '(未配置)'
+  return `${value.slice(0, 6)}***`
+}
+
+module.exports = { FeishuClient, FeishuError, DEFAULT_BASE_URL, maskAppToken }

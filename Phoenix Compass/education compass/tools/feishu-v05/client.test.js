@@ -8,7 +8,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 
-const { FeishuClient } = require('./feishu-client')
+const { FeishuClient, maskAppToken } = require('./feishu-client')
 
 const normalize = FeishuClient.normalizeCellValue
 
@@ -56,4 +56,56 @@ test('没有 cause 时也不会报错', () => {
 
 test('凭据不全直接拒绝构造，不会带着空 token 去请求', () => {
   assert.throws(() => new FeishuClient({ appId: 'cli_x', appSecret: '', appToken: 'tok' }), /配置不完整/)
+})
+
+test('只有幂等请求可以重试，写操作不重放', () => {
+  const idempotent = FeishuClient.isIdempotent
+  assert.equal(idempotent('GET', '/open-apis/bitable/v1/apps/a/tables'), true)
+  assert.equal(idempotent('POST', '/open-apis/bitable/v1/apps/a/tables/t/records/search?page_size=2'), true)
+  assert.equal(idempotent('POST', '/open-apis/auth/v3/tenant_access_token/internal'), true)
+  assert.equal(idempotent('POST', '/open-apis/bitable/v1/apps/a/tables/t/records'), false)
+  assert.equal(idempotent('PUT', '/open-apis/bitable/v1/apps/a/tables/t/records/r'), false)
+  assert.equal(idempotent('POST', '/open-apis/bitable/v1/apps/a/tables/t/records/batch_delete'), false)
+})
+
+test('写操作网络失败只请求一次，并提示可能已经生效', async () => {
+  const originalFetch = globalThis.fetch
+  let calls = 0
+  globalThis.fetch = async () => { calls += 1; throw new Error('fetch failed') }
+  try {
+    const client = new FeishuClient({ appId: 'cli_x', appSecret: 's', appToken: 'tok', retries: 3 })
+    await assert.rejects(
+      client.request('/open-apis/bitable/v1/apps/a/tables/t/records', { method: 'POST', body: {}, auth: false }),
+      (error) => error.code === 'NETWORK_ERROR' && /可能已经在飞书生效/.test(error.message) && error.retried === false
+    )
+    assert.equal(calls, 1, '写操作不能重试')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('只读检索网络失败会重试到上限', async () => {
+  const originalFetch = globalThis.fetch
+  let calls = 0
+  globalThis.fetch = async () => { calls += 1; throw new Error('fetch failed') }
+  const warn = console.warn
+  console.warn = () => undefined
+  try {
+    const client = new FeishuClient({ appId: 'cli_x', appSecret: 's', appToken: 'tok', retries: 2 })
+    await assert.rejects(
+      client.request('/open-apis/bitable/v1/apps/a/tables/t/records/search?page_size=2', { method: 'POST', body: {}, auth: false }),
+      (error) => error.code === 'NETWORK_ERROR' && error.retried === true
+    )
+    assert.equal(calls, 2)
+  } finally {
+    globalThis.fetch = originalFetch
+    console.warn = warn
+  }
+})
+
+test('打印用的 app_token 只保留前 6 位', () => {
+  assert.equal(maskAppToken('VDy5beAbCdEfGhIjKl'), 'VDy5be***')
+  assert.equal(maskAppToken('abc'), 'ab***')
+  assert.equal(maskAppToken(''), '(未配置)')
+  assert.equal(maskAppToken(undefined), '(未配置)')
 })

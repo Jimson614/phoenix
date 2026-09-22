@@ -20,7 +20,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const { MASTER, CHAIN, LINKS_SHEET, tableBySheet } = require('./schema')
-const { FeishuClient } = require('./feishu-client')
+const { FeishuClient, maskAppToken } = require('./feishu-client')
 const { loadEnvFile, ENV_FILENAME } = require('./load-env')
 
 /** 运行标记是 8 位十六进制；限死格式，免得一个宽泛的关键字扫掉整张表 */
@@ -109,7 +109,7 @@ async function main() {
 
   console.log(line('═'))
   console.log('清理验收运行留下的记录')
-  console.log(`模式：${args.apply ? 'APPLY（真正删除，不可逆）' : 'PLAN（只打印，不删除）'}    app_token=${appToken}`)
+  console.log(`模式：${args.apply ? 'APPLY（真正删除，不可逆）' : 'PLAN（只打印，不删除）'}    app_token=${maskAppToken(appToken)}`)
   console.log(`运行标记：${args.runs.join('、')}`)
   if (env.loaded.length) console.log(`凭据：${ENV_FILENAME} 提供了 ${env.loaded.join('、')}`)
   console.log(line('═'))
@@ -156,7 +156,7 @@ async function main() {
   const record = {
     run_at: now.toISOString(),
     mode: args.apply ? 'apply' : 'plan',
-    app_token: appToken,
+    app_token: maskAppToken(appToken),
     run_tags: args.runs,
     plan,
     results: null
