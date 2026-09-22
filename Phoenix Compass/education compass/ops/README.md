@@ -11,6 +11,7 @@
 | --- | --- | --- |
 | `server/` | 服务器脚本 | `/home/ubuntu/`，权限 700 |
 | `systemd/` | 生产服务单元 | `/etc/systemd/system/` |
+| `nginx/` | 对外 HTTPS 站点与证书续期钩子 | `/etc/nginx/sites-available/`、`/etc/letsencrypt/renewal-hooks/deploy/` |
 | `windows/` | 本机开发脚本 | 任意位置，双击运行 |
 
 脚本中的绝对路径假设：项目位于 `/home/ubuntu/phoenix/Phoenix Compass/education compass`，Node 24 位于
@@ -50,6 +51,31 @@
 安装后执行 `sudo systemctl daemon-reload`；启用为 `sudo systemctl enable --now <服务名>`。
 
 联调环境不使用 systemd，由 pm2 管理，且已配置开机自启（`pm2-ubuntu` 服务 + `pm2 save`）。
+
+## nginx/
+
+`education-compass-api.conf`：`api.phoenixnova.com.cn` 的 80/443 站点。80 端口只保留 ACME 校验路径和
+301 跳转；443 用 Let's Encrypt 证书，反代到后端，带限流、请求体上限、HSTS，并屏蔽 `/v1/admin/`。
+另有一个 `default_server` 块，用 IP 或未知域名访问 443 时直接 `return 444`，不暴露接口。
+
+**当前 443 反代的是联调后端 `127.0.0.1:3010`**（development 模式、模拟支付）。生产后端
+`127.0.0.1:3100` 尚未通过启动闸门，切换时改 `proxy_pass` 端口并同步 `server/.env` 的 `PUBLIC_BASE_URL`。
+
+```bash
+sudo cp education-compass-api.conf /etc/nginx/sites-available/education-compass-api
+sudo ln -sfn /etc/nginx/sites-available/education-compass-api /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+`renewal-hook-reload-nginx.sh`：certbot 续期成功后重载 nginx。**没有它，续下来的新证书不会生效**，
+nginx 会一直用内存里的旧证书直到下次手动 reload。安装：
+
+```bash
+sudo install -m 700 -o root -g root renewal-hook-reload-nginx.sh /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+```
+
+证书用 webroot 方式签发，webroot 为 `/var/www/letsencrypt`，续期由 `certbot.timer` 每天检查两次，
+到期前 30 天自动续。验证：`sudo certbot renew --dry-run`。
 
 ## windows/
 
