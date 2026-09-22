@@ -12,7 +12,7 @@ const {
   buildArtifactAtomically, buildRelease, copyTree, DIST_ROOT, validateApiBaseUrl,
   validateMiniProgramArtifactBoundary, validateReleaseOutput
 } = require('../scripts/build-release')
-const { looksLikePlaceholder, sensitiveEnvKeys } = require('../scripts/scan-release-secrets')
+const { gitIgnored, looksLikePlaceholder, sensitiveEnvKeys } = require('../scripts/scan-release-secrets')
 const { npmInvocation, validateDedicatedDatabaseUrl } = require('../scripts/test-education-postgres')
 const {
   cleanEnvironment, filesUnder: evidenceFilesUnder, migrationManifest, validateEvidenceRoot
@@ -321,6 +321,17 @@ test('secret placeholder detection does not excuse arbitrary values containing p
     'AI_CONTENT_KEYRING_JSON', 'FEISHU_BITABLE_APP_TOKEN', 'FEISHU_PSEUDONYM_KEY',
     'WECHATPAY_API_V3_KEY'
   ]) assert.equal(sensitiveEnvKeys.has(key), true, key)
+})
+
+test('secret scan skips git-ignored credential files but still covers the release surface', () => {
+  const ignoredEnv = path.join(root, '.env.feishu-v05')
+  const trackedExample = path.join(root, '.env.example')
+  const trackedSource = path.join(root, 'app.js')
+  const ignored = gitIgnored([ignoredEnv, trackedExample, trackedSource])
+  assert.equal(ignored.has(ignoredEnv), true, '本机凭据文件应被跳过')
+  assert.equal(ignored.has(trackedExample), false, '.env.example 进仓库，必须继续扫描')
+  assert.equal(ignored.has(trackedSource), false, '业务代码必须继续扫描')
+  assert.deepEqual(gitIgnored([]), new Set())
 })
 
 test('evidence subprocess environment removes active credential names and disables providers', () => {
