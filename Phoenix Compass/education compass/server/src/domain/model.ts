@@ -49,6 +49,8 @@ export interface User {
   id: string
   role: UserRole
   createdAt: string
+  // 账号注销后置位。该行只保留 id/role/createdAt 用于财务记录归属，不含个人信息。
+  deletedAt?: string | null
 }
 
 export interface WechatIdentity {
@@ -242,10 +244,11 @@ export interface Order {
   id: string
   outTradeNo: string
   userId: string
-  familyId: string
-  studentId: string
-  assessmentId: string
-  reportId: string
+  // 账号注销后置空：财务记录保留，与个人数据脱钩（见 migrations/007）。
+  familyId: string | null
+  studentId: string | null
+  assessmentId: string | null
+  reportId: string | null
   productCode: Product['code']
   amountFen: number
   currency: 'CNY'
@@ -273,7 +276,8 @@ export interface Entitlement {
   id: string
   userId: string
   orderId: string
-  reportId: string
+  // 账号注销后置空，同 Order。
+  reportId: string | null
   productCode: Product['code']
   status: EntitlementStatus
   grantedAt: string

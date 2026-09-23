@@ -25,10 +25,31 @@ export interface OrderDto {
   productCode: string
   amountFen: number
   currency: string
-  reportId: string
+  reportId: string | null
   expiresAt: string
   paidAt?: string
   refundedAt?: string
+}
+
+/**
+ * 账号注销后订单保留为财务凭证，但与个人数据的关联被置空（见 migrations/007）。
+ * 这类订单不可能再进入任何业务流程——会话、家庭、测评和报告都已删除——
+ * 所以在入口处一次性断言，而不是让下游拿着 null 去查库、报出难以追查的错。
+ */
+type LinkedOrder = Order & {
+  familyId: string
+  studentId: string
+  assessmentId: string
+  reportId: string
+}
+
+function linkedOrder(order: Order): LinkedOrder {
+  invariant(
+    order.familyId !== null && order.studentId !== null &&
+    order.assessmentId !== null && order.reportId !== null,
+    409, 'ORDER_DETACHED', '该订单关联的账号已注销，仅保留为财务凭证'
+  )
+  return order as LinkedOrder
 }
 
 function dto(order: Order): OrderDto {
@@ -68,7 +89,8 @@ export class OrderService {
     private readonly growthDiscoveryPaymentEnabled = false
   ) {}
 
-  private async validatePayableDependencies(tx: StoreTransaction, order: Order): Promise<void> {
+  private async validatePayableDependencies(tx: StoreTransaction, rawOrder: Order): Promise<void> {
+    const order = linkedOrder(rawOrder)
     invariant(
       (order.productCode === COMPASS_PRODUCT_CODE || order.productCode === GROWTH_DISCOVERY_PRODUCT_CODE) &&
         order.amountFen === 3990 && order.currency === 'CNY',
@@ -208,9 +230,10 @@ export class OrderService {
           createdAt: now, updatedAt: now, completedAt: now
         })
       }
+      const created = linkedOrder(order)
       await appendTimeline(tx, this.ids, now, {
-        userId, familyId: order.familyId, eventType: 'order_created', description: '已创建 Education Compass 报告订单',
-        reportId: order.reportId, orderId: order.id
+        userId, familyId: created.familyId, eventType: 'order_created', description: '已创建 Education Compass 报告订单',
+        reportId: created.reportId, orderId: created.id
       })
       return dto(order)
     })
@@ -486,8 +509,9 @@ export class OrderService {
       // configuration rollback could leave a charged family without delivery.
       if (result.tradeState === 'SUCCESS' && !['REFUNDED', 'REFUNDING'].includes(order.status)) {
         if (order.status !== 'PAID') {
-          const report = await tx.findById('reports', order.reportId, { forUpdate: true })
-          const job = await tx.findOne('reportJobs', { reportId: order.reportId }, { forUpdate: true })
+          const settling = linkedOrder(order)
+          const report = await tx.findById('reports', settling.reportId, { forUpdate: true })
+          const job = await tx.findOne('reportJobs', { reportId: settling.reportId }, { forUpdate: true })
           invariant(report?.status === 'LOCKED' && report.deliveryStatus === 'LOCKED', 500, 'REPORT_DELIVERY_PRECONDITION_FAILED', '报告未处于收费前锁定状态')
           const deliverable = await tx.findOne('productDeliverables', { productCode: order.productCode })
           invariant(deliverable?.reportKind === report.reportKind, 500, 'REPORT_DELIVERY_PRECONDITION_FAILED', '商品与报告交付类型不匹配')
@@ -519,10 +543,10 @@ export class OrderService {
                 metadata: { outRefundNo: refund.outRefundNo, reason: refund.reason }, createdAt: now
               })
               await appendTimeline(tx, this.ids, now, {
-                userId: order.userId, familyId: order.familyId,
+                userId: settling.userId, familyId: settling.familyId,
                 eventType: 'order_refund_pending',
                 description: '支付成功前相关同意已撤回，完整报告未解锁并已自动进入退款处理',
-                reportId: order.reportId, orderId: order.id
+                reportId: settling.reportId, orderId: settling.id
               })
             }
             return { duplicate: false, orderId: order.id }
@@ -541,8 +565,8 @@ export class OrderService {
           await tx.update('reports', report.id, { status: 'READY', deliveryStatus: 'DELIVERED', updatedAt: now })
           await tx.update('reportJobs', job.id, { orderId: order.id, updatedAt: now })
           await appendTimeline(tx, this.ids, now, {
-            userId: order.userId, familyId: order.familyId, eventType: 'report_unlocked',
-            description: '支付已确认，完整报告已解锁', reportId: order.reportId, orderId: order.id
+            userId: settling.userId, familyId: settling.familyId, eventType: 'report_unlocked',
+            description: '支付已确认，完整报告已解锁', reportId: settling.reportId, orderId: settling.id
           })
         }
       } else if (result.tradeState !== 'SUCCESS' && !['PAID', 'REFUNDING', 'REFUNDED'].includes(order.status)) {
@@ -571,7 +595,8 @@ export class OrderService {
     if (success) invariant(result.transactionId.length > 0, 400, 'PAYMENT_TRANSACTION_ID_MISSING', '微信支付交易号缺失')
   }
 
-  private async hasActiveGrowthConsents(tx: StoreTransaction, order: Order): Promise<boolean> {
+  private async hasActiveGrowthConsents(tx: StoreTransaction, rawOrder: Order): Promise<boolean> {
+    const order = linkedOrder(rawOrder)
     const assessment = await tx.findById('assessments', order.assessmentId, { forUpdate: true })
     if (!assessment || assessment.userId !== order.userId || assessment.familyId !== order.familyId ||
       assessment.studentId !== order.studentId || assessment.assessmentKind !== 'STUDENT_GROWTH_DISCOVERY') return false
@@ -641,10 +666,14 @@ export class OrderService {
         if (entitlement && entitlement.status !== 'REVOKED') {
           await tx.update('entitlements', entitlement.id, { status: 'REVOKED', revokedAt: now })
         }
-        await appendTimeline(tx, this.ids, now, {
-          userId: order.userId, familyId: order.familyId, eventType: 'order_refunded',
-          description: '报告订单已退款，付费访问权益已撤回', reportId: order.reportId, orderId: order.id
-        })
+        // 账号注销后退款回调仍会到达：财务处理照常，但时间线写不进去——
+        // 家庭记录已经删除，时间线本身就是个人数据。跳过，不要因此让退款失败。
+        if (order.familyId !== null && order.reportId !== null) {
+          await appendTimeline(tx, this.ids, now, {
+            userId: order.userId, familyId: order.familyId, eventType: 'order_refunded',
+            description: '报告订单已退款，付费访问权益已撤回', reportId: order.reportId, orderId: order.id
+          })
+        }
       } else if ((result.refundStatus === 'CLOSED' || result.refundStatus === 'ABNORMAL') && order.status === 'REFUNDING') {
         if (refund.reason === 'CONSENT_WITHDRAWN_BEFORE_DELIVERY') {
           // The customer was charged after the required assessment consent was
@@ -658,12 +687,14 @@ export class OrderService {
             entityType: 'order', entityId: order.id,
             metadata: { refundStatus: result.refundStatus, reason: refund.reason }, createdAt: now
           })
-          await appendTimeline(tx, this.ids, now, {
-            userId: order.userId, familyId: order.familyId,
-            eventType: 'order_refund_manual_review',
-            description: '自动退款未完成，报告仍保持锁定，退款已进入人工复核',
-            reportId: order.reportId, orderId: order.id
-          })
+          if (order.familyId !== null && order.reportId !== null) {
+            await appendTimeline(tx, this.ids, now, {
+              userId: order.userId, familyId: order.familyId,
+              eventType: 'order_refund_manual_review',
+              description: '自动退款未完成，报告仍保持锁定，退款已进入人工复核',
+              reportId: order.reportId, orderId: order.id
+            })
+          }
         } else {
           await tx.update('orders', order.id, { status: 'PAID', updatedAt: now })
         }

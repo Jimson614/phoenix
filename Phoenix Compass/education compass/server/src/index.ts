@@ -22,6 +22,7 @@ import { AgentService } from './services/agent-service'
 import { EducationCompassService } from './services/education-compass-service'
 import { AgentRepository } from './store/agent-repository'
 import { InMemoryStore } from './store/memory-store'
+import { AccountService } from './services/account-service'
 import { PostgresStore } from './store/postgres-store'
 import { Store } from './store/store'
 
@@ -65,6 +66,7 @@ async function main(): Promise<void> {
     undefined, undefined, config.growthDiscoveryPaymentEnabled
   )
   const reports = new ReportService(store)
+  const accounts = new AccountService(store)
   const education = new EducationCompassService(store, config.growthDiscoveryPaymentEnabled)
   let agent: AgentService | undefined
   const currentAgentKey = config.aiContentKeyring[config.aiContentCurrentKeyVersion]
@@ -106,7 +108,7 @@ async function main(): Promise<void> {
     config.feishuCustomerProfileFieldsEnabled
   )
   const server = createAppServer({
-    auth, profiles, assessments, orders, reports, education, feishu,
+    auth, profiles, assessments, orders, reports, education, accounts, feishu,
     // `/health` is a readiness check in the deployed API contract. Keep it
     // read-only, but verify that the authoritative store can still answer so a
     // disconnected PostgreSQL backend is not advertised as usable to clients.

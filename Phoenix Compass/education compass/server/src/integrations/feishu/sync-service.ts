@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomUUID } from 'node:crypto'
 import { AppError, invariant } from '../../domain/errors'
-import { FeishuEntityType, IntegrationLink } from '../../domain/model'
+import { FeishuEntityType, IntegrationLink, Order } from '../../domain/model'
 import { isExactActiveFeishuProfileConsent } from '../../domain/education-compass/consent-policy'
 import { Store, StoreTransaction } from '../../store/store'
 import { Clock, IdFactory, iso, randomId, systemClock } from '../../utils/runtime'
@@ -399,7 +399,14 @@ export class FeishuSyncService {
       template_version: item.versions.templateVersion, source_catalog_version: item.sourceCatalogVersion,
       data_as_of: item.dataAsOf, created_at: item.createdAt
     }))
-    snapshot.orders.filter((item) =>
+    // 账号注销后订单与个人数据脱钩，只作为本地财务凭证保留；既没有可假名化的实体 ID，
+    // 也不该继续推送到第三方。用类型谓词过滤，收窄才能传递到下面的投影里。
+    const isLinkedOrder = (item: Order): item is Order & {
+      familyId: string; studentId: string; assessmentId: string; reportId: string
+    } => item.familyId !== null && item.studentId !== null &&
+      item.assessmentId !== null && item.reportId !== null
+
+    snapshot.orders.filter(isLinkedOrder).filter((item) =>
       item.productCode !== 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1' && !v05ReportIds.has(item.reportId)
     ).forEach((item) => add('order_payment', item.id, 'order_id', item.updatedAt, {
       order_id: this.pseudonym('order_payment', item.id),

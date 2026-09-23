@@ -4,10 +4,11 @@ const auth = require('../../services/auth')
 const payment = require('../../services/payment')
 const educationCompass = require('../../services/education-compass')
 const agent = require('../../services/agent')
+const account = require('../../services/account')
 const runtime = require('../../config/runtime')
 
 Page({
-  data: { user: { name: '', initial: '家' }, family: null, primaryStudent: null, consentStudents: [], consentStudentNames: [], consentStudentIndex: 0, consentStudent: null, studentCount: 0, reportCount: 0, orderCount: 0, unlockedReportCount: 0, recentOrders: [], loading: true, isV05: !runtime.isDemo(), consentBusy: false },
+  data: { user: { name: '', initial: '家' }, family: null, primaryStudent: null, consentStudents: [], consentStudentNames: [], consentStudentIndex: 0, consentStudent: null, studentCount: 0, reportCount: 0, orderCount: 0, unlockedReportCount: 0, recentOrders: [], loading: true, isV05: !runtime.isDemo(), consentBusy: false, deleteBusy: false },
   async onShow() {
     const user = session.guard(['family_user'])
     if (!user) return
@@ -100,5 +101,52 @@ Page({
   logout() {
     const content = runtime.isDemo() ? '家庭档案仍会保留在本机演示数据中。' : '退出后需要重新微信登录；家庭档案保存在 Phoenix 服务端，不会被删除。'
     wx.showModal({ title: '退出当前身份？', content, success: ({ confirm }) => { if (confirm) { auth.logout(); wx.reLaunch({ url: '/pages/welcome/index' }) } } })
+  },
+  /**
+   * 账号注销。两步确认：第一步说清删什么，第二步确认不可撤销。
+   * 已购报告会一并删除，这一点必须在动手之前讲明白，不能藏在细则里。
+   */
+  deleteAccount() {
+    if (this.data.deleteBusy) return
+    if (runtime.isDemo()) {
+      return wx.showModal({ title: '演示模式', content: '演示模式没有服务端账号，无需注销。', showCancel: false })
+    }
+    wx.showModal({
+      title: '注销账号？',
+      content: '将删除你的家庭档案、孩子资料、全部问卷与报告，包括已购买的报告。订单记录会按法规保留，但不再关联到你。',
+      confirmText: '继续',
+      cancelText: '取消',
+      success: ({ confirm }) => {
+        if (!confirm) return
+        wx.showModal({
+          title: '确认注销？此操作不可撤销',
+          content: '注销后无法恢复任何数据。如果以后再用微信登录，会是一个全新的空白账号。',
+          confirmText: '确认注销',
+          confirmColor: '#9a3f35',
+          cancelText: '再想想',
+          success: async ({ confirm: sure }) => {
+            if (!sure) return
+            this.setData({ deleteBusy: true })
+            try {
+              await account.deleteAccount()
+              // 本机缓存要一起清掉，否则注销后界面还会显示上一个账号的残留。
+              try { auth.logout() } catch (error) {}
+              wx.showModal({
+                title: '账号已注销',
+                content: '你的个人数据已删除。感谢使用 Phoenix。',
+                showCancel: false,
+                success: () => wx.reLaunch({ url: '/pages/welcome/index' })
+              })
+            } catch (error) {
+              wx.showModal({
+                title: '注销失败',
+                content: (error && error.message) || '请稍后重试；如果反复失败请联系客服。',
+                showCancel: false
+              })
+            } finally { this.setData({ deleteBusy: false }) }
+          }
+        })
+      }
+    })
   }
 })

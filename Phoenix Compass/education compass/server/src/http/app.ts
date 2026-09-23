@@ -6,6 +6,7 @@ import { AssessmentService, CreateAssessmentInput } from '../services/assessment
 import { OrderService } from '../services/order-service'
 import { FamilyInput, ProfileService, StudentInput } from '../services/profile-service'
 import { ReportService } from '../services/report-service'
+import { AccountService } from '../services/account-service'
 import { AgentService } from '../services/agent-service'
 import { EducationCompassService } from '../services/education-compass-service'
 import { FeishuSyncService } from '../integrations/feishu/sync-service'
@@ -19,6 +20,7 @@ export interface AppDependencies {
   orders: OrderService
   reports: ReportService
   education?: EducationCompassService
+  accounts?: AccountService
   agent?: AgentService
   feishu?: FeishuSyncService
   rateLimiter?: RateLimiter
@@ -240,6 +242,23 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
       if (method !== 'GET') {
         const normalizedRoute = url.pathname.replace(/\/[A-Za-z0-9_-]{8,}/g, '/:id')
         invariant(await rateLimiter.consume(`write:${user.id}:${normalizedRoute}`, 30, 60_000), 429, 'RATE_LIMITED', '操作过于频繁，请稍后重试')
+      }
+
+      // 账号注销：不可撤销，删除个人数据并保留财务凭证。
+      // 单独限流到每小时 3 次——它比任何写操作都更不该被脚本反复触发。
+      if (method === 'DELETE' && url.pathname === '/v1/me') {
+        exactQuery(url)
+        invariant(deps.accounts, 503, 'ACCOUNT_DELETION_DISABLED', '账号注销功能尚未配置')
+        invariant(await rateLimiter.consume(`account-delete:${user.id}`, 3, 3_600_000),
+          429, 'RATE_LIMITED', '操作过于频繁，请稍后重试')
+        const body = exactBody(parseJson(await readRawBody(request)), ['confirm'])
+        // 要求客户端显式回传确认串，避免误触发这个不可逆操作。
+        invariant(body.confirm === 'DELETE_MY_ACCOUNT', 400, 'ACCOUNT_DELETION_NOT_CONFIRMED', '缺少注销确认')
+        const receipt = await deps.accounts.deleteAccount(user.id)
+        return json(response, 200, {
+          deletedAt: receipt.deletedAt,
+          retainedOrders: receipt.retainedOrders
+        })
       }
 
       if (/\/(?:agent-conversations|agent-runs|agent-analyses|ai-analysis-consents)(?:\/|$)/.test(url.pathname)) {

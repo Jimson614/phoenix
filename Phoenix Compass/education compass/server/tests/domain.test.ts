@@ -10,6 +10,7 @@ import { QUESTIONNAIRE_FIELDS, QUESTIONNAIRE_TOTAL_WEIGHT, calculateCompleteness
 import { assertReportQa, generateSixModuleReport } from '../src/domain/report-builder'
 import { SourceCatalog, validateSourceCatalog, PLACEHOLDER_SOURCE_CATALOG } from '../src/domain/source-catalog'
 import { MockPaymentProvider } from '../src/payments/mock-payment-provider'
+import { AccountService } from '../src/services/account-service'
 import { AssessmentService } from '../src/services/assessment-service'
 import { AuthService } from '../src/services/auth-service'
 import { OrderService, seedProducts } from '../src/services/order-service'
@@ -739,4 +740,100 @@ test('portable store does not expose a transaction whose durable commit hook fai
     await tx.insert('users', { id: 'usr_committed', role: 'family_user', createdAt: clock().toISOString() })
   })
   assert.equal((await store.read((tx) => tx.findById('users', 'usr_committed')))?.id, 'usr_committed')
+})
+
+test('account deletion removes personal data, keeps the financial record, and cannot run twice', async () => {
+  const context = await setup()
+  const { order } = await createPaid(context)
+  const userId = context.session.user.id
+  const accounts = new AccountService(context.store, clock)
+
+  const before = await context.store.read(async (tx) => ({
+    families: await tx.findMany('families', { userId }),
+    students: await tx.findMany('students', { familyId: context.family.id }),
+    assessments: await tx.findMany('assessments', { userId }),
+    reports: await tx.findMany('reports', { userId }),
+    identities: await tx.findMany('wechatIdentities', { userId }),
+    sessions: await tx.findMany('sessions', { userId }),
+    entitlements: await tx.findMany('entitlements', { userId })
+  }))
+  assert.ok(before.families.length && before.students.length && before.assessments.length &&
+    before.reports.length && before.identities.length && before.entitlements.length,
+    'the fixture must actually contain personal data before deletion is meaningful')
+
+  const receipt = await accounts.deleteAccount(userId)
+  assert.equal(receipt.retainedOrders, 1)
+
+  const after = await context.store.read(async (tx) => ({
+    families: await tx.findMany('families', { userId }),
+    students: await tx.findMany('students', { familyId: context.family.id }),
+    assessments: await tx.findMany('assessments', { userId }),
+    reports: await tx.findMany('reports', { userId }),
+    consents: await tx.findMany('consents', { userId }),
+    identities: await tx.findMany('wechatIdentities', { userId }),
+    sessions: await tx.findMany('sessions', { userId }),
+    timeline: await tx.findMany('timelineEvents', { userId }),
+    orders: await tx.findMany('orders', { userId }),
+    entitlements: await tx.findMany('entitlements', { userId }),
+    user: await tx.findById('users', userId),
+    audit: await tx.findMany('auditLogs', { entityId: userId })
+  }))
+
+  // 个人数据必须删干净
+  assert.deepEqual(after.families, [])
+  assert.deepEqual(after.students, [])
+  assert.deepEqual(after.assessments, [])
+  assert.deepEqual(after.reports, [])
+  assert.deepEqual(after.consents, [])
+  assert.deepEqual(after.timeline, [])
+  assert.deepEqual(after.identities, [], 'the openid link to a real person must not survive deletion')
+  assert.deepEqual(after.sessions, [], 'every session must be revoked')
+
+  // 财务凭证必须留下，且与个人数据脱钩
+  assert.equal(after.orders.length, 1)
+  assert.equal(after.orders[0]!.id, order.orderId)
+  assert.equal(after.orders[0]!.amountFen, 3990)
+  assert.equal(after.orders[0]!.status, 'PAID')
+  assert.equal(after.orders[0]!.familyId, null)
+  assert.equal(after.orders[0]!.studentId, null)
+  assert.equal(after.orders[0]!.assessmentId, null)
+  assert.equal(after.orders[0]!.reportId, null)
+  assert.equal(after.entitlements.length, 1)
+  assert.equal(after.entitlements[0]!.reportId, null)
+
+  // users 行保留但只剩下没有个人信息的字段
+  assert.ok(after.user?.deletedAt, 'the tombstone must record when the account was closed')
+  assert.deepEqual(Object.keys(after.user ?? {}).sort(), ['createdAt', 'deletedAt', 'id', 'role'])
+
+  // 审计记录只留数量，不留个人信息
+  const entry = after.audit.find((row) => row.action === 'ACCOUNT_DELETED')
+  assert.ok(entry, 'deletion must be auditable')
+  assert.equal(entry?.actorUserId, null)
+  const metadata = JSON.stringify(entry?.metadata ?? {})
+  assert.ok(!metadata.includes('13800000000') && !metadata.includes('示例学校'),
+    'the audit trail must not become the place personal data survives deletion')
+
+  // 不可重复执行
+  await expectCode(accounts.deleteAccount(userId), 'ACCOUNT_ALREADY_DELETED')
+})
+
+test('an order detached by account deletion cannot re-enter a business flow', async () => {
+  const context = await setup()
+  // 用未支付订单：已支付的订单在更早的状态检查就被拒，走不到脱钩守卫。
+  const { submitted } = await createSubmitted(context)
+  const order = await context.orders.createOrder(context.session.user.id, submitted.assessmentId, {
+    productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: `detached-${submitted.assessmentId}`
+  })
+  const accounts = new AccountService(context.store, clock)
+  await accounts.deleteAccount(context.session.user.id)
+
+  const detached = await context.store.read((tx) => tx.findById('orders', order.orderId))
+  assert.equal(detached?.amountFen, 3990, 'the financial record must survive')
+  assert.equal(detached?.assessmentId, null, 'but it must no longer point at personal data')
+
+  // 需要个人数据的流程必须明确拒绝，而不是拿着 null 去查库、报出难以追查的错。
+  await expectCode(
+    context.orders.createWechatPrepay(context.session.user.id, order.orderId),
+    'ORDER_DETACHED'
+  )
 })

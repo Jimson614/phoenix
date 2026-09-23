@@ -103,6 +103,12 @@
       </view>
 
       <button class="btn btn--text mine-logout" bindtap="logout">退出登录</button>
+      <button
+        wx:if="{{isV05}}"
+        class="btn btn--text mine-delete-account"
+        bindtap="deleteAccount"
+        disabled="{{deleteBusy}}"
+      >{{deleteBusy ? '正在注销…' : '注销账号'}}</button>
     </view>
   </block>
 </view>

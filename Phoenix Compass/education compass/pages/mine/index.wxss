@@ -102,3 +102,14 @@
   .mine-menu__copy text:last-child { display: none; }
   .consent-panel__independent { display: none; }
 }
+
+/* 注销是不可撤销的破坏性操作：视觉上要能和"退出登录"区分开，
+   但不该抢眼到像主要动作，所以用弱化的警示色而不是实心按钮。 */
+.mine-delete-account {
+  color: #9a3f35;
+  opacity: 0.85;
+}
+
+.mine-delete-account[disabled] {
+  opacity: 0.45;
+}
