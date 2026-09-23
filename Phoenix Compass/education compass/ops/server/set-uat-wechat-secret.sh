@@ -4,7 +4,7 @@
 set -euo pipefail
 umask 077
 
-ENV_FILE="/home/ubuntu/phoenix/Phoenix Compass/education compass/server/.env.uat"
+ENV_FILE="/home/ubuntu/education-compass/Phoenix Compass/education compass/server/.env.uat"
 APP_ID="wxb2c1f04cec8d020a"
 export PATH=/home/ubuntu/.nvm/versions/node/v24.20.0/bin:$PATH
 

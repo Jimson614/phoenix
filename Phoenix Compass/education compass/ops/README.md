@@ -14,14 +14,40 @@
 | `nginx/` | 对外 HTTPS 站点与证书续期钩子 | `/etc/nginx/sites-available/`、`/etc/letsencrypt/renewal-hooks/deploy/` |
 | `windows/` | 本机开发脚本 | 任意位置，双击运行 |
 
-脚本中的绝对路径假设：项目位于 `/home/ubuntu/phoenix/Phoenix Compass/education compass`，Node 24 位于
-`/home/ubuntu/.nvm/versions/node/v24.20.0/bin/node`（主机默认的 Node 18 不满足项目要求）。
+脚本中的绝对路径假设：项目位于 `/home/ubuntu/education-compass/Phoenix Compass/education compass`，
+Node 24 位于 `/home/ubuntu/.nvm/versions/node/v24.20.0/bin/node`（主机默认的 Node 18 不满足项目要求）。
+
+## 服务器上的代码目录
+
+Education Compass 有**自己的 git worktree**：
+
+| 路径 | 内容 | 分支 |
+| --- | --- | --- |
+| `/home/ubuntu/phoenix` | 主工作区，askwise / Identity Compass / Wealth Compass 从这里运行 | 各自部署分支 |
+| `/home/ubuntu/education-compass` | 本项目，稀疏检出只含 `Phoenix Compass/education compass` | 本项目部署分支 |
+
+两者共享同一个对象库（`.git` 98M 不重复），但各自持有分支。**这是 2026-09-23 从单检出改过来的**：
+在那之前四个项目共用一个检出，部署 Education Compass 需要切分支，会同时改写另外三个项目正在运行的文件，
+`update-education-compass.sh` 因此有一道 `--switch` 确认。现在切分支只影响本项目，那道确认已经去掉。
+
+新建方式（仅供重建时参考）：
+
+```bash
+cd /home/ubuntu/phoenix
+git worktree add --no-checkout /home/ubuntu/education-compass <分支>
+cd /home/ubuntu/education-compass
+git sparse-checkout init --cone
+git sparse-checkout set "Phoenix Compass/education compass"
+git checkout
+```
+
+`server/.env` 与 `server/.env.uat` 不在 git 里，重建后需要从备份或旧目录复制（权限 600）。
 
 ## server/
 
 | 脚本 | 作用 | 何时运行 |
 | --- | --- | --- |
-| `update-education-compass.sh <分支> [--switch]` | 把服务器代码快进到指定分支；后端有改动时跑测试、构建、重启联调后端与 AI 处理进程，测试不过就不构建、不重启 | 每次部署 |
+| `update-education-compass.sh <分支>` | 把服务器代码快进到指定分支；后端有改动时跑测试、构建、重启联调后端与 AI 处理进程，测试不过就不构建、不重启 | 每次部署 |
 | `apply-migrations.sh [库名]` | 以数据库管理员身份应用未执行的迁移并登记到 `schema_migrations`，校验和与 `server/scripts/migrate.js` 一致，可重复运行 | 新增迁移后（默认 `phoenix_uat`） |
 | `backup-databases.sh` | 备份 `compass` 和 `phoenix_uat`，校验备份可读，保留 14 天，日志写入 `~/backups/db/backup.log` | 每天 03:30（cron） |
 | `sync-backups-to-cos.sh` | 把备份上传到腾讯云 COS，云端保留 30 天，日志写入 `~/backups/db/cos-sync.log` | 每天 04:10（cron） |

@@ -4,7 +4,7 @@
 set -euo pipefail
 umask 077
 
-SERVER="/home/ubuntu/phoenix/Phoenix Compass/education compass/server"
+SERVER="/home/ubuntu/education-compass/Phoenix Compass/education compass/server"
 NODE=/home/ubuntu/.nvm/versions/node/v24.20.0/bin/node
 export PATH=/home/ubuntu/.nvm/versions/node/v24.20.0/bin:$PATH
 cd "$SERVER"

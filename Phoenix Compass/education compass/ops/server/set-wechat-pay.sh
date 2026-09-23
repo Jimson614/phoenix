@@ -14,7 +14,7 @@
 set -euo pipefail
 umask 077
 
-ENV_FILE="/home/ubuntu/phoenix/Phoenix Compass/education compass/server/.env"
+ENV_FILE="/home/ubuntu/education-compass/Phoenix Compass/education compass/server/.env"
 KEY_DIR="/etc/phoenix/wechatpay"
 KEY_DEST="$KEY_DIR/apiclient_key.pem"
 PUB_DEST="$KEY_DIR/wechatpay_pub_key.pem"

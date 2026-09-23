@@ -9,14 +9,14 @@ StartLimitBurst=3
 Type=simple
 User=ubuntu
 Group=ubuntu
-WorkingDirectory=/home/ubuntu/phoenix/Phoenix\x20Compass/education\x20compass/server
+WorkingDirectory=/home/ubuntu/education-compass/Phoenix\x20Compass/education\x20compass/server
 
 # The host default is Node 18, while this application requires Node >=20.
 # Pin the already-installed Node 24 runtime instead of changing the host default.
 Environment=NODE_ENV=production
-ExecStartPre=/usr/bin/test -r "/home/ubuntu/phoenix/Phoenix Compass/education compass/server/.env"
-ExecStartPre=/usr/bin/test -r "/home/ubuntu/phoenix/Phoenix Compass/education compass/server/dist/services/agent-worker-main.js"
-ExecStart=/home/ubuntu/.nvm/versions/node/v24.20.0/bin/node --env-file="/home/ubuntu/phoenix/Phoenix Compass/education compass/server/.env" "/home/ubuntu/phoenix/Phoenix Compass/education compass/server/dist/services/agent-worker-main.js"
+ExecStartPre=/usr/bin/test -r "/home/ubuntu/education-compass/Phoenix Compass/education compass/server/.env"
+ExecStartPre=/usr/bin/test -r "/home/ubuntu/education-compass/Phoenix Compass/education compass/server/dist/services/agent-worker-main.js"
+ExecStart=/home/ubuntu/.nvm/versions/node/v24.20.0/bin/node --env-file="/home/ubuntu/education-compass/Phoenix Compass/education compass/server/.env" "/home/ubuntu/education-compass/Phoenix Compass/education compass/server/dist/services/agent-worker-main.js"
 
 Restart=on-failure
 RestartSec=5

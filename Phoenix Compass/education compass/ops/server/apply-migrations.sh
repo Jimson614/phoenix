@@ -6,7 +6,7 @@
 set -euo pipefail
 
 DB="${1:-phoenix_uat}"
-DIR="/home/ubuntu/phoenix/Phoenix Compass/education compass/server/migrations"
+DIR="/home/ubuntu/education-compass/Phoenix Compass/education compass/server/migrations"
 NODE=/home/ubuntu/.nvm/versions/node/v24.20.0/bin/node
 
 psqlq() { sudo -n -u postgres psql -tAq -v ON_ERROR_STOP=1 -d "$DB" "$@"; }

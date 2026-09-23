@@ -3,25 +3,25 @@
 #   (on the PC: git push tencent <branch>  ->  refs/remotes/relay/<branch> here),
 # then, only if backend code changed: test, rebuild with Node 24 and restart the UAT API and worker.
 #
-# Usage: ~/update-education-compass.sh <分支名> [--switch]
+# Usage: ~/update-education-compass.sh <分支名>
 #
-# This repository is a single checkout shared with other deployed projects (askwise, Identity
-# Compass, Wealth Compass), so switching branches rewrites their files too. The script therefore
-# refuses to change the checked-out branch unless --switch is given.
+# Education Compass has its own git worktree (/home/ubuntu/education-compass, sparse-checked-out
+# to just this project). It shares the object store with /home/ubuntu/phoenix but carries its own
+# branch, so switching branches here no longer touches askwise, Identity Compass or Wealth Compass
+# — which is why the old --switch guard is gone.
 set -euo pipefail
 export PATH=/home/ubuntu/.nvm/versions/node/v24.20.0/bin:$PATH
 
-REPO=/home/ubuntu/phoenix
+REPO=/home/ubuntu/education-compass
 PROJECT="Phoenix Compass/education compass"
 SERVER="$REPO/$PROJECT/server"
 
 BRANCH="${1:-}"
-SWITCH="${2:-}"
 cd "$REPO"
 CURRENT="$(git branch --show-current)"
 
 if [ -z "$BRANCH" ]; then
-  echo "用法：~/update-education-compass.sh <分支名> [--switch]"
+  echo "用法：~/update-education-compass.sh <分支名>"
   echo "当前检出分支：$CURRENT"
   echo "电脑已推送到服务器的分支："
   git for-each-ref --format='  %(refname:strip=3)' refs/remotes/relay/ | sed 's/^/  /'
@@ -39,20 +39,15 @@ if [ "$BRANCH" != "$CURRENT" ]; then
     echo "当前分支 $CURRENT 已包含 $BRANCH 的全部提交，无需切换。"
     exit 0
   fi
-  echo "请求的分支（$BRANCH）与当前检出分支（$CURRENT）不同。"
-  echo "切换会同时改写以下顶层目录的文件，其中可能有正在运行的其他项目："
-  git diff --name-only HEAD "$REF" | cut -d/ -f1-2 | sort -u | sed 's/^/  /'
-  if [ "$SWITCH" != "--switch" ]; then
-    echo "确认无误后加 --switch 重新执行：~/update-education-compass.sh $BRANCH --switch"
-    exit 1
-  fi
+  # 这个工作区只归 Education Compass 所有，切分支不会影响别的项目；
+  # 但未提交的改动仍然要拦，否则会被悄悄冲掉。
   if [ -n "$(git status --porcelain)" ]; then
     echo "工作区有未提交改动，切换前请先处理："
     git status --porcelain | head -10 | sed 's/^/  /'
     exit 1
   fi
   git switch -q "$BRANCH" 2>/dev/null || git switch -q -c "$BRANCH" --track "$REF"
-  echo "已切换到分支：$BRANCH"
+  echo "已切换到分支：$CURRENT -> $BRANCH"
 fi
 
 OLD="$(git rev-parse --short HEAD)"
