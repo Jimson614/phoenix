@@ -837,3 +837,98 @@ test('an order detached by account deletion cannot re-enter a business flow', as
     'ORDER_DETACHED'
   )
 })
+
+test('refund window closes after seven days or once the PDF is downloaded, and merchant fault overrides both', async () => {
+  const context = await setup()
+  const adminId = 'usr_admin_window'
+  await context.store.transaction(async (tx) => {
+    await tx.insert('users', { id: adminId, role: 'admin', createdAt: clock().toISOString() })
+  })
+
+  // 1. 窗口内、未下载 → 允许
+  const inWindow = await createPaid(context)
+  const refund = await context.orders.requestRefund(adminId, inWindow.order.orderId, {
+    idempotencyKey: 'window-ok-0001', reason: '窗口内未下载'
+  })
+  assert.equal(refund.status, 'PROCESSING')
+
+  // 2. 支付超过 7 天 → 拒绝
+  const expired = await setup()
+  const expiredPaid = await createPaid(expired)
+  await expired.store.transaction(async (tx) => {
+    await tx.insert('users', { id: adminId, role: 'admin', createdAt: clock().toISOString() })
+    await tx.update('orders', expiredPaid.order.orderId, {
+      paidAt: new Date(clock().getTime() - 8 * 86_400_000).toISOString()
+    })
+  })
+  await expectCode(expired.orders.requestRefund(adminId, expiredPaid.order.orderId, {
+    idempotencyKey: 'window-expired-1', reason: '超期退款'
+  }), 'REFUND_WINDOW_EXPIRED')
+
+  // 我方原因豁免窗口
+  const merchantFault = await expired.orders.requestRefund(adminId, expiredPaid.order.orderId, {
+    idempotencyKey: 'window-expired-2', reason: '来源目录撤回', policyException: 'MERCHANT_FAULT'
+  })
+  assert.equal(merchantFault.status, 'PROCESSING')
+  const audit = await expired.store.read((tx) => tx.findMany('auditLogs', { entityId: expiredPaid.order.orderId }))
+  const requested = audit.find((row) => row.action === 'refund_requested')
+  assert.equal((requested?.metadata as Record<string, unknown>)?.policyException, 'MERCHANT_FAULT',
+    'bypassing the window must be recorded, or nobody can later answer why this one was refundable')
+
+  // 3. 已下载 PDF → 拒绝
+  const downloaded = await setup()
+  const downloadedPaid = await createPaid(downloaded)
+  await downloaded.store.transaction(async (tx) => {
+    await tx.insert('users', { id: adminId, role: 'admin', createdAt: clock().toISOString() })
+  })
+  const downloadedReportId = downloadedPaid.order.reportId
+  assert.ok(downloadedReportId, 'a paid order must still carry its report id')
+  const pdf = await downloaded.reports.pdf(downloaded.session.user.id, downloadedReportId)
+  assert.ok(pdf.length > 0)
+  const afterDownload = await downloaded.store.read((tx) => tx.findById('reports', downloadedReportId))
+  assert.ok(afterDownload?.pdfFirstDownloadedAt, 'the first download must be recorded, or the policy has nothing to read')
+
+  await expectCode(downloaded.orders.requestRefund(adminId, downloadedPaid.order.orderId, {
+    idempotencyKey: 'downloaded-1', reason: '已下载后退款'
+  }), 'REFUND_REPORT_DOWNLOADED')
+
+  const forced = await downloaded.orders.requestRefund(adminId, downloadedPaid.order.orderId, {
+    idempotencyKey: 'downloaded-2', reason: '报告事实错误', policyException: 'MERCHANT_FAULT'
+  })
+  assert.equal(forced.status, 'PROCESSING')
+})
+
+test('the first PDF download timestamp does not drift on later downloads', async () => {
+  const context = await setup()
+  const { order } = await createPaid(context)
+  const reportId = order.reportId
+  assert.ok(reportId, 'a paid order must still carry its report id')
+  await context.reports.pdf(context.session.user.id, reportId)
+  const first = await context.store.read((tx) => tx.findById('reports', reportId))
+  await context.reports.pdf(context.session.user.id, reportId)
+  const second = await context.store.read((tx) => tx.findById('reports', reportId))
+  assert.equal(second?.pdfFirstDownloadedAt, first?.pdfFirstDownloadedAt,
+    '"first downloaded" must stay the first, otherwise the refund window silently reopens')
+})
+
+test('an in-flight refund can always be retried, whatever the window says', async () => {
+  const context = await setup()
+  const { order } = await createPaid(context)
+  const adminId = 'usr_admin_retry'
+  await context.store.transaction(async (tx) => {
+    await tx.insert('users', { id: adminId, role: 'admin', createdAt: clock().toISOString() })
+  })
+  const started = await context.orders.requestRefund(adminId, order.orderId, {
+    idempotencyKey: 'retry-0001', reason: '窗口内发起'
+  })
+  // 退款已在途；此时窗口过期不该把它卡死在中间状态。
+  await context.store.transaction(async (tx) => {
+    await tx.update('orders', order.orderId, {
+      paidAt: new Date(clock().getTime() - 30 * 86_400_000).toISOString()
+    })
+  })
+  const retried = await context.orders.requestRefund(adminId, order.orderId, {
+    idempotencyKey: 'retry-0002', reason: '超期后重试同一笔'
+  })
+  assert.equal(retried.id, started.id, 'a retry must reuse the in-flight refund rather than be rejected')
+})

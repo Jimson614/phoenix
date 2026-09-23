@@ -52,6 +52,19 @@ function linkedOrder(order: Order): LinkedOrder {
   return order as LinkedOrder
 }
 
+/**
+ * 退款政策（OD-07）。
+ *
+ * 数字内容一经交付就收不回来，所以窗口用两个可自动判定的客观标准，避免逐案争议：
+ * 支付后 7 天内，且从未下载过 PDF（下载视为已消费完毕）。
+ *
+ * 因我方原因的退款不受此限——来源目录撤回、报告事实错误、系统故障导致无法交付。
+ * 运维手册明确规定"不得以拒绝交付代替退款"，所以这条豁免不是可选项：
+ * 没有它，出了内容事故就会变成"想退也退不了"。
+ */
+const REFUND_WINDOW_DAYS = 7
+const MERCHANT_FAULT_EXCEPTION = 'MERCHANT_FAULT'
+
 function dto(order: Order): OrderDto {
   return {
     orderId: order.id,
@@ -339,7 +352,7 @@ export class OrderService {
   async requestRefund(
     adminUserId: string,
     orderId: string,
-    input: { idempotencyKey: string; reason: string }
+    input: { idempotencyKey: string; reason: string; policyException?: string }
   ): Promise<Refund> {
     invariant(/^[A-Za-z0-9_.:-]{8,128}$/.test(input.idempotencyKey), 400, 'IDEMPOTENCY_KEY_INVALID', '退款幂等键格式无效')
     const reason = input.reason.trim()
@@ -359,7 +372,24 @@ export class OrderService {
       invariant(order, 404, 'ORDER_NOT_FOUND', '订单不存在')
       invariant(order.status === 'PAID' || order.status === 'REFUNDING', 409, 'ORDER_NOT_REFUNDABLE', '订单当前不可退款')
       const existing = await tx.findOne('refunds', { orderId }, { forUpdate: true })
+      // 放在这之后：已在途的退款重试永远不该被政策挡住，否则会把它卡死在中间状态。
       if (existing) return { order, refund: existing }
+
+      const merchantFault = input.policyException === MERCHANT_FAULT_EXCEPTION
+      if (!merchantFault) {
+        invariant(order.paidAt, 409, 'REFUND_WINDOW_EXPIRED', '订单没有支付时间，无法判断退款窗口')
+        const elapsedDays = (Date.parse(now) - Date.parse(order.paidAt)) / 86_400_000
+        invariant(elapsedDays <= REFUND_WINDOW_DAYS, 409, 'REFUND_WINDOW_EXPIRED',
+          `超过支付后 ${REFUND_WINDOW_DAYS} 天的退款窗口；因我方原因退款请走 ${MERCHANT_FAULT_EXCEPTION}`)
+        // 账号注销后订单与报告脱钩（reportId 为空），查不到下载状态。
+        // 此时不阻断：数据已经删了，用"查不到"去拒绝退款是拿我方的删除行为惩罚用户。
+        if (order.reportId) {
+          const report = await tx.findById('reports', order.reportId)
+          invariant(!report?.pdfFirstDownloadedAt, 409, 'REFUND_REPORT_DOWNLOADED',
+            `报告已于 ${report?.pdfFirstDownloadedAt} 下载，视为已消费；因我方原因退款请走 ${MERCHANT_FAULT_EXCEPTION}`)
+        }
+      }
+
       const refund = await tx.insert('refunds', {
         id: this.ids('rfd'), outRefundNo: outTradeNo('PR'), orderId,
         requestedBy: adminUserId, idempotencyKey: input.idempotencyKey, reason,
@@ -370,7 +400,12 @@ export class OrderService {
       await tx.insert('auditLogs', {
         id: this.ids('aud'), actorUserId: adminUserId, action: 'refund_requested',
         entityType: 'order', entityId: order.id,
-        metadata: { outRefundNo: refund.outRefundNo, amountFen: refund.amountFen }, createdAt: now
+        // 记下是否绕过了窗口政策：不记的话，事后无法回答"这笔为什么能退"。
+        metadata: {
+          outRefundNo: refund.outRefundNo, amountFen: refund.amountFen,
+          ...(merchantFault ? { policyException: MERCHANT_FAULT_EXCEPTION } : {})
+        },
+        createdAt: now
       })
       return { order, refund }
     })

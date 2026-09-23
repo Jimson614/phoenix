@@ -540,12 +540,14 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
       const adminRefund = url.pathname.match(/^\/v1\/admin\/orders\/([^/]+)\/refunds$/)
       if (method === 'POST' && adminRefund?.[1]) {
         exactQuery(url)
-        const body = exactBody(parseJson(await readRawBody(request)), ['idempotencyKey', 'reason'])
+        const body = exactBody(parseJson(await readRawBody(request)), ['idempotencyKey', 'reason', 'policyException'])
         const headerValue = request.headers['idempotency-key']
         const idempotencyKey = Array.isArray(headerValue) ? headerValue[0] : headerValue
         const refund = await deps.orders.requestRefund(user.id, pathSegment(adminRefund[1], '订单 ID'), {
           idempotencyKey: idempotencyKey ?? String(body.idempotencyKey ?? ''),
-          reason: String(body.reason ?? '')
+          reason: String(body.reason ?? ''),
+          // 绕过退款窗口的豁免；服务端只认固定字面量，随便传别的值不会生效。
+          ...(typeof body.policyException === 'string' ? { policyException: body.policyException } : {})
         })
         return json(response, 202, { refund })
       }

@@ -456,9 +456,9 @@ test('migration transaction wrapper is removed without changing its statements',
 
 test('evidence integrity baseline covers every immutable existing migration', async () => {
   const manifest = await migrationManifest(new Date(0).toISOString(), 'test-source-digest')
-  // 007 为账号注销新增；计数随新迁移增长，真正的基线保护是下面那条
-  // historicalMigrationsUnchanged——它证明 001-006 没有被改动。
-  assert.equal(manifest.migrations.length, 7)
+  // 计数随新迁移增长；真正的基线保护是下面那条 historicalMigrationsUnchanged,
+  // 它证明既有迁移没有被改动过。
+  assert.equal(manifest.migrations.length, 8)
   assert.equal(manifest.historicalMigrationsUnchanged, true)
   assert(manifest.migrations.every((item) => item.historicalBaselineMatch === true))
 })

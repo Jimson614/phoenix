@@ -134,6 +134,11 @@ export class ReportService {
         : Array.isArray(report.modules) && report.modules.length > 0
       invariant(report.status === 'READY' && report.deliveryStatus === 'DELIVERED' && report.qaPassed && contentReady,
         409, 'REPORT_NOT_READY', '报告尚未交付完成')
+      // 只记第一次：退款政策要判断的是"有没有下过"，重复写入既无意义，
+      // 也会让"首次下载时间"这个事实随后续下载漂移。
+      if (!report.pdfFirstDownloadedAt) {
+        return tx.update('reports', report.id, { pdfFirstDownloadedAt: iso(this.clock) })
+      }
       return report
     })
     return renderSimpleReportPdf(report)

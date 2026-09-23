@@ -221,6 +221,8 @@ export interface Report {
   sourceCatalogVersion: string
   createdAt: string
   updatedAt: string
+  // 首次下载 PDF 的时间；为空表示从未下载过，退款窗口据此判断（OD-07）。
+  pdfFirstDownloadedAt?: string | null
   reportKind?: EducationReportKind
   resultVersion?: string | null
   resultPayload?: Record<string, unknown> | null
