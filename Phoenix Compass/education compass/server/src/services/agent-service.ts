@@ -564,6 +564,47 @@ export class AgentService {
     }
   }
 
+  /**
+   * 导出该用户的 AI 对话与正文，供个人信息导出使用（可携带权）。
+   *
+   * 正文加密存储，密钥环只在本服务里，所以由本服务负责解密——ExportService 拿不到也不该拿到。
+   * 已按保留策略清除的正文如实标注，不伪装成"没有过这条消息"。
+   */
+  async exportForUser(userId: string): Promise<Record<string, unknown>> {
+    return this.store.read(async (tx) => {
+      const conversations = await tx.findMany('agentConversations', { userId })
+      const exported = []
+      for (const conversation of conversations) {
+        const messages = await tx.findMany('agentMessages', { conversationId: conversation.id })
+        exported.push({
+          conversationId: conversation.id,
+          reportId: conversation.reportId,
+          purpose: conversation.purpose,
+          status: conversation.status,
+          createdAt: conversation.createdAt,
+          messages: messages.map((message) => {
+            if (!message.contentEnvelope) {
+              return {
+                messageId: message.id, role: message.role, createdAt: message.createdAt,
+                content: null, contentNote: '正文已按保留策略清除'
+              }
+            }
+            try {
+              return this.messageDto(message, conversation)
+            } catch {
+              // 单条解密失败不应让整份导出失败：用户宁可拿到 99% 也不该一无所获。
+              return {
+                messageId: message.id, role: message.role, createdAt: message.createdAt,
+                content: null, contentNote: '正文无法解密，已跳过'
+              }
+            }
+          })
+        })
+      }
+      return { exported: true, conversations: exported }
+    })
+  }
+
   private async recentHistory(conversation: AgentConversation): Promise<AgentConversationTurn[]> {
     const messages = await this.repository.listMessages(conversation.id, undefined, 12)
     const history: AgentConversationTurn[] = []

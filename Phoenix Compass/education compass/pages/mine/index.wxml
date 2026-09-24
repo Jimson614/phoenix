@@ -105,6 +105,12 @@
       <button class="btn btn--text mine-logout" bindtap="logout">退出登录</button>
       <button
         wx:if="{{isV05}}"
+        class="btn btn--text mine-export"
+        bindtap="exportData"
+        disabled="{{exportBusy}}"
+      >{{exportBusy ? '正在导出…' : '导出我的数据'}}</button>
+      <button
+        wx:if="{{isV05}}"
         class="btn btn--text mine-delete-account"
         bindtap="deleteAccount"
         disabled="{{deleteBusy}}"

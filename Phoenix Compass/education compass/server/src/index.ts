@@ -23,6 +23,7 @@ import { EducationCompassService } from './services/education-compass-service'
 import { AgentRepository } from './store/agent-repository'
 import { InMemoryStore } from './store/memory-store'
 import { AccountService } from './services/account-service'
+import { ExportService } from './services/export-service'
 import { PostgresStore } from './store/postgres-store'
 import { Store } from './store/store'
 
@@ -107,8 +108,11 @@ async function main(): Promise<void> {
     config.nodeEnv, config.feishuSyncBatchSize, undefined, undefined,
     config.feishuCustomerProfileFieldsEnabled
   )
+  // Agent 持有 AI 正文的密钥环，所以导出时把它作为数据源传进去；
+  // Agent 未启用时导出照常工作，只是如实标注这部分没有内容。
+  const exports = new ExportService(store, undefined, agent)
   const server = createAppServer({
-    auth, profiles, assessments, orders, reports, education, accounts, feishu,
+    auth, profiles, assessments, orders, reports, education, accounts, exports, feishu,
     // `/health` is a readiness check in the deployed API contract. Keep it
     // read-only, but verify that the authoritative store can still answer so a
     // disconnected PostgreSQL backend is not advertised as usable to clients.

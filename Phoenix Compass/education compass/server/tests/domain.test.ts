@@ -11,6 +11,7 @@ import { assertReportQa, generateSixModuleReport } from '../src/domain/report-bu
 import { SourceCatalog, validateSourceCatalog, PLACEHOLDER_SOURCE_CATALOG } from '../src/domain/source-catalog'
 import { MockPaymentProvider } from '../src/payments/mock-payment-provider'
 import { AccountService } from '../src/services/account-service'
+import { ExportService } from '../src/services/export-service'
 import { AssessmentService } from '../src/services/assessment-service'
 import { AuthService } from '../src/services/auth-service'
 import { OrderService, seedProducts } from '../src/services/order-service'
@@ -931,4 +932,81 @@ test('an in-flight refund can always be retried, whatever the window says', asyn
     idempotencyKey: 'retry-0002', reason: '超期后重试同一笔'
   })
   assert.equal(retried.id, started.id, 'a retry must reuse the in-flight refund rather than be rejected')
+})
+
+test('personal data export covers the account, excludes credentials, and never leaks another user', async () => {
+  const context = await setup()
+  const { order, submitted } = await createPaid(context)
+
+  // 第二个用户，用来证明导出以 userId 为界
+  const other = await context.auth.createWechatSession('bob-login-code')
+  const otherProfiles = new ProfileService(context.store, clock)
+  await otherProfiles.upsertFamily(other.user.id, {
+    familyName: '另一个家庭', parentName: '另一位家长', phone: '13700000000', location: '深圳', goal: '不该出现在别人的导出里'
+  })
+
+  const exports = new ExportService(context.store, clock)
+  const bundle = await exports.exportForUser(context.session.user.id)
+  const data = bundle.data as Record<string, unknown>
+
+  assert.equal(bundle.schema, 'phoenix_education_compass_personal_data_export_v1')
+  assert.ok(bundle.exportedAt)
+
+  // 覆盖到该用户的实际数据
+  assert.equal((data.families as unknown[]).length, 1)
+  assert.equal((data.students as unknown[]).length, 1)
+  assert.equal((data.assessments as unknown[]).length, 1)
+  assert.equal((data.reports as unknown[]).length, 1)
+  assert.equal((data.orders as unknown[]).length, 1)
+  assert.equal((data.guardianConsents as unknown[]).length, 1)
+
+  // 问卷答案必须真的在里面——导出一份没有答案的"答案"没有意义
+  const assessment = (data.assessments as Array<Record<string, unknown>>)[0]
+  assert.equal(assessment?.id, submitted.assessmentId)
+  assert.ok(assessment?.answers && Object.keys(assessment.answers as object).length > 0)
+
+  const serialized = JSON.stringify(bundle)
+
+  // 凭据类字段必须缺席。断言真实值而不是字段名——"openid" 这个词本身会出现在
+  // 下面的排除说明里，按词匹配会把说明文字误判成泄露。
+  const credentials = await context.store.read(async (tx) => ({
+    identity: (await tx.findMany('wechatIdentities', { userId: context.session.user.id }))[0],
+    session: (await tx.findMany('sessions', { userId: context.session.user.id }))[0]
+  }))
+  assert.ok(credentials.identity?.openid, 'the fixture must actually have an openid for this check to mean anything')
+  assert.ok(!serialized.includes(credentials.identity.openid),
+    'the WeChat account identifier must not travel in an export file')
+  assert.ok(credentials.session?.tokenHash)
+  assert.ok(!serialized.includes(credentials.session.tokenHash),
+    'session credentials are authentication material, not personal data')
+
+  // 排除项要写明，而不是悄悄省略
+  const excluded = bundle.excludedFields as Array<Record<string, string>>
+  assert.ok(excluded.some((item) => item.field.includes('openid') && item.reason.length > 0))
+
+  // 另一个用户的数据一条都不能出现
+  assert.ok(!serialized.includes('另一个家庭'))
+  assert.ok(!serialized.includes('13700000000'))
+  assert.ok(!serialized.includes(other.user.id))
+
+  // 本人的数据确实在
+  assert.ok(serialized.includes('13800000000'))
+  assert.ok(serialized.includes(order.orderId))
+})
+
+test('export refuses a deleted account and states the AI gap honestly when the agent is off', async () => {
+  const context = await setup()
+  await createSubmitted(context)
+  const exports = new ExportService(context.store, clock)
+
+  // Agent 未启用时，如实标注而不是假装这部分不存在
+  const bundle = await exports.exportForUser(context.session.user.id)
+  const ai = (bundle.data as Record<string, unknown>).aiConversations as Record<string, unknown>
+  assert.equal(ai.exported, false)
+  assert.ok(String(ai.reason).length > 0, 'an un-exported section must say why')
+
+  // 注销之后没有可导出的东西，且要明确区别于"账号不存在"
+  await new AccountService(context.store, clock).deleteAccount(context.session.user.id)
+  await expectCode(exports.exportForUser(context.session.user.id), 'ACCOUNT_DELETED')
+  await expectCode(exports.exportForUser('usr_never_existed'), 'USER_NOT_FOUND')
 })

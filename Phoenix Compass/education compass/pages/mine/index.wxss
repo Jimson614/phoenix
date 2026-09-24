@@ -113,3 +113,8 @@
 .mine-delete-account[disabled] {
   opacity: 0.45;
 }
+
+/* 导出是只读操作，视觉上保持中性，不像注销那样带警示色。 */
+.mine-export[disabled] {
+  opacity: 0.45;
+}

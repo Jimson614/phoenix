@@ -7,6 +7,7 @@ import { OrderService } from '../services/order-service'
 import { FamilyInput, ProfileService, StudentInput } from '../services/profile-service'
 import { ReportService } from '../services/report-service'
 import { AccountService } from '../services/account-service'
+import { ExportService } from '../services/export-service'
 import { AgentService } from '../services/agent-service'
 import { EducationCompassService } from '../services/education-compass-service'
 import { FeishuSyncService } from '../integrations/feishu/sync-service'
@@ -21,6 +22,7 @@ export interface AppDependencies {
   reports: ReportService
   education?: EducationCompassService
   accounts?: AccountService
+  exports?: ExportService
   agent?: AgentService
   feishu?: FeishuSyncService
   rateLimiter?: RateLimiter
@@ -242,6 +244,16 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
       if (method !== 'GET') {
         const normalizedRoute = url.pathname.replace(/\/[A-Za-z0-9_-]{8,}/g, '/:id')
         invariant(await rateLimiter.consume(`write:${user.id}:${normalizedRoute}`, 30, 60_000), 429, 'RATE_LIMITED', '操作过于频繁，请稍后重试')
+      }
+
+      // 个人信息导出（可携带权）。限流比普通读操作更严：一次导出会把该用户
+      // 的全部个人数据组装出来，成本高，也不该被反复拉取。
+      if (method === 'GET' && url.pathname === '/v1/me/export') {
+        exactQuery(url)
+        invariant(deps.exports, 503, 'DATA_EXPORT_DISABLED', '数据导出功能尚未配置')
+        invariant(await rateLimiter.consume(`data-export:${user.id}`, 5, 3_600_000),
+          429, 'RATE_LIMITED', '导出过于频繁，请稍后重试')
+        return json(response, 200, await deps.exports.exportForUser(user.id))
       }
 
       // 账号注销：不可撤销，删除个人数据并保留财务凭证。

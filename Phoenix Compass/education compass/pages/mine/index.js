@@ -5,10 +5,11 @@ const payment = require('../../services/payment')
 const educationCompass = require('../../services/education-compass')
 const agent = require('../../services/agent')
 const account = require('../../services/account')
+const dataExport = require('../../services/data-export')
 const runtime = require('../../config/runtime')
 
 Page({
-  data: { user: { name: '', initial: '家' }, family: null, primaryStudent: null, consentStudents: [], consentStudentNames: [], consentStudentIndex: 0, consentStudent: null, studentCount: 0, reportCount: 0, orderCount: 0, unlockedReportCount: 0, recentOrders: [], loading: true, isV05: !runtime.isDemo(), consentBusy: false, deleteBusy: false },
+  data: { user: { name: '', initial: '家' }, family: null, primaryStudent: null, consentStudents: [], consentStudentNames: [], consentStudentIndex: 0, consentStudent: null, studentCount: 0, reportCount: 0, orderCount: 0, unlockedReportCount: 0, recentOrders: [], loading: true, isV05: !runtime.isDemo(), consentBusy: false, deleteBusy: false, exportBusy: false },
   async onShow() {
     const user = session.guard(['family_user'])
     if (!user) return
@@ -101,6 +102,34 @@ Page({
   logout() {
     const content = runtime.isDemo() ? '家庭档案仍会保留在本机演示数据中。' : '退出后需要重新微信登录；家庭档案保存在 Phoenix 服务端，不会被删除。'
     wx.showModal({ title: '退出当前身份？', content, success: ({ confirm }) => { if (confirm) { auth.logout(); wx.reLaunch({ url: '/pages/welcome/index' }) } } })
+  },
+  /**
+   * 导出个人数据副本（可携带权）。不需要二次确认——这是只读操作，
+   * 但要提醒文件含未成年人信息。
+   */
+  async exportData() {
+    if (this.data.exportBusy) return
+    if (runtime.isDemo()) {
+      return wx.showModal({ title: '演示模式', content: '演示模式没有服务端账号，无数据可导出。', showCancel: false })
+    }
+    this.setData({ exportBusy: true })
+    try {
+      const bundle = await dataExport.fetchExport()
+      const result = await dataExport.saveAndShare(bundle)
+      if (result.shared) return
+      if (result.reason === 'CANCELLED') return
+      wx.showModal({
+        title: '文件已生成，但没能发送',
+        content: '数据已导出到小程序的临时文件，但当前微信版本无法转发。升级微信后再试一次即可。',
+        showCancel: false
+      })
+    } catch (error) {
+      wx.showModal({
+        title: '导出失败',
+        content: (error && error.message) || '请稍后重试。',
+        showCancel: false
+      })
+    } finally { this.setData({ exportBusy: false }) }
   },
   /**
    * 账号注销。两步确认：第一步说清删什么，第二步确认不可撤销。
