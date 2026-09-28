@@ -41,7 +41,12 @@ git sparse-checkout set "Phoenix Compass/education compass"
 git checkout
 ```
 
-`server/.env` 与 `server/.env.uat` 不在 git 里，重建后需要从备份或旧目录复制（权限 600）。
+`server/.env` 与 `server/.env.uat` 不在 git 里，重建后需要从备份复制（权限 600）。
+改配置的脚本会在同目录留下 `.env.bak-<时间>` / `.env.uat.bak-<时间>` 回滚点，同样被 `.gitignore` 的 `.env.*` 忽略，
+不影响部署脚本的"工作区干净"检查。
+
+主工作区 `/home/ubuntu/phoenix` 里的 education compass 目录**不再存放任何密钥文件**（2026-09-28 清理：
+两份重复的 `.env` 已删除，5 个回滚备份已并入本项目 worktree）。那里只剩 git 跟踪的 `.env.example` 模板。
 
 ## server/
 
