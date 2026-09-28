@@ -763,6 +763,15 @@ test('account deletion removes personal data, keeps the financial record, and ca
     before.reports.length && before.identities.length && before.entitlements.length,
     'the fixture must actually contain personal data before deletion is meaningful')
 
+  // 幂等记录：夹具里的旧式下单不写这张表，手动放一条，否则下面的断言是空转。
+  await context.store.transaction(async (tx) => {
+    await tx.insert('idempotencyRecords', {
+      id: 'idem_deletion_probe', userId, domain: 'ORDER_CREATE', keyDigest: 'k', inputDigest: 'i',
+      status: 'COMPLETED', resourceType: 'order', resourceId: order.orderId, responseStatus: 201,
+      responseDigest: 'r', createdAt: clock().toISOString(), updatedAt: clock().toISOString(), completedAt: clock().toISOString()
+    })
+  })
+
   const receipt = await accounts.deleteAccount(userId)
   assert.equal(receipt.retainedOrders, 1)
 
@@ -790,6 +799,8 @@ test('account deletion removes personal data, keeps the financial record, and ca
   assert.deepEqual(after.timeline, [])
   assert.deepEqual(after.identities, [], 'the openid link to a real person must not survive deletion')
   assert.deepEqual(after.sessions, [], 'every session must be revoked')
+  assert.deepEqual(await context.store.read((tx) => tx.findMany('idempotencyRecords', { userId })), [],
+    'idempotency records hold digests of personal input and outlive their purpose once the account is gone')
 
   // 财务凭证必须留下，且与个人数据脱钩
   assert.equal(after.orders.length, 1)

@@ -128,6 +128,9 @@ export class AccountService {
       // 6. 断开与真人的关联，并注销全部会话。
       await removeAll('wechatIdentities', await tx.findMany('wechatIdentities', { userId }))
       await removeAll('sessions', await tx.findMany('sessions', { userId }))
+      // 幂等记录只在重试窗口内有用；它存着请求输入的摘要和已删除资源的 ID，
+      // 账号注销后既无用途，对个人数据取的摘要也仍属个人信息。
+      await removeAll('idempotencyRecords', await tx.findMany('idempotencyRecords', { userId }))
 
       await tx.update('users', userId, { deletedAt: now })
 
