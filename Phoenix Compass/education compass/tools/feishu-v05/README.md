@@ -2,7 +2,9 @@
 
 对应 V0.5 实施顺序的第 2、3 步：**用母版在飞书建空框架** → **先跑一条最小链路 Family/Student → Deal → Contract → Payment → ServiceProject**。
 
-唯一基线是 `Phoenix_Feishu_Operating_Model_V0.5_Clean_Master.xlsx`（V0.4 废止）。表名、列名、列序、下拉白名单一律从母版抽取，代码不发明字段。
+唯一基线是 `Phoenix_Feishu_Operating_Model_V0.5.1_Master.xlsx`（V0.4 废止）。表名、列名、列序、下拉白名单一律从母版抽取，代码不发明字段。
+
+V0.5.1 由 `build-master-v051.py` 从 9/11 底稿 `Phoenix_Feishu_Operating_Model_V0.5_Clean_Master.xlsx` 生成，依据是 `feishuv0.5.docx`（2026-09-20）的字段调整要求。底稿保留作历史参照。相对底稿的结构变化：`Applications` 并入 `Deliveries`（原 `Delivery` 改名），新增 `Schools`，仍为 11 张表。
 
 数据方向固定为 `Phoenix Core / Founder OS（事实源） → 飞书运营投影`，飞书不回写。
 
@@ -10,8 +12,10 @@
 
 | 文件 | 作用 |
 | --- | --- |
-| `Phoenix_Feishu_Operating_Model_V0.5_Clean_Master.xlsx` | 母版副本，建表基线 |
-| `extract-master.py` | 从母版抽取建表合同，生成 `master-contract.json`（11 张表 / 208 字段 / 49 个下拉） |
+| `Phoenix_Feishu_Operating_Model_V0.5.1_Master.xlsx` | 当前母版，建表基线（生成物，见下一行） |
+| `build-master-v051.py` | 从 9/11 底稿生成 V0.5.1 母版。docx 的每条字段取舍都已写死在脚本的 `DECISIONS` 里，运行时只读底稿，不需要 docx |
+| `Phoenix_Feishu_Operating_Model_V0.5_Clean_Master.xlsx` | 9/11 底稿，留作历史参照；需要时可显式传给 `extract-master.py` |
+| `extract-master.py` | 从母版抽取建表合同，生成 `master-contract.json`（11 张表 / 232 字段 / 55 个下拉）；默认读 V0.5.1 |
 | `master-contract.json` | 生成物：列名、列序、字段类型、下拉白名单、示例值 |
 | `schema.js` | 读取合同，另声明最小链路顺序、表间引用、V0.5 红线常量 |
 | `core.js` | Core/Founder OS 事实源样本、链路记录、Integration_Links、10 条 Gate |
@@ -27,9 +31,10 @@
 ## 运行
 
 ```bash
+python tools/feishu-v05/build-master-v051.py       # 字段调整后重新生成 V0.5.1 母版
 python tools/feishu-v05/extract-master.py          # 母版改动后重新抽取合同
 node tools/feishu-v05/run-min-chain.js             # dry-run，不连接飞书
-node --test tools/feishu-v05/*.test.js             # 全部单元测试（28 条）
+node --test tools/feishu-v05/*.test.js             # 全部单元测试（35 条）
 node tools/feishu-v05/run-min-chain.js --verify-only            # 只读：校验飞书 11 张表是否对齐母版
 node tools/feishu-v05/align-tables.js                           # 打印表结构对齐计划，不修改
 node tools/feishu-v05/align-tables.js --apply                   # 执行对齐（默认只动 Deals/Contracts/Payments）
@@ -102,7 +107,7 @@ FEISHU_V05_BITABLE_APP_TOKEN=<FEISHU_V05_BITABLE_APP_TOKEN>
 
 ## 边界
 
-- 本工具只跑最小链路。`Delivery`、`Applications`、`Settlements` 要等 Founder OS 与飞书通过 `Integration_Links` 映射确认无误后再接。
+- 本工具只跑最小链路。`Deliveries`（已并入原 `Applications`）、`Settlements`、`Schools` 要等 Founder OS 与飞书通过 `Integration_Links` 映射确认无误后再接。
 - 母版 README 写明：Remote D1 Gate 完成前不接真实自动同步与生产写入。本工具的 `--live` 只做受控单条链路验收，不是同步服务。
 - 金额单位跟随母版 `Currency` 列按元记账；若 Founder OS 以分为单位，在 `core.js` 的事实源换算处统一转换。
 - 这套经营 Base 与 `docs/FEISHU_BITABLE_SETUP.md` 的 7 张运营镜像表是两套东西，必须使用不同的 Base。
