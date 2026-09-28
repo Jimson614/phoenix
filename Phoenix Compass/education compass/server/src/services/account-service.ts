@@ -28,6 +28,24 @@ export interface AccountDeletionReceipt {
   retainedOrders: number
 }
 
+/**
+ * 把测评排成可以逐条删除的顺序：被别的测评引用的排在后面。
+ * 引用链可能不止两级，所以一轮一轮剥：每轮取出当前没有被剩余测评引用的。
+ */
+export function dependencyOrder<T extends { id: string; sourceAssessmentId?: string | null }>(items: T[]): T[] {
+  const remaining = [...items]
+  const ordered: T[] = []
+  while (remaining.length) {
+    const referenced = new Set(remaining.map((item) => item.sourceAssessmentId).filter(Boolean))
+    const leaves = remaining.filter((item) => !referenced.has(item.id))
+    // 有环（数据本身不该出现）时不死循环：剩下的原样追加，让数据库的约束报出真实错误。
+    if (!leaves.length) return ordered.concat(remaining)
+    ordered.push(...leaves)
+    for (const leaf of leaves) remaining.splice(remaining.indexOf(leaf), 1)
+  }
+  return ordered
+}
+
 export class AccountService {
   constructor(
     private readonly store: Store,
@@ -92,16 +110,15 @@ export class AccountService {
       await removeAll('advisorRequests', await tx.findMany('advisorRequests', { userId }))
       await removeAll('timelineEvents', await tx.findMany('timelineEvents', { userId }))
 
-      // 5. 测评之间可能互相引用（sourceAssessmentId，RESTRICT）。PostgreSQL 的 RESTRICT
-      //    是立即检查的，即使引用方在同一条语句里一起删也会报错，所以先断开自引用。
-      for (const assessment of assessments) {
-        if (assessment.sourceAssessmentId) {
-          await tx.update('assessments', assessment.id, { sourceAssessmentId: null })
-        }
-      }
-
       await removeAll('reports', reports)
-      await removeAll('assessments', assessments)
+
+      // 5. 测评之间可能互相引用（第二级的 sourceAssessmentId 指向第一级，RESTRICT）。
+      //    必须按依赖顺序删：先删引用别人的，再删被引用的。
+      //
+      //    不能先把引用置空再删——assessments 上的 v005 触发器在 UPDATE OF
+      //    source_assessment_id 时会重新校验来源测评与同意链接，置空必然失败
+      //    （同意已撤回时同样失败），整个注销事务回滚。所以这里只做 DELETE，不做 UPDATE。
+      await removeAll('assessments', dependencyOrder(assessments))
       // 同意记录要排在测评之后：assessments 通过 RESTRICT 指向 consentGrants。
       await removeAll('consents', await tx.findMany('consents', { userId }))
       await removeAll('consentGrants', await tx.findMany('consentGrants', { userId }))

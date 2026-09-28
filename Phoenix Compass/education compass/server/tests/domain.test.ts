@@ -10,7 +10,7 @@ import { QUESTIONNAIRE_FIELDS, QUESTIONNAIRE_TOTAL_WEIGHT, calculateCompleteness
 import { assertReportQa, generateSixModuleReport } from '../src/domain/report-builder'
 import { SourceCatalog, validateSourceCatalog, PLACEHOLDER_SOURCE_CATALOG } from '../src/domain/source-catalog'
 import { MockPaymentProvider } from '../src/payments/mock-payment-provider'
-import { AccountService } from '../src/services/account-service'
+import { AccountService, dependencyOrder } from '../src/services/account-service'
 import { ExportService } from '../src/services/export-service'
 import { AssessmentService } from '../src/services/assessment-service'
 import { AuthService } from '../src/services/auth-service'
@@ -20,6 +20,7 @@ import { ReportService } from '../src/services/report-service'
 import { FileStore } from '../src/store/file-store'
 import { InMemoryStore } from '../src/store/memory-store'
 import { PostgresStore } from '../src/store/postgres-store'
+import { Store, StoreTransaction } from '../src/store/store'
 import { Clock, randomId } from '../src/utils/runtime'
 
 const fixedDate = new Date('2026-08-20T10:00:00.000Z')
@@ -1009,4 +1010,49 @@ test('export refuses a deleted account and states the AI gap honestly when the a
   await new AccountService(context.store, clock).deleteAccount(context.session.user.id)
   await expectCode(exports.exportForUser(context.session.user.id), 'ACCOUNT_DELETED')
   await expectCode(exports.exportForUser('usr_never_existed'), 'USER_NOT_FOUND')
+})
+
+test('assessments are deleted children-first so no RESTRICT reference is ever violated', () => {
+  const level1 = { id: 'asm_l1', sourceAssessmentId: null }
+  const level2 = { id: 'asm_l2', sourceAssessmentId: 'asm_l1' }
+  const level3 = { id: 'asm_l3', sourceAssessmentId: 'asm_l2' }
+  const loose = { id: 'asm_x', sourceAssessmentId: null }
+  const order = dependencyOrder([level1, loose, level2, level3]).map((item) => item.id)
+  assert.ok(order.indexOf('asm_l3') < order.indexOf('asm_l2'), 'level 3 must go before the level 2 it references')
+  assert.ok(order.indexOf('asm_l2') < order.indexOf('asm_l1'), 'level 2 must go before the level 1 it references')
+  assert.equal(order.length, 4)
+  // 数据里不该有环；真出现时不能死循环，要把剩下的交给数据库报出真实错误。
+  assert.equal(dependencyOrder([{ id: 'a', sourceAssessmentId: 'b' }, { id: 'b', sourceAssessmentId: 'a' }]).length, 2)
+})
+
+test('account deletion never UPDATEs an assessment, because the v005 trigger re-validates on update', async () => {
+  const context = await setup()
+  const { submitted } = await createPaid(context)
+  // 造一条真实的引用链：第二级测评的 sourceAssessmentId 指向第一级。
+  // 没有这条链，"先置空再删"的旧逻辑一次 UPDATE 都不会发出，测试就是空转。
+  const childId = 'asm_level2_child'
+  await context.store.transaction(async (tx) => {
+    const parent = await tx.findById('assessments', submitted.assessmentId)
+    assert.ok(parent)
+    await tx.insert('assessments', { ...parent, id: childId, reportId: null, sourceAssessmentId: parent.id })
+  })
+  const deletedAssessments: string[] = []
+  const updatedTables: string[] = []
+  const spying: Store = {
+    read: (work) => context.store.read(work),
+    transaction: (work) => context.store.transaction((tx) => work({
+      ...tx,
+      findById: tx.findById.bind(tx), findOne: tx.findOne.bind(tx), findMany: tx.findMany.bind(tx),
+      insert: tx.insert.bind(tx),
+      delete: (table, id) => { if (table === 'assessments') deletedAssessments.push(id); return tx.delete(table, id) },
+      update: (table, id, changes) => { updatedTables.push(table); return tx.update(table, id, changes) }
+    } as StoreTransaction))
+  }
+  await new AccountService(spying, clock).deleteAccount(context.session.user.id)
+  // 内存库没有触发器，测不出数据库会拒绝；所以把规则本身钉住：
+  // 注销时 assessments 只能 DELETE。在真实库上 UPDATE 它会撞上
+  // assessments_consent_links_v005_trigger，整个注销事务回滚。
+  assert.ok(!updatedTables.includes('assessments'), `assessments must not be updated during deletion, got: ${updatedTables.join(',')}`)
+  assert.ok(deletedAssessments.indexOf(childId) >= 0 && deletedAssessments.indexOf(childId) < deletedAssessments.indexOf(submitted.assessmentId),
+    `the referencing level 2 must be deleted before its level 1 source, got: ${deletedAssessments.join(',')}`)
 })
