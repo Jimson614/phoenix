@@ -1,6 +1,7 @@
 docs/product/freeze/**/*.json text eol=lf
 server/migrations/*.sql text eol=lf
 ops/server/*.sh text eol=lf
+ops/server/*.mjs text eol=lf
 ops/systemd/*.service text eol=lf
 ops/nginx/*.conf text eol=lf
 ops/nginx/*.sh text eol=lf

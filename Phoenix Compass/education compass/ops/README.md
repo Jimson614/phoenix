@@ -65,6 +65,11 @@ git checkout
 | `setup-postgres-tls.sh` | 生成私有 CA 和服务端证书（各 10 年），让 PostgreSQL 支持 `sslmode=verify-full` | 首次配置或轮换 CA 时 |
 | `setup-postgres-tls.sh --check` | 体检证书、`ssl_cert_file`、客户端 CA 副本和已强制 TLS 的库 | 随时 |
 | `setup-postgres-tls.sh --enforce <库名>…` | 对指定库加 `hostnossl reject` + `hostssl`，拒绝明文连接 | 目标库的连接串都改好之后 |
+| `set-feishu-alert.sh` | 配置飞书群机器人告警：录入 webhook 与 secret（隐藏输入），发测试消息，**成功后**才安装下面两个定时任务 | 首次配置、更换机器人时 |
+| `set-feishu-alert.sh --test` | 用已保存的配置再发一条测试消息 | 怀疑告警失灵时 |
+| `health-check.sh` | 检查联调后端、公网入口、生产后端（启用后自动纳入），以及进程是否反复崩溃；只在状态变化时通知 | 每 2 分钟（cron） |
+| `daily-check.sh` | 检查今天的备份、异地同步、nginx 实际使用的证书剩余天数、磁盘，汇总 24 小时重启次数；**正常也发一条** | 每天 05:00（cron） |
+| `phoenix-alert-notify.mjs` | 上面三个脚本共用的飞书发送器（签名、错误码翻译） | 被调用 |
 | `phoenix_uat_start.sh` | pm2 进程 `phoenix_uat_api` 的启动脚本：加载 `.env.uat`，仅监听 127.0.0.1，固定 Node 24 | 由 pm2 调用 |
 | `phoenix_uat_agent_worker_start.sh` | pm2 进程 `phoenix_uat_agent_worker` 的启动脚本 | 由 pm2 调用 |
 
@@ -73,6 +78,8 @@ git checkout
 ```cron
 30 3 * * * /home/ubuntu/backup-databases.sh >/dev/null 2>&1
 10 4 * * * /home/ubuntu/sync-backups-to-cos.sh >/dev/null 2>&1
+*/2 * * * * /home/ubuntu/health-check.sh >/dev/null 2>&1      # 由 set-feishu-alert.sh 安装
+0 5 * * * /home/ubuntu/daily-check.sh >/dev/null 2>&1         # 由 set-feishu-alert.sh 安装
 ```
 
 ## systemd/
@@ -147,6 +154,30 @@ pm2 启动脚本和生产 systemd 单元统一用 `node --env-file=`。
 顺序很重要：**先把目标库的连接串都改成 TLS 并重启，再 `--enforce`**。反过来会直接打断正在跑的服务。
 
 备份不受影响：`backup-databases.sh` 用 `sudo -u postgres pg_dump` 走本地 socket，`hostssl` 只管 TCP 连接。
+
+## 告警
+
+通知发到飞书群的自定义机器人。配置存在 `~/.config/phoenix-alert/feishu.env`（600），
+状态与日志在 `~/.local/state/phoenix-alert/`。
+
+| 触发条件 | 何时通知 |
+| --- | --- |
+| 联调后端、公网入口、生产后端（启用后）健康检查失败 | 连续 2 次（约 2–4 分钟）后报一次；恢复时再报一次；持续故障期间不重复 |
+| 进程 2 分钟内重启 ≥ 3 次（崩溃循环） | 立即。部署只让每个进程重启 1 次，不会误报 |
+| 今天缺备份、异地同步没成功、证书剩不到 20 天、磁盘 ≥ 85% | 每天 05:00 汇总 |
+| 一切正常 | 每天 05:00 发「巡检正常」 |
+
+**每天那条「巡检正常」是有意的。**告警系统最危险的故障是它自己坏了——cron 停了、机器人被删、
+签名失效——而这时"没有消息"和"一切正常"看起来一模一样。固定每天一条，哪天没收到就说明是告警本身出了问题，
+用 `~/set-feishu-alert.sh --test` 排查。
+
+证书检查读的是 nginx **正在对外提供**的那张，不是磁盘上的文件，所以"续期成功但 nginx 没重载"也能发现。
+
+局限：公网检查是从服务器自己访问自己的域名，能发现 nginx、证书、DNS 的问题，
+但发现不了**安全组被关掉**这类只有外部才看得到的故障。要覆盖这一点需要一个外部探测点。
+
+所有检查脚本都支持 `PHOENIX_ALERT_DRY_RUN=1`：只打印将要发送的内容，不真正发送，
+配合 `PHOENIX_ALERT_STATE_DIR` 指向临时目录，可以安全地演练各种故障。
 
 ## 部署流程
 

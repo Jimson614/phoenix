@@ -517,3 +517,21 @@ test('UI evidence rejects empty or project-root output before running commands',
     assert.match(`${result.stdout}\n${result.stderr}`, /output must|output must be a child directory/i)
   }
 })
+
+test('Feishu alert signature matches an independent reference implementation', async () => {
+  const { pathToFileURL } = require('node:url')
+  const notify = await import(pathToFileURL(path.join(root, 'ops', 'server', 'phoenix-alert-notify.mjs')).href)
+  // 参考值由 Python 按飞书文档独立算出：以 `timestamp\nsecret` 为 HMAC-SHA256 密钥、空消息、base64。
+  // 签名一旦写错，飞书只返回 19021，不会说错在哪；告警通道会悄无声息地失效。
+  assert.equal(notify.sign('1599360473', 'phoenix-test-secret'), 'XNV3QdMHkMuW89I31b5vtQ4uXxD1CO3rbMBXBwiMH/M=')
+
+  const signed = notify.buildPayload({ kind: 'alert', title: 't', secret: 's', now: 1599360473000, host: 'h' })
+  assert.equal(signed.timestamp, '1599360473', 'Feishu expects the timestamp in seconds, as a string')
+  assert.ok(signed.content.text.startsWith('【Phoenix 告警】'), 'every message must carry the Phoenix keyword')
+  assert.equal('sign' in notify.buildPayload({ kind: 'test', title: 't' }), false,
+    'a bot using keyword security must not receive a signature field')
+
+  assert.equal(notify.describeFeishuResult({ code: 0 }).ok, true)
+  assert.equal(notify.describeFeishuResult({ StatusCode: 0 }).ok, true, 'the legacy response shape still means success')
+  assert.match(notify.describeFeishuResult({ code: 19024 }).reason, /Phoenix/)
+})
