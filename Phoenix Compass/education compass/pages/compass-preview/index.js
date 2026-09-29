@@ -21,17 +21,6 @@ const RESULT_LABELS = {
   STUDENT_READINESS_UNKNOWN: '学生参与意愿尚未确认'
 }
 
-function codeLabelMap(bank) {
-  return bank.questions.reduce((labels, question) => {
-    ;(question.options || []).forEach((option) => { labels[option.code] = option.label })
-    if (question.matrix) {
-      question.matrix.subjects.forEach((option) => { labels[option.code] = option.label })
-      question.matrix.ranges.forEach((option) => { labels[option.code] = option.label })
-    }
-    return labels
-  }, {})
-}
-
 function displayLine(value, labels) {
   if (value === undefined || value === null || value === '') return ''
   if (typeof value === 'string' || typeof value === 'number') return labels[String(value)] || RESULT_LABELS[String(value)] || String(value)
@@ -133,7 +122,7 @@ Page({
         let labels = {}
         try {
           const rawBank = await educationCompass.getAssessmentQuestionnaire(this.data.assessmentId)
-          labels = codeLabelMap(questionnaireModel.normalizeQuestionBank(rawBank, { educationSystem: rendered.educationSystem }))
+          labels = questionnaireModel.optionLabelMap(questionnaireModel.normalizeQuestionBank(rawBank, { educationSystem: rendered.educationSystem }))
         } catch (error) {}
         const familySections = rendered.sections.map((section) => sectionView(section, labels))
         const presentation = familyPresentation(familySections)

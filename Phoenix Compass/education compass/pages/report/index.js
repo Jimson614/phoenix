@@ -1,5 +1,6 @@
 const reportService = require('../../services/report')
 const reportModel = require('../../models/education-compass-report')
+const questionnaireModel = require('../../models/education-compass-questionnaire')
 const educationCompass = require('../../services/education-compass')
 const payment = require('../../services/payment')
 const session = require('../../services/session')
@@ -14,7 +15,7 @@ const FIELD_LABELS = {
   week: '周期', goal: '目标', goals: '行动目标', metric: '观察指标', horizon_days: '计划周期（天）',
   selected_action_code: '本人选择的行动', evidence_refs: '依据题号', education_system: '教育体系',
   grade_stage: '年级／阶段', major_exam_year: '毕业或主要考试年份', target_regions: '考虑地区',
-  performance_self_view: '学业状态自我观察', dimension: '维度'
+  performance_self_view: '学业状态自我观察', dimension: '维度', source: '信息来源'
 }
 
 const CODE_LABELS = {
@@ -33,7 +34,9 @@ const CODE_LABELS = {
   ERROR_REVIEW_GAP: '错题复盘需要加强', PLANNING_GAP: '计划与执行节奏需要加强', DIRECTION_CLARITY_GAP: '兴趣方向清晰度待探索',
   FAMILY_GOAL_ALIGNMENT_GAP: '家庭目标需要进一步对齐', SUSTAINED_ENGAGEMENT: '持续投入信号', PLANNING_AND_REVIEW: '计划与复盘信号',
   ERROR_REVIEW_PATTERN: '错题归因与重试信号', PROBLEM_DECOMPOSITION: '问题拆解信号', KNOWLEDGE_RETRIEVAL_STABLE: '知识提取较稳定',
-  KNOWLEDGE_RETRIEVAL_GAP: '知识提取需要支持', SUPPORT_CHECK_IN: '建议增加支持性沟通', SELF_SELECTED_FOCUS_UNKNOWN: '本人优先方向尚未确定'
+  KNOWLEDGE_RETRIEVAL_GAP: '知识提取需要支持', SUPPORT_CHECK_IN: '建议增加支持性沟通', SELF_SELECTED_FOCUS_UNKNOWN: '本人优先方向尚未确定',
+  STUDENT_SELF_REPORT: '学生本人自述', OPTIONAL_RANGE_CONTEXT: '自愿提供的成绩区间', PARENT_OBSERVATION: '家长观察',
+  UNSURE: '暂不确定', NOT_APPLICABLE: '不适用'
 }
 
 const SECTION_TITLES = {
@@ -63,53 +66,75 @@ function readableKey(key) {
   return FIELD_LABELS[key] || String(key || '').replace(/_/g, ' ')
 }
 
-function codeLabel(value) {
+// labels 是本次测评题库的选项原文（code → 文案），页面内置的 CODE_LABELS 优先，
+// 题库兜住内置表没有覆盖的选项，例如各课程体系各自的科目 code。
+function codeLabel(value, labels = {}) {
   const code = String(value)
   if (CODE_LABELS[code]) return CODE_LABELS[code]
-  if (code.startsWith('SUBJECT_STRENGTH_')) return `学科优势：${codeLabel(code.slice('SUBJECT_STRENGTH_'.length))}`
-  if (code.startsWith('SUBJECT_')) return `学科重点：${codeLabel(code.slice('SUBJECT_'.length))}`
-  if (code.startsWith('ACTION_')) return `30 天行动：${codeLabel(code.slice('ACTION_'.length))}`
+  if (labels[code]) return labels[code]
+  if (code.startsWith('SUBJECT_STRENGTH_')) return `学科优势：${codeLabel(code.slice('SUBJECT_STRENGTH_'.length), labels)}`
+  if (code.startsWith('SUBJECT_')) return `学科重点：${codeLabel(code.slice('SUBJECT_'.length), labels)}`
+  if (code.startsWith('ACTION_')) return `30 天行动：${codeLabel(code.slice('ACTION_'.length), labels)}`
   return code.replace(/_/g, ' ')
 }
 
-function valueText(value) {
+function valueText(value, labels) {
   if (value === undefined || value === null || value === '') return ''
-  if (typeof value === 'string') return codeLabel(value)
+  if (typeof value === 'string') return codeLabel(value, labels)
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
-  if (Array.isArray(value)) return value.map(valueText).filter(Boolean).join('、')
+  if (Array.isArray(value)) return value.map((item) => valueText(item, labels)).filter(Boolean).join('、')
   return ''
 }
 
-function valueLines(value) {
+function isSignal(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value) &&
+    typeof value.code === 'string' && typeof value.status === 'string'
+}
+
+// 一条证据信号收成一行：信号本身在前，维度、状态、依据题号和来源放在括号里。
+// 逐字段拆成多行时，读者分不清哪几行属于同一条信号。
+function signalLine(signal, labels) {
+  const refs = Array.isArray(signal.evidence_refs) ? signal.evidence_refs : []
+  const details = [
+    signalDimension(signal) ? codeLabel(signalDimension(signal), labels) : '',
+    codeLabel(signal.status, labels),
+    refs.length ? `${FIELD_LABELS.evidence_refs} ${refs.join('、')}` : '',
+    signal.source ? codeLabel(signal.source, labels) : ''
+  ].filter(Boolean)
+  return `${codeLabel(signal.code, labels)}（${details.join(' · ')}）`
+}
+
+function valueLines(value, labels) {
   if (value === undefined || value === null || value === '') return []
-  if (Array.isArray(value)) return value.reduce((lines, item) => lines.concat(valueLines(item)), [])
-  const direct = valueText(value)
+  if (Array.isArray(value)) return value.reduce((lines, item) => lines.concat(valueLines(item, labels)), [])
+  if (isSignal(value)) return [signalLine(value, labels)]
+  const direct = valueText(value, labels)
   if (direct) return [direct]
   if (typeof value !== 'object') return [String(value)]
   const heading = value.title || value.label || value.name
   const detail = value.summary || value.description || value.text
   if (heading || detail) {
-    const primary = [heading, detail].filter(Boolean).map(valueText).filter(Boolean).join('：')
+    const primary = [heading, detail].filter(Boolean).map((item) => valueText(item, labels)).filter(Boolean).join('：')
     const rest = Object.keys(value).filter((key) => !['title', 'label', 'name', 'summary', 'description', 'text'].includes(key))
       .map((key) => {
-        const text = valueText(value[key])
+        const text = valueText(value[key], labels)
         return text ? `${readableKey(key)}：${text}` : ''
       }).filter(Boolean)
     return [primary].filter(Boolean).concat(rest)
   }
   return Object.keys(value).reduce((lines, key) => {
-    const text = valueText(value[key])
+    const text = valueText(value[key], labels)
     if (text) return lines.concat(`${readableKey(key)}：${text}`)
-    return lines.concat(valueLines(value[key]).map((line) => `${readableKey(key)}：${line}`))
+    return lines.concat(valueLines(value[key], labels).map((line) => `${readableKey(key)}：${line}`))
   }, [])
 }
 
-function growthSection(section, index) {
+function growthSection(section, index, labels) {
   return {
     key: section.key,
     title: SECTION_TITLES[section.key] || section.title,
     number: index + 1 < 10 ? `0${index + 1}` : String(index + 1),
-    lines: valueLines(section.value)
+    lines: valueLines(section.value, labels)
   }
 }
 
@@ -167,7 +192,7 @@ function nextSupportPresentation(response) {
 Page({
   data: {
     reportId: '', response: null, rendered: null, isGrowthReport: false, growthReady: false,
-    growthSections: [], dimensionCards: [], evidenceLines: [], questionnaireVersionsLabel: '', growthEducationSystem: '',
+    growthSections: [], dimensionCards: [], evidenceLines: [], questionnaireVersionsLabel: '', growthEducationSystem: '', systemRouteLabel: '',
     nextSupportVisible: false, nextSupport: null,
     student: null, family: null, dateLabel: '', userRole: '',
     loading: true, error: '', pdfLoading: false, feedbackSending: false, feedbackSent: false,
@@ -221,21 +246,23 @@ Page({
       const isGrowthReport = Boolean(rendered && rendered.rendererKey === reportModel.RENDERER_KEYS.STUDENT_GROWTH)
       const growthReady = Boolean(isGrowthReport && rendered.resultState === 'FULL')
       const snapshot = growthReady ? rendered.sections.find((section) => section.key === 'student_snapshot') : null
-      const growthEducationSystem = snapshot && snapshot.value
+      const educationSystemCode = snapshot && snapshot.value
         ? (snapshot.value.educationSystem || snapshot.value.education_system || rendered.educationSystem || '')
         : (rendered && rendered.educationSystem) || ''
+      const labels = growthReady ? await this.optionLabels(rendered, response, educationSystemCode) : {}
       const familyUser = Boolean(user && user.role === 'family_user')
       this.setData({
         response,
         rendered,
         isGrowthReport,
         growthReady,
-        growthSections: growthReady ? rendered.sections.map(growthSection) : [],
+        growthSections: growthReady ? rendered.sections.map((section, index) => growthSection(section, index, labels)) : [],
         dimensionCards: growthReady ? dimensionPresentation(rendered) : [],
         evidenceLines: growthReady ? valueLines(rendered.evidenceRefs) : [],
-        growthEducationSystem,
+        growthEducationSystem: educationSystemCode ? codeLabel(educationSystemCode, labels) : '',
+        systemRouteLabel: rendered && rendered.systemResultMarker ? codeLabel(rendered.systemResultMarker, labels) : '',
         questionnaireVersionsLabel: growthReady && rendered.questionnaireVersions.length
-          ? rendered.questionnaireVersions.map(valueText).filter(Boolean).join('、')
+          ? rendered.questionnaireVersions.map((version) => valueText(version)).filter(Boolean).join('、')
           : '以服务端审计记录为准',
         student: context.student || this.data.student,
         family: context.family || this.data.family,
@@ -247,6 +274,20 @@ Page({
     } catch (error) {
       this.setData({ error: error.message || '报告加载失败' })
     } finally { this.setData({ loading: false }) }
+  },
+  // 与免费结果页一致：用本次测评的题库把选项 code 换回原文。取不到题库时不挡报告，
+  // 退回页面内置的标签即可。已购报告的 full.result 不带 assessment id，服务端只在 preview 里给。
+  async optionLabels(rendered, response, educationSystem) {
+    const assessmentId = rendered.assessmentId || response.assessmentId || (response.preview && response.preview.assessmentId)
+    if (!assessmentId) return {}
+    try {
+      const bank = await educationCompass.getAssessmentQuestionnaire(assessmentId)
+      return questionnaireModel.optionLabelMap(
+        questionnaireModel.normalizeQuestionBank(bank, { educationSystem: rendered.educationSystem || educationSystem })
+      )
+    } catch (error) {
+      return {}
+    }
   },
   agentVisibility(response, user) {
     const capability = response && response.capabilities && response.capabilities.agentFollowup

@@ -833,6 +833,140 @@ async function testPdfDownloadHardening() {
   }
 }
 
+function growthReportLabelsFixture() {
+  const bank = {
+    ...questionnaireFixture(),
+    educationSystem: 'DSE',
+    option_catalogs: {},
+    registries: {},
+    questions: [
+      {
+        id: 'EGD02', key: 'grade_stage', label: '年级', type: 'SINGLE_CHOICE', required: true, scored: false,
+        options: [{ code: 'UPPER_SECONDARY', label: '高中／Upper Secondary' }],
+        validation: { minSelections: 1, maxSelections: 1 }, scope: 'COMMON'
+      },
+      {
+        id: 'EGD05', key: 'target_regions', label: '地区', type: 'MULTI_CHOICE', required: true, scored: false,
+        options: [{ code: 'HONG_KONG', label: '香港' }],
+        validation: { minSelections: 1, maxSelections: 3 }, scope: 'COMMON'
+      },
+      {
+        id: 'EGD07', key: 'recent_performance_self_view', label: '最近表现', type: 'SINGLE_CHOICE', required: true, scored: false,
+        options: [{ code: 'CONSISTENT_STRONG', label: '整体稳定并有把握' }],
+        validation: { minSelections: 1, maxSelections: 1 }, scope: 'COMMON'
+      },
+      {
+        id: 'EGD08', key: 'strength_subjects', label: '有把握的学科', type: 'MULTI_CHOICE', required: true, scored: false,
+        options: [{ code: 'CHINESE_LANGUAGE', label: '中国语文' }],
+        validation: { minSelections: 1, maxSelections: 2 }, scope: 'COMMON'
+      }
+    ]
+  }
+  // Same shape GET /v1/reports/:id returns for a paid DSE growth report: the assessment id
+  // only sits under preview, and the result itself carries no assessment id or top-level
+  // education system. CHINESE_LANGUAGE is a DSE-only subject code the page's built-in table does not know.
+  const response = {
+    access: 'full', reportId: 'rpt_growth_labels', status: 'READY', deliveryStatus: 'DELIVERED', qaPassed: true, entitled: true,
+    preview: { reportId: 'rpt_growth_labels', assessmentId: 'asm_growth_labels' },
+    reportKind: 'STUDENT_GROWTH_DISCOVERY', resultVersion: 'student_growth_discovery_report_v1.0.0',
+    full: {
+      result: {
+        result_kind: 'STUDENT_GROWTH_DISCOVERY', result_version: 'student_growth_discovery_report_v1.0.0',
+        system_result_marker: 'FULL_SYSTEM_BANK',
+        student_snapshot: {
+          education_system: 'DSE', grade_stage: 'UPPER_SECONDARY', major_exam_year: 'UNSURE',
+          target_regions: ['HONG_KONG'], performance_self_view: 'CONSISTENT_STRONG',
+          evidence_refs: ['EGD02', 'EGD03', 'EGD04', 'EGD05', 'EGD07']
+        },
+        strength_signals: [{
+          code: 'SUBJECT_STRENGTH_CHINESE_LANGUAGE', dimension: 'ACADEMIC_PERFORMANCE', status: 'SUPPORTED',
+          evidence_refs: ['EGD07', 'EGD08'], source: 'STUDENT_SELF_REPORT'
+        }],
+        learning_bottlenecks: [],
+        subject_focus: [],
+        growth_direction: [],
+        action_plan_30d: {
+          horizon_days: 30, selected_action_code: 'SUBJECT_DIAGNOSIS',
+          goals: [{ code: 'ACTION_SUBJECT_DIAGNOSIS', status: 'SUPPORTED', evidence_refs: ['EGD18'] }]
+        },
+        learning_signals: [], interest_signals: [], evidence_refs: ['EGD02'],
+        questionnaire_versions: ['education_growth_discovery_v1.1.0']
+      }
+    }
+  }
+  return { bank, response }
+}
+
+async function testGrowthReportShowsLabelsNotCodes() {
+  const reportService = require('../services/report')
+  const educationCompass = require('../services/education-compass')
+  const originals = {
+    Page: global.Page,
+    getApp: global.getApp,
+    accountInfo: wx.getAccountInfoSync,
+    getReport: reportService.getReport,
+    getAssessmentQuestionnaire: educationCompass.getAssessmentQuestionnaire
+  }
+  let definition
+  const bankRequests = []
+  const { bank, response } = growthReportLabelsFixture()
+  try {
+    wx.getAccountInfoSync = () => ({ miniProgram: { envVersion: 'release' } })
+    global.getApp = () => ({ getCurrentUser: () => ({ id: 'usr_labels', role: 'family_user' }) })
+    global.Page = (value) => { definition = value }
+    reportService.getReport = async () => response
+    educationCompass.getAssessmentQuestionnaire = async (assessmentId) => {
+      bankRequests.push(assessmentId)
+      return bank
+    }
+    delete require.cache[require.resolve('../pages/report/index')]
+    require('../pages/report/index')
+    const load = async () => {
+      const instance = { ...definition, data: { ...definition.data, reportId: 'rpt_growth_labels' } }
+      instance.setData = function setData(update) { Object.assign(this.data, update) }
+      await definition.load.call(instance)
+      assert.strictEqual(instance.data.error, '')
+      assert.strictEqual(instance.data.growthReady, true)
+      return instance.data
+    }
+
+    const data = await load()
+    assert.deepStrictEqual(bankRequests, ['asm_growth_labels'], 'the report must label answers from its own assessment bank')
+    const section = (key) => data.growthSections.find((item) => item.key === key).lines
+    for (const line of data.growthSections.flatMap((item) => item.lines)) {
+      assert(!/[A-Z]{2,}[ _][A-Z]{2,}/.test(line), `a paid report line still shows a raw code: ${line}`)
+    }
+    assert.deepStrictEqual(section('student_snapshot'), [
+      '教育体系：香港 DSE', '年级／阶段：高中／Upper Secondary', '毕业或主要考试年份：暂不确定', '考虑地区：香港',
+      '学业状态自我观察：整体稳定并有把握', '依据题号：EGD02、EGD03、EGD04、EGD05、EGD07'
+    ])
+    assert.deepStrictEqual(section('strength_signals'), [
+      '学科优势：中国语文（学业表现 · 已有回答支持 · 依据题号 EGD07、EGD08 · 学生本人自述）'
+    ], 'one signal must stay one line with its dimension, status, evidence and source')
+    assert.deepStrictEqual(section('action_plan_30d'), [
+      '计划周期（天）：30', '本人选择的行动：完成一次学科任务诊断',
+      '行动目标：30 天行动：完成一次学科任务诊断（已有回答支持 · 依据题号 EGD18）'
+    ])
+    assert.strictEqual(data.growthEducationSystem, '香港 DSE')
+    assert.strictEqual(data.systemRouteLabel, '正式体系题库')
+
+    // Without the bank the report must still open, falling back to the built-in labels.
+    educationCompass.getAssessmentQuestionnaire = async () => { throw new Error('bank unavailable') }
+    const fallback = await load()
+    assert.deepStrictEqual(fallback.growthSections.find((item) => item.key === 'strength_signals').lines, [
+      '学科优势：CHINESE LANGUAGE（学业表现 · 已有回答支持 · 依据题号 EGD07、EGD08 · 学生本人自述）'
+    ])
+  } finally {
+    reportService.getReport = originals.getReport
+    educationCompass.getAssessmentQuestionnaire = originals.getAssessmentQuestionnaire
+    wx.getAccountInfoSync = originals.accountInfo
+    if (originals.getApp === undefined) delete global.getApp
+    else global.getApp = originals.getApp
+    if (originals.Page === undefined) delete global.Page
+    else global.Page = originals.Page
+  }
+}
+
 async function testPaymentCacheStorageFailure() {
   const api = require('../services/api')
   const auth = require('../services/auth')
@@ -1122,6 +1256,7 @@ async function run() {
   await testCompassEntryPageGate()
   await testQuestionnaireStudentIsolation()
   await testFamilySnapshotAnalysisEntry()
+  await testGrowthReportShowsLabelsNotCodes()
   await testApiTransportHardening()
   await testPdfDownloadHardening()
   await testPaymentCacheStorageFailure()

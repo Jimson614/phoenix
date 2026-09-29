@@ -270,6 +270,18 @@ function normalizeQuestionBank(result, context = {}) {
   }
 }
 
+// 结果与报告里的答案都是选项 code，展示给家庭时要换回题库原文。
+function optionLabelMap(bank) {
+  return bank.questions.reduce((labels, question) => {
+    ;(question.options || []).forEach((option) => { labels[option.code] = option.label })
+    if (question.matrix) {
+      question.matrix.subjects.forEach((option) => { labels[option.code] = option.label })
+      question.matrix.ranges.forEach((option) => { labels[option.code] = option.label })
+    }
+    return labels
+  }, {})
+}
+
 function isEmpty(value) {
   if (Array.isArray(value)) return value.length === 0
   return value === undefined || value === null || String(value).trim() === ''
@@ -420,6 +432,7 @@ module.exports = {
   buildViewModel,
   isEmpty,
   normalizeQuestionBank,
+  optionLabelMap,
   switchEducationSystem,
   validateAnswers,
   validateQuestion

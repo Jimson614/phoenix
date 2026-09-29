@@ -41,12 +41,11 @@
 
       <view class="growth-context">
         <view><text class="growth-context__label">EDUCATION SYSTEM</text><text class="growth-context__value">{{growthEducationSystem || '未提供'}}</text></view>
-        <view><text class="growth-context__label">SYSTEM ROUTE</text><text class="growth-context__value">{{rendered.systemResultMarker || 'COMMON BANK'}}</text></view>
+        <view><text class="growth-context__label">SYSTEM ROUTE</text><text class="growth-context__value">{{systemRouteLabel || 'COMMON BANK'}}</text></view>
       </view>
 
       <view wx:for="{{growthSections}}" wx:key="key" class="report-section report-section--growth">
         <text class="report-section__number">{{item.number}}</text>
-        <text class="report-section__label">{{item.key}}</text>
         <text class="report-section__title">{{item.title}}</text>
         <view wx:if="{{item.lines.length}}" class="growth-lines">
           <view wx:for="{{item.lines}}" wx:key="*this" class="growth-line"><text class="growth-line__mark">•</text><text>{{item}}</text></view>
