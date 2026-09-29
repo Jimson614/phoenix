@@ -1449,11 +1449,14 @@ async function run() {
 module.exports = { run }
 
 if (require.main === module) {
+  // 与 tests/run-tests.js 的替身一致：存储要能真正存取，否则依赖登录凭据持久化的用例
+  // （如 PDF 迟到 401 不应清掉新会话）单独运行时会失败，而经 run-tests.js 运行时通过。
+  const memory = new Map()
   global.wx = global.wx || {
     getAccountInfoSync: () => ({ miniProgram: { envVersion: 'develop' } }),
-    getStorageSync: () => undefined,
-    setStorageSync: () => undefined,
-    removeStorageSync: () => undefined
+    getStorageSync: (key) => memory.get(key),
+    setStorageSync: (key, value) => memory.set(key, value),
+    removeStorageSync: (key) => memory.delete(key)
   }
   run().catch((error) => { console.error(error); process.exitCode = 1 })
 }
