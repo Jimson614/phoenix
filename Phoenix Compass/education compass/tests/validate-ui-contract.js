@@ -460,6 +460,8 @@ for (const file of sourceFiles) {
     assert(!/(?:class|id)\s*=\s*["'][^"']*(?:language-switch|locale-switch)[^"']*["']/i.test(source),
       `${relative} contains an unapproved language switch`)
     assert(!/>\s*中文\s*</.test(source), `${relative} contains a reference-only Chinese language control label`)
+    assert(!/>\s*\{\{\s*(?:item|section|module)\.key\s*\}\}\s*</.test(source),
+      `${relative} shows an internal key such as student_profile as visible text; show the module title instead`)
     if (!shareAllowlist.has(relative)) {
       assert(!/(?:class|id)\s*=\s*["'][^"']*(?:share-button|preview-share|report-share)[^"']*["']/i.test(source),
         `${relative} contains a share-styled control outside the approved pages`)

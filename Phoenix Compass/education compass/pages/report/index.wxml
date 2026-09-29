@@ -148,7 +148,6 @@
 
       <view wx:for="{{response.full.modules}}" wx:key="key" class="report-section">
         <text class="report-section__number">{{index + 1 < 10 ? '0' : ''}}{{index + 1}}</text>
-        <text class="report-section__label">{{item.key}}</text>
         <text class="report-section__title">{{item.title}}</text>
         <text class="report-section__copy">{{item.summary}}</text>
         <view wx:if="{{item.items.length}}" class="module-items">
