@@ -1,6 +1,7 @@
 const agent = require('../../services/agent')
 const reportService = require('../../services/report')
 const session = require('../../services/session')
+const { dateTimeLabel } = require('../../utils/date')
 
 const FALLBACK_COPY = {
   BLOCKED: '这条信息未发送给解读模型。请改为询问报告中的画像、方向、路线或行动建议。',
@@ -8,6 +9,11 @@ const FALLBACK_COPY = {
   FAILED: 'AI 解读暂时不可用，已购报告和 PDF 不受影响，请稍后再试。',
   CANCELLED: '本次解读已取消，未消耗成功回复次数。'
 }
+// 追问次数用完只是不能再提问。服务端读取历史消息只校验付费权益与专项同意，
+// 所以这种情况下仍要让家庭看到已经得到的解读，只是不再提供输入框。
+const REPLY_LIMIT_REACHED = 'AGENT_REPLY_LIMIT_REACHED'
+const CONVERSATION_STATUS_LABELS = { ACTIVE: '进行中', CLOSED: '已结束', EXPIRED: '已过期' }
+const CONSENT_STATUS_LABELS = { ACTIVE: '同意有效', REVOKED: '同意已撤回' }
 const MAX_POLL_ATTEMPTS = 60
 const MAX_POLL_DURATION_MS = 120000
 
@@ -31,8 +37,20 @@ function reportIsEligible(report, capability) {
   return Boolean(
     report && report.access === 'full' && report.status === 'READY' &&
     report.deliveryStatus === 'DELIVERED' && report.qaPassed === true && report.entitled === true &&
-    capability && capability.available === true
+    capability && (capability.available === true || capability.reasonCode === REPLY_LIMIT_REACHED)
   )
+}
+
+function conversationView(conversation) {
+  // 删除后服务端仍列出这段会话（已关闭、正文清零），只留无正文的记录；此时不再提供删除按钮。
+  const contentDeleted = conversation.status !== 'ACTIVE' && conversation.retainedContentCount === 0
+  return {
+    ...conversation,
+    contentDeleted,
+    statusLabel: contentDeleted ? '正文已删除' : (CONVERSATION_STATUS_LABELS[conversation.status] || '状态以服务端为准'),
+    consentLabel: CONSENT_STATUS_LABELS[conversation.consentStatus] || '同意状态以服务端为准',
+    createdLabel: conversation.createdAt ? dateTimeLabel(conversation.createdAt) : '历史会话'
+  }
 }
 
 function terminalCopy(run) {
@@ -50,7 +68,7 @@ Page({
     maxMessageChars: agent.DEFAULT_MAX_MESSAGE_CHARS,
     maxRepliesPerReport: agent.DEFAULT_MAX_REPLIES,
     remainingReplies: agent.DEFAULT_MAX_REPLIES,
-    sending: false, runId: '', runStatus: '', runMessage: '', pollLimitReached: false, canSend: false,
+    sending: false, runId: '', runStatus: '', runMessage: '', pollLimitReached: false, canSend: false, limitReached: false,
     safetyNotice: 'AI 仅辅助解释已购报告，不保证录取或升学结果。请由监护人陪同使用，勿输入姓名、电话、学校、证件或详细地址。'
   },
 
@@ -84,12 +102,14 @@ Page({
         conversations.find((item) => item.conversationId === capability.activeConversationId) || null
       const eligible = reportIsEligible(report, capability)
       const consentActive = Boolean(active && active.consentStatus !== 'REVOKED')
+      const remainingReplies = active ? Math.min(active.remainingReplies, capability.remainingReplies) : capability.remainingReplies
       this.setData({
-        report, capability, conversations, eligible,
+        report, capability, conversations: conversations.map(conversationView), eligible,
         conversationId: active ? active.conversationId : '', consentActive,
         maxMessageChars: active ? active.maxMessageChars : agent.DEFAULT_MAX_MESSAGE_CHARS,
         maxRepliesPerReport: capability.maxRepliesPerReport,
-        remainingReplies: active ? Math.min(active.remainingReplies, capability.remainingReplies) : capability.remainingReplies,
+        remainingReplies,
+        limitReached: capability.reasonCode === REPLY_LIMIT_REACHED || remainingReplies <= 0,
         messages: eligible && consentActive ? this.data.messages : [],
         canSend: false
       })
@@ -136,7 +156,7 @@ Page({
         maxMessageChars: conversation.maxMessageChars,
         maxRepliesPerReport: conversation.maxRepliesPerReport,
         remainingReplies: conversation.remainingReplies,
-        conversations: [conversation].concat(this.data.conversations.filter((item) => item.conversationId !== conversation.conversationId))
+        conversations: [conversationView(conversation)].concat(this.data.conversations.filter((item) => item.conversationId !== conversation.conversationId))
       })
       this.updateCanSend()
       await this.loadMessages(conversation.conversationId)

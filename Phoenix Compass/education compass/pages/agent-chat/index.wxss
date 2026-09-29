@@ -504,6 +504,12 @@
   padding: 26rpx;
 }
 
+.composer--done {
+  color: #6f6558;
+  font-size: 24rpx;
+  line-height: 1.7;
+}
+
 .composer__input {
   background: #fbf7f0;
   border: 1rpx solid #dfcba9;

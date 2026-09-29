@@ -298,16 +298,18 @@ Page({
       familyUser && response && response.access === 'full' && response.status === 'READY' &&
       response.deliveryStatus === 'DELIVERED' && response.qaPassed === true && response.entitled === true
     )
-    const eligible = paidReportEligible && capability.available === true
     const hasConversation = Boolean(
       capability.activeConversationId || capability.hasConversations === true ||
       Number(capability.conversationCount || 0) > 0 || capability.managementAvailable === true
     )
+    // 追问次数用完后不能再提问，但已有的解读仍可阅读，入口改为"查看记录"而不是只剩删除管理。
+    const limitReached = capability.reasonCode === 'AGENT_REPLY_LIMIT_REACHED'
+    const eligible = paidReportEligible && (capability.available === true || (limitReached && hasConversation))
     return {
       paidAnalysisVisible: paidReportEligible,
       agentEntryVisible: eligible,
       agentManagementVisible: familyUser && !eligible && hasConversation,
-      agentEntryLabel: capability.activeConversationId ? '继续 AI 追问' : '了解并开启 AI 追问'
+      agentEntryLabel: limitReached ? '查看 AI 追问记录' : (capability.activeConversationId ? '继续 AI 追问' : '了解并开启 AI 追问')
     }
   },
   openPaidAnalysis() {

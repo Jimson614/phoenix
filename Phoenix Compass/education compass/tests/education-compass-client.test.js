@@ -833,6 +833,108 @@ async function testPdfDownloadHardening() {
   }
 }
 
+function testAgentSourceDatesAreReadable() {
+  const agent = require('../services/agent')
+  // The analysis context stamps sources with the report's ISO timestamp; a family must
+  // see a date, not "2026-09-28T04:00:00.000Z".
+  const reply = agent.normalizeReply({
+    answer: '可信回答', keyPoints: [], nextSteps: [], limitations: ['仅供参考'],
+    sources: [
+      { alias: 'S1', name: '本次免费测评快照', applicableYear: '2026', dataVersion: 'family_education_snapshot_v1.0.0', verifiedAt: '2026-09-28T04:00:00.000Z' },
+      { alias: 'S2', name: '公开招生资料', verifiedAt: '2026-08-20' }
+    ],
+    safety: { level: 'STANDARD', requiresGuardianAttention: false }
+  })
+  assert.strictEqual(reply.sources[0].detail, '适用 2026 · family_education_snapshot_v1.0.0 · 核验 2026.09.28')
+  assert.strictEqual(reply.sources[1].detail, '核验 2026.08.20', 'a date-only value must not shift across time zones')
+}
+
+// Shape the report endpoint returns right after the third follow-up reply: the capability
+// says "no more questions", but the entitlement and consent that guard reading are intact.
+function reportAtReplyLimit() {
+  return {
+    access: 'full', reportId: 'rpt_limit', status: 'READY', deliveryStatus: 'DELIVERED', qaPassed: true, entitled: true,
+    capabilities: {
+      agentFollowup: {
+        available: false, reasonCode: 'AGENT_REPLY_LIMIT_REACHED', maxRepliesPerReport: 3, remainingReplies: 0,
+        activeConversationId: 'acv_limit', consentStatus: 'ACTIVE', hasConversations: true, conversationCount: 1,
+        managementAvailable: true
+      }
+    }
+  }
+}
+
+async function testAgentChatKeepsHistoryAtReplyLimit() {
+  const reportService = require('../services/report')
+  const agent = require('../services/agent')
+  const originals = {
+    Page: global.Page,
+    getApp: global.getApp,
+    getReport: reportService.getReport,
+    listConversations: agent.listConversations,
+    listMessages: agent.listMessages
+  }
+  let definition
+  try {
+    global.getApp = () => ({ getCurrentUser: () => ({ id: 'usr_limit', role: 'family_user' }) })
+    global.Page = (value) => { definition = value }
+    delete require.cache[require.resolve('../pages/agent-chat/index')]
+    const helpers = require('../pages/agent-chat/index')
+    const report = reportAtReplyLimit()
+    assert.strictEqual(helpers.reportIsEligible(report, helpers.capabilityFrom(report)), true,
+      'using up the replies must not hide the answers the family already received')
+    const disabled = { ...report, capabilities: { agentFollowup: { available: false, reasonCode: 'AGENT_DISABLED' } } }
+    assert.strictEqual(helpers.reportIsEligible(disabled, helpers.capabilityFrom(disabled)), false)
+
+    reportService.getReport = async () => report
+    agent.listConversations = async () => [{
+      conversationId: 'acv_limit', status: 'ACTIVE', consentStatus: 'ACTIVE', remainingReplies: 0,
+      maxMessageChars: 2000, maxRepliesPerReport: 3, createdAt: '2026-09-29T02:28:45.189Z', retainedContentCount: 6
+    }, {
+      // What the server lists after "删除这段对话": closed, consent revoked, no content left.
+      conversationId: 'acv_deleted', status: 'CLOSED', consentStatus: 'REVOKED', remainingReplies: 0,
+      maxMessageChars: 2000, maxRepliesPerReport: 3, createdAt: '2026-09-28T02:00:00.000Z', retainedContentCount: 0
+    }]
+    const history = [1, 2, 3].flatMap((index) => [
+      { id: `amsg_q${index}`, role: 'USER', content: `问题 ${index}`, reply: null },
+      { id: `amsg_a${index}`, role: 'ASSISTANT', reply: { answer: `回答 ${index}`, keyPoints: [], nextSteps: [], limitations: [], sources: [] } }
+    ])
+    agent.listMessages = async () => ({ messages: history })
+    const instance = { ...definition, data: JSON.parse(JSON.stringify({ ...definition.data, reportId: 'rpt_limit' })) }
+    instance.setData = function setData(update) { Object.assign(this.data, update) }
+    await definition.load.call(instance)
+    assert.strictEqual(instance.data.eligible, true)
+    assert.strictEqual(instance.data.messages.length, 6, 'all three answers must stay readable after the last reply')
+    assert.strictEqual(instance.data.limitReached, true)
+    assert.strictEqual(instance.data.canSend, false)
+    const row = instance.data.conversations[0]
+    assert.strictEqual(row.statusLabel, '进行中')
+    assert.strictEqual(row.consentLabel, '同意有效')
+    assert(/^\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}$/.test(row.createdLabel), `management row must show a readable time, got ${row.createdLabel}`)
+    assert.strictEqual(row.contentDeleted, false)
+    const deletedRow = instance.data.conversations[1]
+    assert.strictEqual(deletedRow.statusLabel, '正文已删除', 'a deleted conversation must not look like it still holds content')
+    assert.strictEqual(deletedRow.consentLabel, '同意已撤回')
+    assert.strictEqual(deletedRow.contentDeleted, true)
+
+    // The report page must keep a way back into that history instead of only offering deletion.
+    delete require.cache[require.resolve('../pages/report/index')]
+    require('../pages/report/index')
+    const visibility = definition.agentVisibility(report, { id: 'usr_limit', role: 'family_user' })
+    assert.strictEqual(visibility.agentEntryVisible, true)
+    assert.strictEqual(visibility.agentEntryLabel, '查看 AI 追问记录')
+    assert.strictEqual(visibility.agentManagementVisible, false)
+  } finally {
+    reportService.getReport = originals.getReport
+    agent.listConversations = originals.listConversations
+    agent.listMessages = originals.listMessages
+    if (originals.getApp === undefined) delete global.getApp
+    else global.getApp = originals.getApp
+    if (originals.Page === undefined) delete global.Page
+    else global.Page = originals.Page
+  }
+}
+
 function growthReportLabelsFixture() {
   const bank = {
     ...questionnaireFixture(),
@@ -1332,6 +1434,8 @@ async function run() {
   await testCompassEntryPageGate()
   await testQuestionnaireStudentIsolation()
   await testFamilySnapshotAnalysisEntry()
+  testAgentSourceDatesAreReadable()
+  await testAgentChatKeepsHistoryAtReplyLimit()
   await testGrowthReportShowsLabelsNotCodes()
   await testGrowthPurchaseRecordsLocalOrder()
   await testApiTransportHardening()

@@ -1,4 +1,5 @@
 const api = require('./api')
+const { dateLabel } = require('../utils/date')
 
 const CONSENT_VERSION = 'agent_analysis_opt_in_v1.0.0-rc1'
 const CONSENT_SCOPE = 'AI_ANALYSIS'
@@ -35,6 +36,12 @@ function createIdempotencyKey(purpose = 'agent') {
   return `pfs_${safePurpose}_${randomPart()}`.slice(0, 96)
 }
 
+// 服务端给的是 ISO 时间戳或纯日期；只有纯日期直接改写，避免被 Date 按 UTC 解析后跨时区变成前一天。
+function sourceDate(value) {
+  const text = String(value)
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text.replace(/-/g, '.') : dateLabel(text)
+}
+
 function normalizeSource(source, index) {
   if (typeof source === 'string') return { alias: `S${index + 1}`, name: source, detail: '' }
   const value = source || {}
@@ -43,7 +50,7 @@ function normalizeSource(source, index) {
   const detail = [
     value.applicableYear ? `适用 ${value.applicableYear}` : '',
     value.dataVersion || value.version || '',
-    value.dataAsOf || value.verifiedAt ? `核验 ${value.dataAsOf || value.verifiedAt}` : ''
+    value.dataAsOf || value.verifiedAt ? `核验 ${sourceDate(value.dataAsOf || value.verifiedAt)}` : ''
   ].filter(Boolean).join(' · ')
   return { alias, name, detail }
 }

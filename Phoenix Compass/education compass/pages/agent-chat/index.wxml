@@ -28,6 +28,13 @@
       </view>
     </view>
 
+    <view wx:elif="{{limitReached && !conversationId}}" class="page agent-body">
+      <view class="panel unavailable-card">
+        <text class="h3">本报告的 AI 追问次数已用完</text>
+        <text class="muted">每份已购报告最多 {{maxRepliesPerReport}} 次成功回复。报告正文、PDF 和 AI 总分析不受影响。</text>
+      </view>
+    </view>
+
     <view wx:elif="{{!conversationId}}" class="page agent-body">
       <view class="panel consent-card">
         <text class="h2">开启前请由学生与监护人分别确认</text>
@@ -48,7 +55,8 @@
 
     <view wx:else class="agent-conversation">
       <view class="quota-bar">
-        <text>本报告剩余 {{remainingReplies}} / {{maxRepliesPerReport}} 次成功回复</text>
+        <text wx:if="{{limitReached}}">{{maxRepliesPerReport}} 次追问已用完，以上解读仍可查看</text>
+        <text wx:else>本报告剩余 {{remainingReplies}} / {{maxRepliesPerReport}} 次成功回复</text>
         <text class="status">{{consentActive ? '专项同意有效' : '同意已撤回'}}</text>
       </view>
 
@@ -98,7 +106,10 @@
         <button wx:if="{{pollLimitReached}}" class="run-refresh" bindtap="resumeRunPolling">刷新处理状态</button>
       </view>
 
-      <view class="composer">
+      <view wx:if="{{limitReached}}" class="composer composer--done">
+        <text>本报告的 AI 追问次数已用完。如需进一步解读，可以在报告页联系教育顾问。</text>
+      </view>
+      <view wx:else class="composer">
         <textarea class="composer__input" value="{{draft}}" maxlength="{{maxMessageChars}}" disabled="{{sending || runId || !consentActive}}" placeholder="只询问这份报告中的画像、方向、路线或行动…" bindinput="draftInput"></textarea>
         <view class="composer__meta"><text>{{messageChars}} / {{maxMessageChars}}</text><text>不在本机长期保存对话正文</text></view>
         <button class="btn btn--primary" loading="{{sending || runId}}" disabled="{{!canSend}}" bindtap="send">{{runId ? '正在解读' : '发送问题'}}</button>
@@ -114,8 +125,8 @@
       <text class="h3">AI 数据管理</text>
       <text class="muted">退款或撤权后仍可发现并删除无权读取正文的会话。</text>
       <view wx:for="{{conversations}}" wx:key="conversationId" class="management-row">
-        <view><text>{{item.status}} · {{item.consentStatus || '同意状态以服务端为准'}}</text><text class="management-row__id">{{item.createdAt || '历史会话'}}</text></view>
-        <button class="management-delete" data-id="{{item.conversationId}}" bindtap="deleteConversation">删除</button>
+        <view><text>{{item.statusLabel}} · {{item.consentLabel}}</text><text class="management-row__id">{{item.createdLabel}}</text></view>
+        <button wx:if="{{!item.contentDeleted}}" class="management-delete" data-id="{{item.conversationId}}" bindtap="deleteConversation">删除</button>
       </view>
     </view>
     <button class="btn btn--text back-button" bindtap="backToReport">返回报告</button>
