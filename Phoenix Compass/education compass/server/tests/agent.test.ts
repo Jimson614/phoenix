@@ -978,3 +978,28 @@ test('HTTP Agent contract uses flat strict consent, returns 202 runs, and extend
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
   }
 })
+
+// The mock provider is what the joint-debugging environment runs, so its wording is what
+// testers read. Context items are option codes (ACADEMIC_SUBJECTS, grade_stage：PRIMARY);
+// quoting them made every mock answer show a raw code to the family.
+test('mock provider answers name the module instead of echoing option codes', async () => {
+  const provider = new MockAgentProvider()
+  for (const taskType of ['ASSESSMENT_ANALYSIS', 'REPORT_ANALYSIS', 'REPORT_FOLLOWUP'] as const) {
+    const output = await provider.createReportFollowup({
+      taskType,
+      safetyIdentifier: 'sid_mock_wording',
+      report: {
+        dataAsOf: '2026-09-28', confidence: 'high', disclaimer: '仅供参考',
+        modules: [{
+          key: 'family_concerns', title: '家庭教育关注（家长观察）',
+          summary: '仅解释家长本次选择的结构化关注项。', items: ['ACADEMIC_SUBJECTS', 'grade_stage：PRIMARY']
+        }],
+        sources: [{ alias: 'S1', applicableYear: '2026', verifiedAt: '2026-09-28', dataVersion: 'v1' }]
+      },
+      history: [],
+      message: '解释一下'
+    })
+    assert.equal(/[A-Za-z]+_[A-Za-z_]+/.test(output.draft.answer), false, `${taskType} answer quotes a code: ${output.draft.answer}`)
+    assert.ok(output.draft.answer.includes('家庭教育关注（家长观察）'), output.draft.answer)
+  }
+})

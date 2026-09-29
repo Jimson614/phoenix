@@ -26,7 +26,8 @@ export class MockAgentProvider implements AgentProvider {
     if (input.message.includes('[MOCK_TIMEOUT]')) throw new AgentProviderError('OPENAI_TIMEOUT', true)
     if (input.message.includes('[MOCK_REFUSAL]')) throw new AgentProviderError('OPENAI_REFUSAL', false)
     const aliases = input.report.sources.slice(0, 2).map((source) => source.alias)
-    const focus = input.report.modules[0]?.items[0] ?? input.report.modules[0]?.summary ?? '当前快照中的已验证信息'
+    // 用模块标题而不是第一个条目：条目是选项代码，直接引用会把 ACADEMIC_SUBJECTS 这类代码念给家长。
+    const focus = input.report.modules[0]?.title ?? '当前快照中的已验证信息'
     const isFree = input.taskType === 'ASSESSMENT_ANALYSIS'
     const isPaidAnalysis = input.taskType === 'REPORT_ANALYSIS'
     return {
