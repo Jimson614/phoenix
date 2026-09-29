@@ -95,7 +95,8 @@
 .data-note__title, .data-note__copy { display: block; }
 .data-note__title { color: #8b6223; font-size: 22rpx; font-weight: 650; }
 .data-note__copy { color: #69655f; font-size: 22rpx; line-height: 1.75; margin-top: 9rpx; }
-.mine-logout { color: #786f64; margin-top: 30rpx; width: 100%; }
+.mine-logout { color: #786f64; margin-top: 30rpx; }
+button.mine-logout { width: 100%; }
 
 @media (max-width: 340px) {
   .mine-topbar__label { display: none; }

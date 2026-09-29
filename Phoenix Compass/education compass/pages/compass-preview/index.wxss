@@ -108,7 +108,8 @@
 .purchase-bar__price, .purchase-bar__type { display: block; }
 .purchase-bar__price { color: #9b6d20; font-family: serif; font-size: 40rpx; font-weight: 700; }
 .purchase-bar__type { color: #81786e; font-size: 18rpx; }
-.purchase-bar__button { background: linear-gradient(105deg, #d7ad51, #b67a1c); box-shadow: 0 14rpx 34rpx rgba(181,126,30,.28); color: #fff; margin: 0 0 0 18rpx; min-height: 44px; min-width: 310rpx; }
+.purchase-bar__button { background: linear-gradient(105deg, #d7ad51, #b67a1c); box-shadow: 0 14rpx 34rpx rgba(181,126,30,.28); color: #fff; min-height: 44px; min-width: 310rpx; }
+button.purchase-bar__button { margin: 0 0 0 18rpx; }
 .purchase-bar__button[disabled] { background: #d9d2c7; box-shadow: none; color: #8f887e; }
 
 @media (max-width: 430px) {
@@ -135,6 +136,7 @@
   .snapshot-overview__value { font-size: 16rpx; }
   .purchase-bar { align-items: stretch; flex-direction: column; }
   .purchase-bar__summary { align-items: baseline; display: flex; justify-content: space-between; margin-bottom: 14rpx; }
-  .purchase-bar__button { margin: 0; min-width: 0; width: 100%; }
+  .purchase-bar__button { min-width: 0; }
+  button.purchase-bar__button { margin: 0; width: 100%; }
   .purchase-bar-placeholder { height: 250rpx; }
 }

@@ -274,6 +274,9 @@
 
 .success__btn {
   margin-top: 48rpx;
+}
+
+button.success__btn {
   width: 100%;
 }
 

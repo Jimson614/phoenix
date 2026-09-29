@@ -73,6 +73,16 @@ button {
   min-height: var(--tap-min-size);
 }
 
+/* 微信 style v2 用 button:not([size=mini]) 给所有按钮加了 width: 184px 和左右 auto 外边距。
+   这个选择器比单个 class 权重高，页面里写的 .option { width: 100% }、.btn { margin: 0 }
+   等都会悄悄失效，按钮一律变成居中的 184px 窄条。这里用同一个选择器、在后面声明，把它清掉。
+   因此页面要给某个按钮指定宽度或左右外边距时，必须写成 button.类名，否则会被这条规则盖住。 */
+button:not([size=mini]) {
+  margin-left: 0;
+  margin-right: 0;
+  width: auto;
+}
+
 .page {
   padding: 36rpx var(--screen-gutter) calc(72rpx + env(safe-area-inset-bottom));
 }

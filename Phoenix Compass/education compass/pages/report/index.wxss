@@ -96,14 +96,17 @@
 .askwise-card__name { color: #835719; font-family: serif; font-size: 24rpx; letter-spacing: 2rpx; }
 .askwise-card__title { color: #102238; font-family: "Songti SC", serif; font-size: 34rpx; font-weight: 700; margin-top: 8rpx; }
 .askwise-card__points { color: #5e665f; font-size: 22rpx; line-height: 1.75; margin-top: 16rpx; }
-.askwise-card__button { background: var(--pn-disabled-bg, #eee9e0); box-shadow: none; color: var(--pn-disabled-text, #8f887e); margin-top: 22rpx; min-height: 44px; width: 100%; }
+.askwise-card__button { background: var(--pn-disabled-bg, #eee9e0); box-shadow: none; color: var(--pn-disabled-text, #8f887e); margin-top: 22rpx; min-height: 44px; }
+button.askwise-card__button { width: 100%; }
 .next-support__divider { background: #e3d4ba; height: 1rpx; margin: 30rpx 0; }
 .advisor-support__title, .advisor-support__copy, .advisor-support__status { display: block; }
 .advisor-support__title { color: #102238; font-family: "Songti SC", serif; font-size: 31rpx; font-weight: 700; }
 .advisor-support__copy { color: #5f696f; font-size: 22rpx; line-height: 1.75; margin-top: 10rpx; }
 .advisor-support__status { background: rgba(255,253,249,.7); border-radius: 16rpx; color: #7c756b; font-size: 20rpx; line-height: 1.65; margin-top: 18rpx; padding: 18rpx; }
-.advisor-support__button { margin-top: 22rpx; min-height: 44px; width: 100%; }
-.next-support__home { margin-top: 22rpx; width: 100%; }
+.advisor-support__button { margin-top: 22rpx; min-height: 44px; }
+button.advisor-support__button { width: 100%; }
+.next-support__home { margin-top: 22rpx; }
+button.next-support__home { width: 100%; }
 .agent-entry { background: linear-gradient(145deg, #10253a, #18364f); border: 1rpx solid rgba(218,182,107,.3); border-radius: 28rpx; box-shadow: 0 18rpx 46rpx rgba(13,31,50,.16); margin-top: 24rpx; padding: 30rpx; }
 .agent-entry--analysis { background: linear-gradient(145deg, #f8f0df, #fffdf9); border-color: #e2c98f; box-shadow: 0 15rpx 42rpx rgba(92,65,20,.07); }
 .agent-entry__eyebrow, .agent-entry__title, .agent-entry__copy { display: block; }

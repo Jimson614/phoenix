@@ -486,7 +486,7 @@
   color: #80520c;
   font-size: 22rpx;
   line-height: 1;
-  margin: 12rpx auto 0;
+  margin: 12rpx 0 0;
   min-height: 72rpx;
   padding: 16rpx 24rpx;
 }
@@ -617,7 +617,7 @@
 }
 
 .back-button {
-  margin: 18rpx auto 30rpx;
+  margin: 18rpx 0 30rpx;
 }
 
 .agent-page .btn {

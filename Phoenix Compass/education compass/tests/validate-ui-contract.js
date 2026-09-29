@@ -493,6 +493,50 @@ const sharedButtonRules = cssRuleBodies(globalWxss, '.btn')
 assert(sharedButtonRules.some((body) => /min-height\s*:\s*var\(\s*--tap-min-size\s*\)/i.test(body)),
   'app.wxss .btn must continue to consume --tap-min-size')
 
+// 微信 style v2 的 button:not([size=mini]) 默认给按钮 184px 宽和左右 auto 外边距，权重高于单个 class。
+// 开发者工具里实测过：不清掉它，问卷选项、分享胶囊、授权撤回行都会被压成居中的 184px 窄条。
+const buttonResetRules = cssRuleBodies(globalWxss, 'button:not([size=mini])')
+assert(buttonResetRules.some((body) => /width\s*:\s*auto/i.test(body) &&
+  /margin-left\s*:\s*0/i.test(body) && /margin-right\s*:\s*0/i.test(body)),
+'app.wxss must reset WeChat\'s default 184px button width and auto side margins with button:not([size=mini])')
+const buttonClasses = new Set()
+for (const file of sourceFiles.filter((candidate) => candidate.endsWith('.wxml'))) {
+  for (const match of fs.readFileSync(file, 'utf8').matchAll(/<button\b[^>]*?\bclass\s*=\s*["']([^"']*)["']/g)) {
+    match[1].replace(/\{\{[^}]*\}\}/g, ' ').split(/\s+/).filter(Boolean).forEach((name) => buttonClasses.add(name))
+  }
+}
+const zeroLength = (value) => /^-?0(?:\.0+)?(?:px|rpx|%|em|rem)?$/i.test(String(value || '').trim())
+for (const file of sourceFiles.filter((candidate) => candidate.endsWith('.wxss'))) {
+  const relative = normalizeSlashes(path.relative(root, file))
+  const source = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  for (const rule of cssRules(source)) {
+    for (const selector of rule.selector.split(',').map((item) => item.trim())) {
+      if (selector.includes('::')) continue
+      const target = selector.split(/[\s>+~]+/).pop()
+      if (/^button\b/i.test(target)) continue
+      if (![...target.matchAll(/\.([\w-]+)/g)].some((match) => buttonClasses.has(match[1]))) continue
+      if ([...selector.matchAll(/\.[\w-]+|\[[^\]]*\]|:[\w-]+/g)].length >= 2) continue
+      for (const declaration of rule.body.split(';')) {
+        const separator = declaration.indexOf(':')
+        if (separator < 0) continue
+        const property = declaration.slice(0, separator).trim().toLowerCase()
+        const value = declaration.slice(separator + 1).trim()
+        let sides = []
+        if (property === 'width') sides = value.toLowerCase() === 'auto' ? [] : [value]
+        else if (property === 'margin-left' || property === 'margin-right') sides = [value]
+        else if (property === 'margin') {
+          const parts = value.split(/\s+/)
+          sides = [parts[1] === undefined ? parts[0] : parts[1], parts[3] === undefined ? (parts[1] === undefined ? parts[0] : parts[1]) : parts[3]]
+        }
+        const offending = property === 'width' ? sides : sides.filter((side) => !zeroLength(side))
+        assert(!offending.length,
+          `${relative} "${selector}" sets ${property}: ${value} on a button with a single class; ` +
+          `WeChat's default button rule outranks it, so write it as button${target.match(/\.[\w-]+/)[0]}`)
+      }
+    }
+  }
+}
+
 const questionnaireWxss = readSource('pages/compass-questionnaire/index.wxss')
 const selectedRules = cssRuleBodies(questionnaireWxss, '.option--selected')
 assert(selectedRules.length && selectedRules.some((body) =>

@@ -12,8 +12,9 @@
 .advisor-list__brand brand-mark { flex-shrink: 0; margin-right: 24rpx; }
 .advisor-list__brand .eyebrow { display: block; font-size: 17rpx; }
 .advisor-list__title { color: #11253a; display: block; font-family: "Songti SC", serif; font-size: 32rpx; font-weight: 700; margin-top: 6rpx; }
-.advisor-list__logout { background: rgba(255,253,249,.82); border: 1rpx solid rgba(23,42,61,.18); border-radius: 999rpx; color: #5f6670; font-size: 22rpx; height: 72rpx; line-height: 70rpx; margin: 0 0 0 20rpx; min-height: 44px; padding: 0 24rpx; }
+.advisor-list__logout { background: rgba(255,253,249,.82); border: 1rpx solid rgba(23,42,61,.18); border-radius: 999rpx; color: #5f6670; font-size: 22rpx; height: 72rpx; line-height: 70rpx; min-height: 44px; padding: 0 24rpx; }
 .advisor-list__logout::after { border: 0; }
+button.advisor-list__logout { margin: 0 0 0 20rpx; }
 
 .advisor-list__summary { background: linear-gradient(145deg, #162c41, #0c1d2e); border-radius: 0 0 42rpx 42rpx; color: #fff; overflow: hidden; padding: 42rpx 38rpx 38rpx; position: relative; }
 .advisor-list__summary-orbit { border: 1rpx solid rgba(226,195,129,.14); border-radius: 50%; height: 310rpx; position: absolute; right: -74rpx; top: -108rpx; width: 310rpx; }
