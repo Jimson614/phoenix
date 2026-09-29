@@ -203,6 +203,8 @@ Page({
       if (order.productCode !== this.data.product.productCode || order.amountFen !== this.data.product.amountFen) {
         throw new Error('订单商品或金额与服务端产品不一致，请勿支付')
       }
+      // “我的”页的本机最近订单只读这份缓存；不记下来，支付很快确认、直接进报告的订单就不会出现在那里。
+      payment.cacheOrder({ ...order, assessmentId: this.data.assessmentId })
       if (['FAILED', 'CANCELLED', 'EXPIRED'].includes(order.status)) {
         this.orderKey = ''
         throw new Error('当前订单已失效，请再次点击创建新订单')
@@ -231,6 +233,7 @@ Page({
   },
 
   goToVerifiedOrder(order, clientOutcome) {
+    payment.cacheOrder({ ...order, assessmentId: this.data.assessmentId })
     if (order.status === 'PAID' && order.reportId) {
       wx.redirectTo({ url: `/pages/report/index?id=${encodeURIComponent(order.reportId)}` })
       return

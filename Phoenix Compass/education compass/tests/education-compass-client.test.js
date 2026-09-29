@@ -967,6 +967,82 @@ async function testGrowthReportShowsLabelsNotCodes() {
   }
 }
 
+async function testGrowthPurchaseRecordsLocalOrder() {
+  const educationCompass = require('../services/education-compass')
+  const payment = require('../services/payment')
+  const originals = {
+    Page: global.Page,
+    getApp: global.getApp,
+    accountInfo: wx.getAccountInfoSync,
+    getStorageSync: wx.getStorageSync,
+    setStorageSync: wx.setStorageSync,
+    removeStorageSync: wx.removeStorageSync,
+    requestPayment: wx.requestPayment,
+    redirectTo: wx.redirectTo,
+    showModal: wx.showModal,
+    createGrowthOrder: educationCompass.createGrowthOrder,
+    createWechatPrepay: educationCompass.createWechatPrepay,
+    getOrder: educationCompass.getOrder
+  }
+  const storage = new Map()
+  const redirects = []
+  let definition
+  const order = {
+    orderId: 'ord_growth_cache', outTradeNo: 'PX_growth_cache', status: 'PENDING',
+    productCode: 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1', amountFen: 3990, currency: 'CNY', reportId: 'rpt_growth_cache'
+  }
+  try {
+    wx.getAccountInfoSync = () => ({ miniProgram: { envVersion: 'release' } })
+    wx.getStorageSync = (key) => storage.get(key)
+    wx.setStorageSync = (key, value) => { storage.set(key, JSON.parse(JSON.stringify(value))) }
+    wx.removeStorageSync = (key) => { storage.delete(key) }
+    wx.requestPayment = (options) => options.success({ errMsg: 'requestPayment:ok' })
+    wx.redirectTo = ({ url }) => { redirects.push(url) }
+    wx.showModal = (options) => { throw new Error(`unexpected modal: ${options.content}`) }
+    global.getApp = () => ({ getCurrentUser: () => ({ id: 'usr_growth_cache', role: 'family_user' }) })
+    global.Page = (value) => { definition = value }
+    educationCompass.createGrowthOrder = async () => ({ ...order })
+    educationCompass.createWechatPrepay = async () => ({
+      paymentParams: { timeStamp: '1', nonceStr: 'n', package: 'prepay_id=p', signType: 'RSA', paySign: 's' }
+    })
+    // The common case: the notification lands first, so the very first check is already PAID.
+    educationCompass.getOrder = async () => ({ ...order, status: 'PAID', paidAt: '2026-09-28T08:00:00.000Z' })
+    payment.clearOrderCache()
+    delete require.cache[require.resolve('../pages/compass-preview/index')]
+    require('../pages/compass-preview/index')
+    const instance = {
+      ...definition,
+      data: {
+        ...definition.data, assessmentId: 'asm_growth_cache', viewKind: 'growth-locked', canPurchase: true,
+        product: { productCode: 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1', amountFen: 3990 }
+      }
+    }
+    instance.setData = function setData(update) { Object.assign(this.data, update) }
+    await definition.purchase.call(instance)
+
+    assert.deepStrictEqual(redirects, ['/pages/report/index?id=rpt_growth_cache'])
+    const cached = payment.listCachedOrders()
+    assert.strictEqual(cached.length, 1, 'a confirmed growth purchase must appear in the local recent orders')
+    assert.strictEqual(cached[0].orderId, 'ord_growth_cache')
+    assert.strictEqual(cached[0].status, 'PAID', 'the local list must show the server-verified status, not the creation status')
+    assert.strictEqual(cached[0].assessmentId, 'asm_growth_cache')
+  } finally {
+    payment.clearOrderCache()
+    educationCompass.createGrowthOrder = originals.createGrowthOrder
+    educationCompass.createWechatPrepay = originals.createWechatPrepay
+    educationCompass.getOrder = originals.getOrder
+    for (const name of ['getAccountInfoSync', 'getStorageSync', 'setStorageSync', 'removeStorageSync', 'requestPayment', 'redirectTo', 'showModal']) {
+      const original = name === 'getAccountInfoSync' ? originals.accountInfo : originals[name]
+      if (original === undefined) delete wx[name]
+      else wx[name] = original
+    }
+    if (originals.getApp === undefined) delete global.getApp
+    else global.getApp = originals.getApp
+    if (originals.Page === undefined) delete global.Page
+    else global.Page = originals.Page
+  }
+}
+
 async function testPaymentCacheStorageFailure() {
   const api = require('../services/api')
   const auth = require('../services/auth')
@@ -1257,6 +1333,7 @@ async function run() {
   await testQuestionnaireStudentIsolation()
   await testFamilySnapshotAnalysisEntry()
   await testGrowthReportShowsLabelsNotCodes()
+  await testGrowthPurchaseRecordsLocalOrder()
   await testApiTransportHardening()
   await testPdfDownloadHardening()
   await testPaymentCacheStorageFailure()
