@@ -13,7 +13,7 @@
     mode="widthFix"
     aria-label="鳳啟 Phoenix Nova"
   />
-  <view wx:if="{{!compact}}" class="brand__product-lockup">
+  <view wx:if="{{!compact && lockup}}" class="brand__product-lockup">
     <view class="brand__divider"></view>
     <view class="brand__product-copy">
       <text class="brand__product">FAMILY OS™</text>

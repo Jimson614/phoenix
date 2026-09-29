@@ -73,11 +73,13 @@
   border: 1rpx solid var(--line);
   border-radius: 999rpx;
   color: var(--ink-secondary);
-  flex-shrink: 0;
   font-size: 21rpx;
   margin-left: 16rpx;
-  max-width: 176rpx;
+  max-width: 260rpx;
   min-height: 64rpx;
+  /* 顶栏只放 Logo（见 index.wxml），390px 宽时"你好，"加四个字的称呼能完整显示；
+     再长的称呼由问候语让位、按省略号截断，不能压到右侧胶囊上。 */
+  min-width: 0;
   overflow: hidden;
   padding: 17rpx 22rpx;
   text-overflow: ellipsis;
@@ -414,7 +416,7 @@
   }
 
   .home__hello {
-    max-width: 142rpx;
+    max-width: 220rpx;
     padding-left: 16rpx;
     padding-right: 16rpx;
   }
