@@ -307,7 +307,7 @@ Page({
     if (!conversationId) return
     wx.showModal({
       title: '撤回 AI 同意',
-      content: '撤回后将停止解读、关闭会话并取消未完成任务。你仍可删除已保留内容。',
+      content: '撤回后将停止解读并关闭这段对话，未完成的任务会取消，对话正文会立即从线上清除；该学生的 AI 分析授权和其他进行中的 AI 对话也会一并停止。无正文的安全与用量记录可能按政策保留。',
       success: async ({ confirm }) => {
         if (!confirm) return
         try {

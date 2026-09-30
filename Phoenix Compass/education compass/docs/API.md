@@ -522,7 +522,7 @@ owner可在任何权益状态下执行；204幂等。服务端关闭会话、撤
 
 ### DELETE /v1/agent-conversations/:conversationId/consent
 
-owner撤回专项同意；204幂等。关闭会话、取消/隔离未完成任务，迟到模型结果不得保存或展示。撤回后仍可调用会话DELETE。
+owner撤回专项同意；204幂等。与会话DELETE走同一清理路径：关闭会话、取消/隔离未完成任务并立即清理在线消息正文，迟到模型结果不得保存或展示；同时关闭该学生其他仍活动的 Agent 会话，V0.5 报告还会撤回该学生的 `AI_ANALYSIS` 授权。撤回后仍可调用会话DELETE（幂等）。
 
 ### DELETE /v1/me/ai-analysis-consents/:studentId
 

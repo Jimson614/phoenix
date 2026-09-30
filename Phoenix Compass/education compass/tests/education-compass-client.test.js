@@ -999,6 +999,37 @@ function growthReportLabelsFixture() {
   return { bank, response }
 }
 
+async function testAgentWithdrawCopyMatchesServerEffect() {
+  const originals = { Page: global.Page, getApp: global.getApp, showModal: wx.showModal }
+  const modals = []
+  let definition
+  try {
+    global.getApp = () => ({ getCurrentUser: () => ({ id: 'usr_withdraw_copy', role: 'family_user' }) })
+    global.Page = (value) => { definition = value }
+    wx.showModal = (options) => { modals.push(options) }
+    delete require.cache[require.resolve('../pages/agent-chat/index')]
+    require('../pages/agent-chat/index')
+    const instance = { ...definition, data: { ...definition.data, conversationId: 'acv_withdraw_copy' } }
+    definition.withdrawConsent.call(instance)
+    assert.strictEqual(modals.length, 1)
+    const { content } = modals[0]
+    // The server's revokeConsent closes the conversation through the same path as deletion:
+    // message text is purged at once, the student's AI analysis grant is withdrawn and the
+    // student's other active conversations are closed. The confirmation must say so, and must
+    // not promise that anything is kept for the family to delete later.
+    assert(!/保留内容/.test(content), `withdrawal must not claim the conversation text is kept: ${content}`)
+    assert(/正文/.test(content) && /清除/.test(content), `withdrawal must say the conversation text is removed: ${content}`)
+    assert(/AI 分析授权/.test(content), `withdrawal must say the student's AI analysis grant is withdrawn too: ${content}`)
+    assert(/其他/.test(content) && /对话/.test(content), `withdrawal must say the student's other AI conversations stop too: ${content}`)
+  } finally {
+    wx.showModal = originals.showModal
+    if (originals.getApp === undefined) delete global.getApp
+    else global.getApp = originals.getApp
+    if (originals.Page === undefined) delete global.Page
+    else global.Page = originals.Page
+  }
+}
+
 async function testGrowthReportShowsLabelsNotCodes() {
   const reportService = require('../services/report')
   const educationCompass = require('../services/education-compass')
@@ -1436,6 +1467,7 @@ async function run() {
   await testFamilySnapshotAnalysisEntry()
   testAgentSourceDatesAreReadable()
   await testAgentChatKeepsHistoryAtReplyLimit()
+  await testAgentWithdrawCopyMatchesServerEffect()
   await testGrowthReportShowsLabelsNotCodes()
   await testGrowthPurchaseRecordsLocalOrder()
   await testApiTransportHardening()
