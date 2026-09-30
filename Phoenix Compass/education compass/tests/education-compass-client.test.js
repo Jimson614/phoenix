@@ -1176,6 +1176,95 @@ async function testGrowthPurchaseRecordsLocalOrder() {
   }
 }
 
+async function testLoginAsAnotherAccountDropsPreviousAccountCache() {
+  const api = require('../services/api')
+  const auth = require('../services/auth')
+  const payment = require('../services/payment')
+  const assessment = require('../services/assessment')
+  const draftBuffer = require('../services/draft-buffer')
+  const originalRequest = api.request
+  const originals = {
+    accountInfo: wx.getAccountInfoSync,
+    getStorageSync: wx.getStorageSync,
+    setStorageSync: wx.setStorageSync,
+    removeStorageSync: wx.removeStorageSync,
+    getStorageInfoSync: wx.getStorageInfoSync,
+    login: wx.login,
+    getApp: global.getApp
+  }
+  const storage = new Map()
+  let sessionUser = 'usr_cache_a'
+  let currentUser = null
+  const leaveAccountData = (suffix) => {
+    payment.cacheOrder({ orderId: `ord_${suffix}`, status: 'PAID', reportId: `rpt_${suffix}`, amountFen: 3990 })
+    storage.set('PFS_REMOTE_PROFILE_MAP_V1', { families: { local: `fam_${suffix}` }, students: {} })
+    storage.set(assessment.REFERENCES_KEY, { stu_local: `asm_${suffix}` })
+    draftBuffer.remember(`asm_${suffix}`, { answers: { EGD03: 'GAOKAO' } })
+  }
+  const accountDataLeft = () => ({
+    orders: payment.listCachedOrders().map((item) => item.orderId),
+    profileMap: storage.has('PFS_REMOTE_PROFILE_MAP_V1'),
+    references: storage.has(assessment.REFERENCES_KEY),
+    drafts: [...storage.keys()].filter((key) => key.indexOf('PFS_COMPASS_DRAFT_') === 0).length
+  })
+  try {
+    wx.getAccountInfoSync = () => ({ miniProgram: { envVersion: 'release' } })
+    wx.getStorageSync = (key) => storage.get(key)
+    wx.setStorageSync = (key, value) => { storage.set(key, JSON.parse(JSON.stringify(value))) }
+    wx.removeStorageSync = (key) => { storage.delete(key) }
+    wx.getStorageInfoSync = () => ({ keys: [...storage.keys()] })
+    wx.login = ({ success }) => success({ code: `code_${sessionUser}` })
+    global.getApp = () => ({ getCurrentUser: () => currentUser, setCurrentUser: (value) => { currentUser = value } })
+    api.request = async (path, options) => {
+      assert.strictEqual(path, '/v1/auth/wechat/session')
+      assert.strictEqual(options.data.code, `code_${sessionUser}`)
+      return { accessToken: `tok_${sessionUser}`, user: { id: sessionUser, role: 'family_user' } }
+    }
+    payment.clearOrderCache()
+    draftBuffer.forgetAll()
+
+    await auth.loginFamilyUser()
+    leaveAccountData('a')
+    await auth.loginFamilyUser()
+    assert.deepStrictEqual(accountDataLeft(), { orders: ['ord_a'], profileMap: true, references: true, drafts: 2 },
+      'logging in again as the same account must keep that account\'s local data')
+
+    // The server account can disappear without this device logging out, for example when the
+    // account was deleted on another device; the next login is then a different account.
+    sessionUser = 'usr_cache_b'
+    await auth.loginFamilyUser()
+    assert.strictEqual(currentUser.id, 'usr_cache_b')
+    assert.deepStrictEqual(accountDataLeft(), { orders: [], profileMap: false, references: false, drafts: 0 },
+      'a different account must not see the previous account\'s orders, profile mapping, assessment references or drafts')
+
+    // Data left before this device started recording whose it is has no known owner, so it must
+    // not be handed to whoever logs in next either.
+    leaveAccountData('b')
+    for (const key of [...storage.keys()]) {
+      if (/OWNER/.test(key)) storage.delete(key)
+    }
+    sessionUser = 'usr_cache_c'
+    await auth.loginFamilyUser()
+    assert.deepStrictEqual(accountDataLeft(), { orders: [], profileMap: false, references: false, drafts: 0 },
+      'local account data with no recorded owner must be dropped at login')
+  } finally {
+    api.request = originalRequest
+    payment.clearOrderCache()
+    draftBuffer.forgetAll()
+    api.setAccessToken('')
+    wx.getAccountInfoSync = originals.accountInfo
+    wx.getStorageSync = originals.getStorageSync
+    wx.setStorageSync = originals.setStorageSync
+    wx.removeStorageSync = originals.removeStorageSync
+    if (originals.getStorageInfoSync === undefined) delete wx.getStorageInfoSync
+    else wx.getStorageInfoSync = originals.getStorageInfoSync
+    if (originals.login === undefined) delete wx.login
+    else wx.login = originals.login
+    if (originals.getApp === undefined) delete global.getApp
+    else global.getApp = originals.getApp
+  }
+}
+
 async function testPaymentCacheStorageFailure() {
   const api = require('../services/api')
   const auth = require('../services/auth')
@@ -1473,6 +1562,7 @@ async function run() {
   await testApiTransportHardening()
   await testPdfDownloadHardening()
   await testPaymentCacheStorageFailure()
+  await testLoginAsAnotherAccountDropsPreviousAccountCache()
   await testDraftBufferSurvivesFailedSaves()
   await testApiAdapter()
   console.log('✓ Education Compass V0.5 client: remote adapter, canonical bank, result registry, revision and server nextAction navigation')
