@@ -144,9 +144,12 @@ Page({
       if (!confirm) return
       this.setData({ withdrawing: true, error: '' })
       try {
-        const consultation = await masters.withdrawConsultation(this.data.consultationId, this.data.version)
-        this.setData({ consultation, status: consultation.status, statusLabel: STATUS_COPY[consultation.status] || consultation.status })
+        await masters.withdrawConsultation(this.data.consultationId, this.data.version)
+        // The server answers { withdrawn: true } without a consultation body, so do not read a status
+        // from it (it would default to DRAFT); show the withdrawal, then re-read the server state.
+        this.setData({ status: 'WITHDRAWN', statusLabel: STATUS_COPY.WITHDRAWN })
         wx.showToast({ title: '已撤回咨询', icon: 'success' })
+        await this.load()
       } catch (error) { this.setData({ error: errorText(error) }); wx.showToast({ title: errorText(error), icon: 'none' }) }
       finally { this.setData({ withdrawing: false }) }
     } })
