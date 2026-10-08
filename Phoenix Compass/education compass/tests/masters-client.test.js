@@ -77,6 +77,18 @@ async function run() {
   const originalRequest = api.request
   const originalUploadResult = global.__uploadResult
 
+  // The Mini Program runtime's wx.getRandomValues is asynchronous: it returns a Promise and leaves a
+  // caller-supplied array untouched. Keys must still be unique, otherwise every document after the
+  // first one fails with IDEMPOTENCY_KEY_REUSED in devtools and on real devices.
+  const syncFillingStub = global.wx.getRandomValues
+  global.wx.getRandomValues = () => Promise.resolve({ randomValues: new ArrayBuffer(12) })
+  const generatedKeys = new Set()
+  for (let index = 0; index < 500; index += 1) generatedKeys.add(masters.createIdempotencyKey('document'))
+  assert.strictEqual(generatedKeys.size, 500, 'idempotency keys must be unique per call in the Mini Program runtime')
+  assert(![...generatedKeys].some((key) => /_0{24}$/.test(key)), 'idempotency keys must not be the all-zero constant')
+  assert([...generatedKeys].every((key) => /^[A-Za-z0-9._:-]{8,128}$/.test(key)), 'keys must still match the server key format')
+  global.wx.getRandomValues = syncFillingStub
+
   api.setAccessToken('trusted-token')
   api.request = async (path, options = {}) => {
     requestCalls.push({ path, options })
