@@ -174,6 +174,21 @@ async function run() {
   global.__uploadResult = originalUploadResult
   assert.strictEqual((await masters.chooseMessageFiles(1))[0].name, '成绩单.pdf')
   assert.strictEqual((await masters.chooseImages(1))[0].name, '证明.png')
+  // Without sizeType the Android picker sends a re-encoded JPEG (a real phone stored 757-byte tmp_*.jpg
+  // files whose SHA-256 matched neither the PNG nor the JPG the student chose), so ask for the original.
+  const chooseMediaStub = global.wx.chooseMedia
+  const chooseImageStub = global.wx.chooseImage
+  let mediaPickerOptions
+  global.wx.chooseMedia = (options) => { mediaPickerOptions = options; options.success({ tempFiles: [{ tempFilePath: '/tmp/original.png', size: 128, fileType: 'image' }] }) }
+  await masters.chooseImages(1)
+  assert.deepStrictEqual(mediaPickerOptions.sizeType, ['original'], 'image uploads must keep the original bytes')
+  let imagePickerOptions
+  global.wx.chooseMedia = undefined
+  global.wx.chooseImage = (options) => { imagePickerOptions = options; options.success({ tempFiles: [{ tempFilePath: '/tmp/original.png', size: 128 }] }) }
+  await masters.chooseImages(1)
+  assert.deepStrictEqual(imagePickerOptions.sizeType, ['original'], 'the older image picker must also keep the original bytes')
+  global.wx.chooseMedia = chooseMediaStub
+  global.wx.chooseImage = chooseImageStub
   const requestForTokenTest = api.request
   api.request = async () => { api.setAccessToken('rotated-token'); return { consultation: { id: 'c1', profileVersion: 1, status: 'DRAFT', profile: model.emptyProfile(), documents: [] } } }
   await assert.rejects(() => masters.getConsultation('c1'), (error) => error.code === 'AUTH_CONTEXT_CHANGED')
@@ -363,6 +378,11 @@ async function run() {
   assert(materialsWxml.includes('toggleMissingProfile') && materialsWxml.includes('missingEditInstitution'), 'RESUME missing-only editor must have its own stable controls')
   assert(materialsWxml.includes('item.uploadStatusLabel') && materialsWxml.includes('item.parseStatusLabel'), 'document status text must come from normalized labels')
   assert(materialsWxml.indexOf('extraction-review') < materialsWxml.indexOf('materials-section'), 'extraction review must stay near the résumé check')
+  // Ticking consent creates the draft with the chosen 入学年份. The only picker sat below the consent box
+  // (and on the guided path only at step 3), so a student who already had an undecided consultation hit
+  // MASTERS_SEASON_CONFLICT and could not start a second one.
+  const firstYearPicker = materialsWxml.indexOf('bindchange="targetYearChange"')
+  assert(firstYearPicker > -1 && firstYearPicker < materialsWxml.indexOf('onServiceConsentChange'), 'a new consultation must offer 入学年份 before consent creates the draft')
 
   // The real server answers a withdrawal with { withdrawn: true } and no consultation body. The status
   // page must then show 已撤回 from the server instead of falling back to DRAFT, which also kept the
@@ -386,6 +406,126 @@ async function run() {
   assert.strictEqual(statusPage.data.status, 'WITHDRAWN', 'after a withdrawal the page must show the server status, not DRAFT')
   assert.strictEqual(statusPage.data.statusLabel, '已撤回')
   api.request = requestBeforeWithdraw
+
+  // The phone remembers the last draft id. 建立新的免费咨询 reopened it, and so did every later entry
+  // after it was submitted, so a real Android phone put three test students into one consultation. The
+  // devtools walkthrough cleared storage before each student, which hid this.
+  const requestBeforeDraftPointer = api.request
+  const fetchedConsultationIds = []
+  const pointerStatus = { c_old: 'DRAFT', c_sent: 'DRAFT' }
+  api.request = async (path, options = {}) => {
+    const found = /^\/v1\/masters\/consultations\/(c_old|c_sent)$/.exec(path)
+    if (found && !options.method) {
+      fetchedConsultationIds.push(found[1])
+      return { consultation: { id: found[1], profileVersion: 4, path: 'RESUME', status: pointerStatus[found[1]], profile: model.normalizeProfile({ name: '已有咨询' }), documents: [], consent: { accepted: true } } }
+    }
+    if (path === '/v1/masters/consultations/c_sent/submit') {
+      pointerStatus.c_sent = 'SUBMITTED'
+      return { consultation: { id: 'c_sent', profileVersion: 4, status: 'SUBMITTED', profile: model.emptyProfile(), documents: [] } }
+    }
+    return requestBeforeDraftPointer(path, options)
+  }
+  masters.rememberDraftId('c_old')
+  const listPage = loadPage('../pages/masters-list/index.js')
+  listPage.newConsultation()
+  const newConsultationUrl = navigationCalls[navigationCalls.length - 1].url
+  const newConsultationOptions = Object.fromEntries(newConsultationUrl.split('?')[1].split('&').map((pair) => pair.split('=').map(decodeURIComponent)))
+  const newConsultationPage = loadPage('../pages/masters-materials/index.js')
+  newConsultationPage.onLoad(newConsultationOptions)
+  newConsultationPage.setData({ loggedIn: true })
+  await newConsultationPage.loadConsultation()
+  assert.strictEqual(newConsultationPage.data.consultationId, '', '建立新的免费咨询 must open an empty form, not the remembered draft')
+  assert.deepStrictEqual(fetchedConsultationIds, [])
+  assert.strictEqual(masters.draftId(), 'c_old', 'an unfinished draft stays resumable until a new one exists')
+  const resumeDraftPage = loadPage('../pages/masters-materials/index.js')
+  resumeDraftPage.onLoad({ path: 'RESUME' })
+  resumeDraftPage.setData({ loggedIn: true })
+  await resumeDraftPage.loadConsultation()
+  assert.strictEqual(resumeDraftPage.data.consultationId, 'c_old', 'the intake entry still resumes an unfinished draft')
+
+  masters.rememberDraftId('c_sent')
+  const submitDraftPage = loadPage('../pages/masters-status/index.js')
+  submitDraftPage.onLoad({ id: 'c_sent' })
+  await submitDraftPage.load()
+  await submitDraftPage.submit()
+  assert.strictEqual(submitDraftPage.data.status, 'SUBMITTED')
+  assert.strictEqual(masters.draftId(), '', 'a submitted consultation is no longer the draft to resume')
+  masters.rememberDraftId('c_sent')
+  const staleDraftPage = loadPage('../pages/masters-materials/index.js')
+  staleDraftPage.onLoad({ path: 'GUIDED' })
+  staleDraftPage.setData({ loggedIn: true })
+  await staleDraftPage.loadConsultation()
+  assert.strictEqual(staleDraftPage.data.consultationId, '', 'a remembered consultation that was already submitted must not reopen as the draft')
+  assert.strictEqual(masters.draftId(), '')
+  const editSubmittedPage = loadPage('../pages/masters-materials/index.js')
+  editSubmittedPage.onLoad({ id: 'c_sent', path: 'GUIDED' })
+  editSubmittedPage.setData({ loggedIn: true })
+  await editSubmittedPage.loadConsultation()
+  assert.strictEqual(editSubmittedPage.data.consultationId, 'c_sent', '补充或修改资料 still opens a submitted consultation by id')
+  assert.strictEqual(masters.draftId(), '', 'editing a submitted consultation must not make it the draft again')
+  api.request = requestBeforeDraftPointer
+
+  // A failed draft creation (for example MASTERS_SEASON_CONFLICT) must leave consent unticked, so the
+  // student can pick another 入学年份 and tick again instead of being stuck with no draft.
+  const createBeforeConflict = masters.createConsultation
+  masters.createConsultation = async () => { throw new api.ApiError('该申请季已有咨询，请从我的咨询继续原记录', { code: 'MASTERS_SEASON_CONFLICT', statusCode: 409 }) }
+  const conflictPage = loadPage('../pages/masters-materials/index.js')
+  conflictPage.onLoad({ path: 'GUIDED', new: '1' })
+  conflictPage.setData({ loggedIn: true, uploadConfigReady: true })
+  await conflictPage.onServiceConsentChange({ detail: { value: ['service'] } })
+  assert.strictEqual(conflictPage.data.consultationId, '')
+  assert.strictEqual(conflictPage.data.serviceConsent, false, 'consent must be unticked again when the draft could not be created')
+  assert(conflictPage.data.error.includes('该申请季已有咨询'))
+  masters.createConsultation = createBeforeConflict
+
+  // 提交未完成 said only 请先核对并确认资料 or 请补齐提交所需的基本资料, so the tester tapped submit eight
+  // times. The dialog must name the missing fields and offer the page that fixes the problem.
+  const requestBeforeSubmitErrors = api.request
+  let nextSubmitError
+  api.request = async (path, options = {}) => {
+    if (path === '/v1/masters/consultations/c_fix/submit') throw nextSubmitError
+    if (path === '/v1/masters/consultations/c_fix') return { consultation: { id: 'c_fix', profileVersion: 5, status: 'DRAFT', profile: model.emptyProfile(), documents: [] } }
+    return requestBeforeSubmitErrors(path, options)
+  }
+  const guidancePage = loadPage('../pages/masters-status/index.js')
+  guidancePage.onLoad({ id: 'c_fix' })
+  await guidancePage.load()
+  const submitWith = async (error) => {
+    nextSubmitError = error
+    const before = navigationCalls.length
+    const originalShowModal = global.wx.showModal
+    let shown
+    global.wx.showModal = (options) => { shown = options; if (options.success) options.success({ confirm: true }) }
+    await guidancePage.submit()
+    global.wx.showModal = originalShowModal
+    return { shown, urls: navigationCalls.slice(before).map((item) => item.url || '') }
+  }
+  const missingFields = await submitWith(new api.ApiError('请补齐提交所需的基本资料', { code: 'MASTERS_REQUIRED_FIELDS_MISSING', statusCode: 409, details: { fields: ['institution', 'major'] } }))
+  assert(missingFields.shown.content.includes('本科院校') && missingFields.shown.content.includes('本科专业'), 'the dialog must name the fields that block submission')
+  assert(missingFields.urls.some((url) => url.startsWith('/pages/masters-materials/index?id=c_fix')))
+  const unconfirmed = await submitWith(new api.ApiError('请先核对并确认资料', { code: 'MASTERS_CONFIRMATION_REQUIRED', statusCode: 409 }))
+  assert(unconfirmed.urls.some((url) => url.startsWith('/pages/masters-confirm/index?id=c_fix')), 'an unconfirmed consultation must lead to the confirmation page')
+  const staleConfirmation = await submitWith(new api.ApiError('确认快照已过期，请重新确认', { code: 'MASTERS_CONFIRMATION_STALE', statusCode: 409 }))
+  assert(staleConfirmation.urls.some((url) => url.startsWith('/pages/masters-confirm/index?id=c_fix')))
+  const adultMissing = await submitWith(new api.ApiError('成人申请人需要明确确认已满18岁；未成年人请走人工路径', { code: 'MASTERS_ADULT_CONFIRMATION_REQUIRED', statusCode: 409 }))
+  assert(adultMissing.urls.some((url) => url.startsWith('/pages/masters-materials/index?id=c_fix')))
+  api.request = requestBeforeSubmitErrors
+
+  // A rejected upload only set a page-bottom banner without the file name; on a phone the tester could
+  // not tell which of the files had been refused.
+  const uploadBeforeRejection = masters.uploadDocument
+  masters.uploadDocument = async () => { throw new api.ApiError('文件真实类型与扩展名不一致', { code: 'FILE_CONTENT_MISMATCH', statusCode: 415 }) }
+  const rejectionPage = loadPage('../pages/masters-materials/index.js')
+  rejectionPage.onLoad({ path: 'GUIDED' })
+  rejectionPage.setData({ loggedIn: true, consultationId: 'c1', version: 1, serviceConsent: true, documents: [], profile: model.emptyProfile() })
+  const showModalBeforeRejection = global.wx.showModal
+  let rejectionDialog
+  global.wx.showModal = (options) => { rejectionDialog = options }
+  await rejectionPage.uploadFiles('DEGREE', [{ tempFilePath: '/tmp/degree.jpg', name: 'synthetic-degree-cert.jpg', size: 128, type: 'file' }])
+  global.wx.showModal = showModalBeforeRejection
+  masters.uploadDocument = uploadBeforeRejection
+  assert(rejectionPage.data.error.includes('synthetic-degree-cert.jpg'), 'the page must say which file was rejected')
+  assert(rejectionDialog && rejectionDialog.content.includes('synthetic-degree-cert.jpg') && rejectionDialog.content.includes('文件真实类型与扩展名不一致'), 'a rejected upload must be reported in a dialog that names the file')
 
   masters.clearDraftId('c1')
   config.resetEnabledForTests()

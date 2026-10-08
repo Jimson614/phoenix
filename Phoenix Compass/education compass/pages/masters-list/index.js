@@ -54,7 +54,8 @@ Page({
     const id = String(currentTarget && currentTarget.dataset && currentTarget.dataset.id || '')
     if (id) wx.navigateTo({ url: `/pages/masters-status/index?id=${encodeURIComponent(id)}` })
   },
-  newConsultation() { wx.navigateTo({ url: '/pages/masters-materials/index?path=GUIDED&channel=organic' }) },
+  // new=1 tells the materials page not to reopen the draft this phone remembers.
+  newConsultation() { wx.navigateTo({ url: '/pages/masters-materials/index?path=GUIDED&channel=organic&new=1' }) },
   back() { wx.navigateBack({ delta: 1 }) },
   retry() { return this.load() }
 })

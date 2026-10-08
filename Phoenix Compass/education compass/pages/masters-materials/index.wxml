@@ -25,6 +25,7 @@
       <view class="panel masters-consent">
         <view class="masters-consent__head"><text class="h3">免费咨询资料处理说明</text><text class="status status--warm">上传前必需</text></view>
         <text class="muted">{{uploadConfigReady ? serviceConsentText : '资料用途与保留规则正在读取，请读取后再同意。'}}</text>
+        <view wx:if="{{!consultationId}}" class="field"><text class="field__label">入学年份</text><text class="muted">同意后按所选年份建立咨询；同一入学年份只保存一份咨询。</text><picker class="picker" mode="selector" range="{{targetYearOptions}}" range-key="label" value="{{targetYearIndex}}" bindchange="targetYearChange"><view>{{targetYearOptions[targetYearIndex].label}}</view></picker></view>
         <checkbox-group bindchange="onServiceConsentChange">
           <label class="check-line"><checkbox value="service" disabled="{{!uploadConfigReady}}" checked="{{serviceConsent}}" color="#b98426" /><text>我同意按说明处理本次咨询资料（{{serviceConsent ? '已同意' : '未同意'}}）</text></label>
         </checkbox-group>
@@ -97,7 +98,7 @@
         <view class="section">
           <view class="section-head"><view><text class="eyebrow">{{path === 'GUIDED' ? 'STEP 3 · APPLICATION TARGET' : 'REQUIRED DETAILS'}}</text><text class="h2">申请意向</text></view><text class="muted">{{path === 'GUIDED' ? '可留给顾问建议' : '短表单'}}</text></view>
           <view class="panel">
-            <view class="field"><text class="field__label">入学年份</text><picker class="picker" mode="selector" range="{{targetYearOptions}}" range-key="label" value="{{targetYearIndex}}" bindchange="targetYearChange"><view>{{targetYearOptions[targetYearIndex].label}}</view></picker></view>
+            <view wx:if="{{consultationId}}" class="field"><text class="field__label">入学年份</text><picker class="picker" mode="selector" range="{{targetYearOptions}}" range-key="label" value="{{targetYearIndex}}" bindchange="targetYearChange"><view>{{targetYearOptions[targetYearIndex].label}}</view></picker></view>
             <view class="field"><text class="field__label">意向专业（可多个）</text><input class="input" data-field="targetMajors" value="{{targetMajorsText}}" bindinput="onFieldInput" placeholder="用逗号分隔；尚未确定也可以留空" /></view>
             <view class="field"><text class="field__label">意向院校（可多个）</text><input class="input" data-field="targetInstitutions" value="{{targetInstitutionsText}}" bindinput="onFieldInput" placeholder="用逗号分隔；希望顾问建议也可以" /></view>
             <view class="field"><text class="field__label">目标偏好／补充说明</text><textarea class="textarea" data-field="targetPreference" value="{{profile.targetPreference}}" bindinput="onFieldInput" placeholder="例如地区、方向、时间安排或尚未确定的部分" /></view>

@@ -50,6 +50,23 @@ function documentPresentation(document) {
 function requestTypes(value) {
   return Array.isArray(value) ? value.map(missingDocumentLabel).filter(Boolean) : []
 }
+// What 提交未完成 offers for each reason the server refuses a submission, so the student is not left
+// tapping submit again without knowing what to do.
+function submitBlocker(error) {
+  const code = String(error && error.code || '')
+  if (code === 'MASTERS_CONFIRMATION_REQUIRED' || code === 'MASTERS_CONFIRMATION_STALE') {
+    return { content: `${errorText(error)}。点「去核对」确认资料后，再回到这里提交。`, confirmText: '去核对', action: 'confirm' }
+  }
+  if (code === 'MASTERS_REQUIRED_FIELDS_MISSING') {
+    const fields = Array.isArray(error.details && error.details.fields) ? error.details.fields.map(missingFieldLabel) : []
+    const missing = fields.length ? `还缺这些资料：${fields.join('、')}。` : `${errorText(error)}。`
+    return { content: `${missing}点「去补充」填写后，需要重新核对确认再提交。`, confirmText: '去补充', action: 'materials' }
+  }
+  if (code === 'MASTERS_ADULT_CONFIRMATION_REQUIRED') {
+    return { content: `${errorText(error)}。点「去补充」勾选成年确认后，需要重新核对确认再提交。`, confirmText: '去补充', action: 'materials' }
+  }
+  return null
+}
 
 Page({
   data: {
@@ -125,17 +142,31 @@ Page({
     this.setData({ submitting: true, error: '' })
     try {
       const consultation = await masters.submitConsultation(this.data.consultationId, this.data.version, masters.createIdempotencyKey('submit'))
+      // A submitted consultation is no longer the draft to resume; the next 开始咨询 starts a new one.
+      masters.clearDraftId(this.data.consultationId)
       const submittedStatus = String(consultation.status || '').toUpperCase()
       const submittedFieldCodes = Array.isArray(consultation.missingFields) ? consultation.missingFields : this.data.missingFieldCodes
       const submittedDocumentCodes = Array.isArray(consultation.missingDocuments) ? consultation.missingDocuments : this.data.missingDocumentCodes
       this.setData({ consultation, status: submittedStatus, statusLabel: STATUS_COPY[submittedStatus] || '处理中', version: Number(consultation.version || consultation.profileVersion || this.data.version), missingFields: submittedFieldCodes.map(missingFieldLabel), missingDocuments: submittedDocumentCodes.map(missingDocumentLabel), missingFieldCodes: submittedFieldCodes, missingDocumentCodes: submittedDocumentCodes })
       wx.showToast({ title: '咨询已提交到服务端', icon: 'success' })
       await this.load()
-    } catch (error) { this.setData({ error: errorText(error) }); wx.showModal({ title: '提交未完成', content: errorText(error), showCancel: false }) }
+    } catch (error) {
+      const blocker = submitBlocker(error)
+      this.setData({ error: blocker ? blocker.content : errorText(error) })
+      if (!blocker) wx.showModal({ title: '提交未完成', content: errorText(error), showCancel: false })
+      else {
+        wx.showModal({ title: '提交未完成', content: blocker.content, confirmText: blocker.confirmText, cancelText: '稍后', success: ({ confirm }) => {
+          if (!confirm) return
+          if (blocker.action === 'confirm') this.openConfirm()
+          else this.openMaterials()
+        } })
+      }
+    }
     finally { this.setData({ submitting: false }) }
   },
 
   openMaterials() { wx.navigateTo({ url: `/pages/masters-materials/index?id=${encodeURIComponent(this.data.consultationId)}&path=GUIDED` }) },
+  openConfirm() { wx.navigateTo({ url: `/pages/masters-confirm/index?id=${encodeURIComponent(this.data.consultationId)}` }) },
   openReport() { if (this.data.reportAvailable) wx.navigateTo({ url: `/pages/masters-report/index?id=${encodeURIComponent(this.data.consultationId)}` }) },
 
   withdraw() {
@@ -145,6 +176,7 @@ Page({
       this.setData({ withdrawing: true, error: '' })
       try {
         await masters.withdrawConsultation(this.data.consultationId, this.data.version)
+        masters.clearDraftId(this.data.consultationId)
         // The server answers { withdrawn: true } without a consultation body, so do not read a status
         // from it (it would default to DRAFT); show the withdrawal, then re-read the server state.
         this.setData({ status: 'WITHDRAWN', statusLabel: STATUS_COPY.WITHDRAWN })

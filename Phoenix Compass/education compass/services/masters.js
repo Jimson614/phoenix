@@ -470,12 +470,13 @@ function chooseMessageFiles(count = 1) {
 function chooseImages(count = 1) {
   return privacyAuthorize().then(() => new Promise((resolve, reject) => {
     if (wx.chooseMedia) {
-      wx.chooseMedia({ count, mediaType: ['image'], sourceType: ['album', 'camera'],
+      // Without sizeType the picker may hand over a re-encoded JPEG instead of the student's file.
+      wx.chooseMedia({ count, mediaType: ['image'], sourceType: ['album', 'camera'], sizeType: ['original'],
         success: (result) => resolve((result && result.tempFiles) || []), fail: reject })
       return
     }
     if (wx.chooseImage) {
-      wx.chooseImage({ count, sourceType: ['album', 'camera'], success: (result) => resolve((result && result.tempFiles) || []), fail: reject })
+      wx.chooseImage({ count, sizeType: ['original'], sourceType: ['album', 'camera'], success: (result) => resolve((result && result.tempFiles) || []), fail: reject })
       return
     }
     reject(new api.ApiError('当前微信版本不支持图片选择', { code: 'IMAGE_PICKER_UNAVAILABLE' }))
