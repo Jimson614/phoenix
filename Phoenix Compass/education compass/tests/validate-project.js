@@ -10,9 +10,11 @@ for (const required of ['server', 'tests', 'docs', 'scripts', 'dist', 'node_modu
   assert(ignoredUploadPaths.includes(required), `source project upload boundary must exclude ${required}`)
 }
 
+// Main-package pages plus subpackage pages (masters), each as root/page.
+const allPages = appConfig.pages.concat(...(appConfig.subpackages || []).map((pkg) => pkg.pages.map((page) => `${pkg.root}/${page}`)))
 assert(appConfig.pages.includes('pages/agent-chat/index'), 'paid-report Agent page must be registered')
 assert(appConfig.pages.includes('pages/assessment-analysis/index'), 'assessment/report analysis result page must be registered')
-for (const page of appConfig.pages) {
+for (const page of allPages) {
   for (const extension of ['js', 'json', 'wxml', 'wxss']) {
     const file = path.join(root, `${page}.${extension}`)
     assert(fs.existsSync(file), `missing ${page}.${extension}`)
@@ -27,7 +29,7 @@ function walk(directory) {
 }
 
 function clientJavaScriptFiles() {
-  const roots = ['app.js', 'components', 'config', 'models', 'pages', 'services', 'utils']
+  const roots = ['app.js', 'components', 'config', 'masters', 'models', 'pages', 'services', 'utils']
   return roots.flatMap((name) => {
     const target = path.join(root, name)
     if (!fs.existsSync(target)) return []
@@ -51,7 +53,7 @@ for (const file of clientJavaScriptFiles()) {
 
 const previousPage = global.Page
 try {
-  for (const page of appConfig.pages) {
+  for (const page of allPages) {
     const pageModule = path.join(root, `${page}.js`)
     let definition = null
     global.Page = (value) => { definition = value }
@@ -84,9 +86,9 @@ const questionnaireSchema = require('../models/questionnaire-schema')
 const questionnaireContract = JSON.parse(fs.readFileSync(path.join(root, 'models', 'questionnaire-contract.json'), 'utf8'))
 assert.deepStrictEqual(questionnaireSchema.SCHEMA_CONTRACT, questionnaireContract, 'client questionnaire schema must match the server contract JSON')
 
-console.log(`✓ project structure: ${appConfig.pages.length} pages, JSON and JS syntax valid`)
+console.log(`✓ project structure: ${allPages.length} pages, JSON and JS syntax valid`)
 console.log('✓ Mini Program modules: relative requires resolve and no JSON is loaded as CommonJS')
-console.log(`✓ Mini Program page registration: all ${appConfig.pages.length} Page modules load successfully`)
+console.log(`✓ Mini Program page registration: all ${allPages.length} Page modules load successfully`)
 console.log('✓ questionnaire schema: client fields match the cross-layer contract')
 console.log('✓ required data models and future placeholders present')
 

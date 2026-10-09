@@ -5,7 +5,8 @@ const SOURCE_ROOT = path.resolve(__dirname, '..')
 const DIST_ROOT = path.join(SOURCE_ROOT, 'dist')
 const RELEASE_VERSION = '0.5.0'
 const ROOT_FILES = ['app.js', 'app.json', 'app.wxss', 'project.config.json', 'sitemap.json']
-const ROOT_DIRECTORIES = ['assets', 'components', 'config', 'models', 'pages', 'services', 'utils']
+// masters is the free-consultation subpackage declared in app.json subpackages.
+const ROOT_DIRECTORIES = ['assets', 'components', 'config', 'masters', 'models', 'pages', 'services', 'utils']
 const EXCLUDED = new Set([
   'models/schema.js',
   'pages/admin-families',
@@ -19,6 +20,10 @@ const EXCLUDED = new Set([
 
 function invariant(condition, message) {
   if (!condition) throw new Error(message)
+}
+
+function pageCount(appConfig) {
+  return appConfig.pages.length + (appConfig.subpackages || []).reduce((total, pkg) => total + pkg.pages.length, 0)
 }
 
 function relativeName(value) {
@@ -70,7 +75,7 @@ function buildRelease(options = {}) {
 
   const appConfigPath = path.join(outputDirectory, 'app.json')
   const appConfig = JSON.parse(fs.readFileSync(appConfigPath, 'utf8'))
-  const sourcePageCount = appConfig.pages.length
+  const sourcePageCount = pageCount(appConfig)
   appConfig.pages = appConfig.pages.filter((page) => !page.startsWith('pages/admin-'))
   invariant(appConfig.pages.includes('pages/agent-chat/index'), 'release must include the paid-report Agent page')
   invariant(appConfig.pages.includes('pages/assessment-analysis/index'), 'release must include the dual analysis result page')
@@ -106,7 +111,7 @@ function buildRelease(options = {}) {
     appid,
     apiOrigin: new URL(apiBaseUrl).origin,
     sourcePageCount,
-    releasePageCount: appConfig.pages.length,
+    releasePageCount: pageCount(appConfig),
     includesPaidReportAgent: true,
     includesDualAgentAnalysis: true,
     includesEducationCompassV05: true,

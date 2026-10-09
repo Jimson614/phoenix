@@ -33,7 +33,7 @@ Page({
   editFamily() { wx.navigateTo({ url: '/pages/family-edit/index' }) },
   addStudent() { wx.navigateTo({ url: '/pages/student-edit/index' }) },
   advisor() { if (this.data.family) wx.navigateTo({ url: '/pages/advisor-request/index' }); else this.editFamily() },
-  masters() { wx.navigateTo({ url: '/pages/masters-intake/index?channel=organic' }) },
+  masters() { wx.navigateTo({ url: '/masters/intake/index?channel=organic' }) },
   compass() {
     if (!this.data.family) return this.editFamily()
     const student = this.data.primaryStudent

@@ -165,9 +165,9 @@ Page({
     finally { this.setData({ submitting: false }) }
   },
 
-  openMaterials() { wx.navigateTo({ url: `/pages/masters-materials/index?id=${encodeURIComponent(this.data.consultationId)}&path=GUIDED` }) },
-  openConfirm() { wx.navigateTo({ url: `/pages/masters-confirm/index?id=${encodeURIComponent(this.data.consultationId)}` }) },
-  openReport() { if (this.data.reportAvailable) wx.navigateTo({ url: `/pages/masters-report/index?id=${encodeURIComponent(this.data.consultationId)}` }) },
+  openMaterials() { wx.navigateTo({ url: `/masters/materials/index?id=${encodeURIComponent(this.data.consultationId)}&path=GUIDED` }) },
+  openConfirm() { wx.navigateTo({ url: `/masters/confirm/index?id=${encodeURIComponent(this.data.consultationId)}` }) },
+  openReport() { if (this.data.reportAvailable) wx.navigateTo({ url: `/masters/report/index?id=${encodeURIComponent(this.data.consultationId)}` }) },
 
   withdraw() {
     if (this.data.withdrawing) return

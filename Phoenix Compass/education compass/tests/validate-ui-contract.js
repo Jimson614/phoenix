@@ -174,19 +174,22 @@ const protectedBaseline = readJson(protectedBaselinePath)
 const app = readJson(path.join(root, 'app.json'))
 
 const legacyPages = routeBaseline.pages
-const mastersPages = [
-  'pages/masters-intake/index',
-  'pages/masters-materials/index',
-  'pages/masters-confirm/index',
-  'pages/masters-status/index',
-  'pages/masters-list/index',
-  'pages/masters-report/index'
-]
-const expectedPages = [legacyPages[0], legacyPages[1], ...mastersPages, ...legacyPages.slice(2)]
+// The six masters pages form their own subpackage so the free consultation does not count against
+// the main-package size limit. It is uploaded, reviewed and released in the same version.
+const mastersSubpackage = {
+  root: 'masters',
+  name: 'masters',
+  pages: ['intake/index', 'materials/index', 'confirm/index', 'status/index', 'list/index', 'report/index']
+}
+const mastersPages = mastersSubpackage.pages.map((page) => `${mastersSubpackage.root}/${page}`)
 assert.strictEqual(legacyPages.length, 16, 'approved pre-UI baseline must continue to cover all 16 legacy pages')
 assert.strictEqual(mastersPages.length, 6, 'masters client route contract must cover all six registered pages')
-assert.strictEqual(app.pages.length, expectedPages.length, 'source Mini Program must keep all legacy pages plus six masters pages')
-assert.deepStrictEqual(app.pages, expectedPages, 'app.json page order changed from the approved legacy baseline or masters route contract')
+assert.deepStrictEqual(app.pages, legacyPages, 'app.json main-package pages changed from the approved legacy baseline')
+assert.deepStrictEqual(app.subpackages, [mastersSubpackage], 'the six masters pages must form the masters subpackage')
+assert.deepStrictEqual(app.preloadRule, {
+  'pages/home/index': { network: 'all', packages: ['masters'] },
+  'pages/mine/index': { network: 'all', packages: ['masters'] }
+}, 'the two masters entry pages must preload the masters subpackage')
 assert.strictEqual(app.lazyCodeLoading, routeBaseline.lazyCodeLoading, 'lazyCodeLoading changed from the approved baseline')
 assert(app.tabBar && Array.isArray(app.tabBar.list), 'tabBar list is missing')
 assert.deepStrictEqual(
@@ -196,7 +199,7 @@ assert.deepStrictEqual(
 )
 assert.strictEqual(app.tabBar.list.length, 3, 'the Mini Program must keep exactly three primary family tabs')
 
-for (const page of app.pages) {
+for (const page of app.pages.concat(mastersPages)) {
   for (const extension of ['wxml', 'wxss']) {
     assert(fs.existsSync(path.join(root, `${page}.${extension}`)), `registered page is missing ${page}.${extension}`)
   }
@@ -205,10 +208,10 @@ for (const page of app.pages) {
 assert.strictEqual(interactionBaseline.pages.length, legacyPages.length, 'required-handler baseline must continue to cover all 16 legacy pages')
 for (const page of interactionBaseline.pages) assertInteractionContract(page)
 
-const mastersIntakeWxml = readSource('pages/masters-intake/index.wxml')
-const mastersIntakeJs = readSource('pages/masters-intake/index.js')
-const mastersMaterialsWxml = readSource('pages/masters-materials/index.wxml')
-const mastersMaterialsJs = readSource('pages/masters-materials/index.js')
+const mastersIntakeWxml = readSource('masters/intake/index.wxml')
+const mastersIntakeJs = readSource('masters/intake/index.js')
+const mastersMaterialsWxml = readSource('masters/materials/index.wxml')
+const mastersMaterialsJs = readSource('masters/materials/index.js')
 for (const type of ['RESUME', 'TRANSCRIPT', 'LANGUAGE', 'ENROLLMENT', 'GRADUATION', 'DEGREE', 'SUPPLEMENTAL']) {
   assert(new RegExp(`data-type=["'](?:\\{\\{item\\.type\\}\\}|${type})["']`).test(mastersMaterialsWxml) ||
     mastersMaterialsWxml.includes(`data-type="${type}"`),
@@ -466,7 +469,7 @@ const forbiddenPresentationLiterals = [
   },
   { label: 'ability radar score', pattern: /(?:能力|维度)?雷达(?:图)?\s*(?:分数|评分|得分)/ }
 ]
-const releasePresentationFiles = app.pages
+const releasePresentationFiles = app.pages.concat(mastersPages)
   .filter((page) => !page.startsWith('pages/admin-'))
   .flatMap((page) => [`${page}.wxml`, `${page}.js`])
 for (const relative of releasePresentationFiles) {

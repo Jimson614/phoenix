@@ -795,7 +795,7 @@ Page({
       wx.showModal({ title: '还有材料正在上传', content: '请等待上传完成，或撤下待上传项后再继续。', showCancel: false }); return
     }
     if (!(await this.saveProfile())) return
-    wx.navigateTo({ url: `/pages/masters-confirm/index?id=${encodeURIComponent(this.data.consultationId)}` })
+    wx.navigateTo({ url: `/masters/confirm/index?id=${encodeURIComponent(this.data.consultationId)}` })
   },
 
   saveLater() { return this.saveProfile() },
@@ -805,7 +805,7 @@ Page({
   },
 
   onShareAppMessage() {
-    return { title: '香港硕士免费咨询', path: `/pages/masters-intake/index?channel=${encodeURIComponent(config.channel(this.data.channel))}` }
+    return { title: '香港硕士免费咨询', path: `/masters/intake/index?channel=${encodeURIComponent(config.channel(this.data.channel))}` }
   },
 
   back() {

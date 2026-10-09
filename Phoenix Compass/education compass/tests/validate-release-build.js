@@ -4,7 +4,8 @@ const path = require('path')
 const { buildRelease, DIST_ROOT, RELEASE_VERSION } = require('../scripts/build-release')
 
 const output = path.join(DIST_ROOT, '.release-boundary-test')
-const RELEASE_TOTAL_BUDGET_BYTES = Math.floor(1.75 * 1024 * 1024)
+// WeChat limits the main package and every subpackage to 2 MB each; keep each at 1.75 MiB.
+const PACKAGE_BUDGET_BYTES = Math.floor(1.75 * 1024 * 1024)
 const BRAND_AND_UI_BUDGET_BYTES = 1250000
 const UI_TOTAL_BUDGET_BYTES = 1536 * 1024
 const UI_FILE_BUDGET_BYTES = 750 * 1024
@@ -28,8 +29,12 @@ function bytes(files) {
   return files.reduce((total, file) => total + fs.statSync(file).size, 0)
 }
 
-function assertClientModulesResolve(directory) {
-  const roots = ['app.js', 'components', 'config', 'models', 'pages', 'services', 'utils']
+function allPages(appConfig) {
+  return (appConfig.pages || []).concat(...(appConfig.subpackages || []).map((pkg) => pkg.pages.map((page) => `${pkg.root}/${page}`)))
+}
+
+function assertClientModulesResolve(directory, subpackageRoots) {
+  const roots = ['app.js', 'components', 'config', 'models', 'pages', 'services', 'utils', ...subpackageRoots]
   const files = roots.flatMap((name) => {
     const target = path.join(directory, name)
     if (!fs.existsSync(target)) return []
@@ -57,11 +62,25 @@ try {
     outputDirectory: output
   })
   const files = walk(output)
-  assertClientModulesResolve(output)
+  const app = JSON.parse(fs.readFileSync(path.join(output, 'app.json'), 'utf8'))
+  const subpackageRoots = (app.subpackages || []).map((pkg) => pkg.root)
+  assert(subpackageRoots.includes('masters'), 'release must keep the masters pages in the masters subpackage')
+  assertClientModulesResolve(output, subpackageRoots)
   const relativeFiles = files.map((file) => slash(path.relative(output, file)))
+  const inSubpackage = (relative, root) => relative.startsWith(`${root}/`)
+  const mainFiles = files.filter((file) => !subpackageRoots.some((root) => inSubpackage(slash(path.relative(output, file)), root)))
   const releaseBytes = bytes(files)
-  assert(releaseBytes <= RELEASE_TOTAL_BUDGET_BYTES,
-    `release package exceeds 1.75 MiB (${releaseBytes} > ${RELEASE_TOTAL_BUDGET_BYTES} bytes)`)
+  const mainBytes = bytes(mainFiles)
+  assert(mainBytes <= PACKAGE_BUDGET_BYTES,
+    `release main package exceeds 1.75 MiB (${mainBytes} > ${PACKAGE_BUDGET_BYTES} bytes)`)
+  const subpackageBytes = subpackageRoots.map((root) => {
+    const packageFiles = files.filter((file) => inSubpackage(slash(path.relative(output, file)), root))
+    assert(packageFiles.length > 0, `release subpackage ${root} is empty`)
+    const size = bytes(packageFiles)
+    assert(size <= PACKAGE_BUDGET_BYTES, `release subpackage ${root} exceeds 1.75 MiB (${size} > ${PACKAGE_BUDGET_BYTES} bytes)`)
+    return `${root} ${size}/${PACKAGE_BUDGET_BYTES}`
+  })
+  assert(!relativeFiles.some((file) => file.startsWith('pages/masters-')), 'masters pages must not remain in the main package')
 
   const brandAndUiFiles = files.filter((file) => {
     const relative = slash(path.relative(output, file))
@@ -143,8 +162,10 @@ try {
     ['hard-coded ability grade', /能力(?:等级|评级|分数|评分|得分)\s*[:：]?\s*(?:A\+?|B\+?|C\+?|高|中|低|优秀|良好|待提升|\d+(?:\.\d+)?\s*分)/i],
     ['ability radar score', /(?:能力|维度)?雷达(?:图)?\s*(?:分数|评分|得分)/]
   ]
-  const releaseUiSourceFiles = presentationSourceFiles.filter((file) =>
-    slash(path.relative(output, file)).startsWith('pages/'))
+  const releaseUiSourceFiles = presentationSourceFiles.filter((file) => {
+    const relative = slash(path.relative(output, file))
+    return relative.startsWith('pages/') || subpackageRoots.some((root) => inSubpackage(relative, root))
+  })
   for (const file of releaseUiSourceFiles) {
     const relative = slash(path.relative(output, file))
     const source = fs.readFileSync(file, 'utf8')
@@ -172,10 +193,14 @@ try {
   const project = JSON.parse(fs.readFileSync(path.join(output, 'project.config.json'), 'utf8'))
   assert.strictEqual(project.appid, 'wx1234567890abcdef')
   assert.strictEqual(project.setting.urlCheck, true)
-  const app = JSON.parse(fs.readFileSync(path.join(output, 'app.json'), 'utf8'))
   const sourceApp = JSON.parse(fs.readFileSync(path.join(path.resolve(__dirname, '..'), 'app.json'), 'utf8'))
   const expectedPages = sourceApp.pages.filter((page) => !page.startsWith('pages/admin-'))
   assert.deepStrictEqual(app.pages, expectedPages, 'release pages must be derived from app.json minus explicit demo-admin exclusions')
+  assert.deepStrictEqual(app.subpackages, sourceApp.subpackages, 'release subpackages must match app.json')
+  assert.deepStrictEqual(app.preloadRule, sourceApp.preloadRule, 'release preload rules must match app.json')
+  for (const page of allPages(app)) {
+    for (const extension of ['js', 'json', 'wxml', 'wxss']) assert(relativeFiles.includes(`${page}.${extension}`), `release is missing ${page}.${extension}`)
+  }
   assert(!app.pages.some((page) => page.startsWith('pages/admin-')))
   assert(app.pages.includes('pages/agent-chat/index'), 'release must contain the Agent page')
   assert(app.pages.includes('pages/assessment-analysis/index'), 'release must contain the dual analysis page')
@@ -191,15 +216,15 @@ try {
   assert(!agentReleaseSource.includes('responses.create') && !agentReleaseSource.includes('OPENAI_API_KEY'), 'release must not contain OpenAI SDK calls or keys')
   const provenance = JSON.parse(fs.readFileSync(path.join(output, 'RELEASE_BUILD.json'), 'utf8'))
   assert.strictEqual(provenance.productVersion, RELEASE_VERSION)
-  assert.strictEqual(provenance.sourcePageCount, sourceApp.pages.length)
-  assert.strictEqual(provenance.releasePageCount, expectedPages.length)
+  assert.strictEqual(provenance.sourcePageCount, allPages(sourceApp).length)
+  assert.strictEqual(provenance.releasePageCount, allPages(app).length)
   assert.strictEqual(provenance.includesPaidReportAgent, true)
   assert.strictEqual(provenance.includesDualAgentAnalysis, true)
   assert.strictEqual(provenance.includesEducationCompassV05, true)
   assert.strictEqual(provenance.artifactClass, 'STAGING_OR_RELEASE_BUILD')
   assert.strictEqual(provenance.uploadAuthorized, false)
   assert.strictEqual(provenance.externalConnectivityVerified, false)
-  console.log(`✓ release size budget: ${releaseBytes}/${RELEASE_TOTAL_BUDGET_BYTES} bytes; brand+UI ${brandAndUiBytes}/${BRAND_AND_UI_BUDGET_BYTES} bytes`)
+  console.log(`✓ release size budget: main package ${mainBytes}/${PACKAGE_BUDGET_BYTES} bytes; subpackage ${subpackageBytes.join(', ')} bytes; total ${releaseBytes} bytes; brand+UI ${brandAndUiBytes}/${BRAND_AND_UI_BUDGET_BYTES} bytes`)
   console.log('✓ release Mini Program modules: relative requires resolve and no JSON is loaded as CommonJS')
   console.log('✓ remote release boundary: no demo generator, local DB, server source, tourist AppID or admin demo pages')
 } finally {

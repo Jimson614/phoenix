@@ -209,7 +209,7 @@ async function run() {
   assert(replacement.document.id, 'replacing one document at the limit must still use actual upload')
   assert.strictEqual(uploadCalls[uploadCalls.length - 1].formData.replaceDocumentId, 'full_0')
 
-  const freshPage = loadPage('../pages/masters-materials/index.js')
+  const freshPage = loadPage('../masters/materials/index.js')
   masters.clearDraftId()
   freshPage.onLoad({ path: 'RESUME' })
   freshPage.setData({ loggedIn: true })
@@ -286,7 +286,7 @@ async function run() {
   masters.chooseMessageFiles = chooseForCapabilities
   api.request = requestForCapabilities
 
-  const materialsPage = loadPage('../pages/masters-materials/index.js')
+  const materialsPage = loadPage('../masters/materials/index.js')
   materialsPage.onLoad({ path: 'GUIDED', channel: 'partner' })
   materialsPage.setData({ loggedIn: true, consultationId: 'c1', version: 1, serviceConsent: true, documents: [], profile: model.emptyProfile() })
   materialsPage.data.profile.adultConfirmed = true
@@ -350,7 +350,7 @@ async function run() {
   assert.strictEqual(materialsPage.data.profile.name, '')
   assert.strictEqual(materialsPage.data.documents.length, 0)
   assert.strictEqual(materialsPage.data.extractionFields.length, 0)
-  const confirmPage = loadPage('../pages/masters-confirm/index.js')
+  const confirmPage = loadPage('../masters/confirm/index.js')
   confirmPage.onLoad({ id: 'c1' })
   confirmPage.loadedUserId = 'user_1'
   confirmPage.loaded = true
@@ -363,14 +363,14 @@ async function run() {
   masters.chooseMessageFiles = originalChoose
   masters.uploadDocument = originalUpload
 
-  const intakePage = loadPage('../pages/masters-intake/index.js')
+  const intakePage = loadPage('../masters/intake/index.js')
   intakePage.onLoad({ channel: 'not-allowed' })
   const share = intakePage.onShareAppMessage()
   assert(/channel=organic$/.test(share.path), 'share payload must use a whitelist channel only')
   assert(!/reportId|studentId|price|39\.9/i.test(JSON.stringify(share)))
-  const mastersSources = ['../pages/masters-intake/index.wxml', '../pages/masters-materials/index.wxml', '../pages/masters-confirm/index.wxml', '../pages/masters-status/index.wxml', '../pages/masters-report/index.wxml'].map((file) => require('fs').readFileSync(require('path').resolve(__dirname, file), 'utf8')).join('\n')
+  const mastersSources = ['../masters/intake/index.wxml', '../masters/materials/index.wxml', '../masters/confirm/index.wxml', '../masters/status/index.wxml', '../masters/report/index.wxml'].map((file) => require('fs').readFileSync(require('path').resolve(__dirname, file), 'utf8')).join('\n')
   assert(!/[¥￥]|39\.9|微信支付|套餐/.test(mastersSources), 'masters entry must stay free and separate from paid Compass')
-  const materialsWxml = require('fs').readFileSync(require('path').resolve(__dirname, '../pages/masters-materials/index.wxml'), 'utf8')
+  const materialsWxml = require('fs').readFileSync(require('path').resolve(__dirname, '../masters/materials/index.wxml'), 'utf8')
   assert(!materialsWxml.includes('UNDECIDED'), 'student-facing materials page must not expose the internal undecided code')
   assert(materialsWxml.includes('targetYearOptions') && materialsWxml.includes('targetYearChange'))
   assert(materialsWxml.includes('path === \'GUIDED\' && guidedStep === 0') && materialsWxml.includes('path === \'GUIDED\' && guidedStep === 3'))
@@ -394,7 +394,7 @@ async function run() {
     if (path === '/v1/masters/consultations/c1') return { consultation: { id: 'c1', profileVersion: 3, status: withdrawnOnServer ? 'WITHDRAWN' : 'SUBMITTED', profile: model.emptyProfile(), documents: [] } }
     return requestBeforeWithdraw(path, options)
   }
-  const statusPage = loadPage('../pages/masters-status/index.js')
+  const statusPage = loadPage('../masters/status/index.js')
   statusPage.onLoad({ id: 'c1' })
   await statusPage.load()
   assert.strictEqual(statusPage.data.status, 'SUBMITTED')
@@ -426,38 +426,38 @@ async function run() {
     return requestBeforeDraftPointer(path, options)
   }
   masters.rememberDraftId('c_old')
-  const listPage = loadPage('../pages/masters-list/index.js')
+  const listPage = loadPage('../masters/list/index.js')
   listPage.newConsultation()
   const newConsultationUrl = navigationCalls[navigationCalls.length - 1].url
   const newConsultationOptions = Object.fromEntries(newConsultationUrl.split('?')[1].split('&').map((pair) => pair.split('=').map(decodeURIComponent)))
-  const newConsultationPage = loadPage('../pages/masters-materials/index.js')
+  const newConsultationPage = loadPage('../masters/materials/index.js')
   newConsultationPage.onLoad(newConsultationOptions)
   newConsultationPage.setData({ loggedIn: true })
   await newConsultationPage.loadConsultation()
   assert.strictEqual(newConsultationPage.data.consultationId, '', '建立新的免费咨询 must open an empty form, not the remembered draft')
   assert.deepStrictEqual(fetchedConsultationIds, [])
   assert.strictEqual(masters.draftId(), 'c_old', 'an unfinished draft stays resumable until a new one exists')
-  const resumeDraftPage = loadPage('../pages/masters-materials/index.js')
+  const resumeDraftPage = loadPage('../masters/materials/index.js')
   resumeDraftPage.onLoad({ path: 'RESUME' })
   resumeDraftPage.setData({ loggedIn: true })
   await resumeDraftPage.loadConsultation()
   assert.strictEqual(resumeDraftPage.data.consultationId, 'c_old', 'the intake entry still resumes an unfinished draft')
 
   masters.rememberDraftId('c_sent')
-  const submitDraftPage = loadPage('../pages/masters-status/index.js')
+  const submitDraftPage = loadPage('../masters/status/index.js')
   submitDraftPage.onLoad({ id: 'c_sent' })
   await submitDraftPage.load()
   await submitDraftPage.submit()
   assert.strictEqual(submitDraftPage.data.status, 'SUBMITTED')
   assert.strictEqual(masters.draftId(), '', 'a submitted consultation is no longer the draft to resume')
   masters.rememberDraftId('c_sent')
-  const staleDraftPage = loadPage('../pages/masters-materials/index.js')
+  const staleDraftPage = loadPage('../masters/materials/index.js')
   staleDraftPage.onLoad({ path: 'GUIDED' })
   staleDraftPage.setData({ loggedIn: true })
   await staleDraftPage.loadConsultation()
   assert.strictEqual(staleDraftPage.data.consultationId, '', 'a remembered consultation that was already submitted must not reopen as the draft')
   assert.strictEqual(masters.draftId(), '')
-  const editSubmittedPage = loadPage('../pages/masters-materials/index.js')
+  const editSubmittedPage = loadPage('../masters/materials/index.js')
   editSubmittedPage.onLoad({ id: 'c_sent', path: 'GUIDED' })
   editSubmittedPage.setData({ loggedIn: true })
   await editSubmittedPage.loadConsultation()
@@ -469,7 +469,7 @@ async function run() {
   // student can pick another 入学年份 and tick again instead of being stuck with no draft.
   const createBeforeConflict = masters.createConsultation
   masters.createConsultation = async () => { throw new api.ApiError('该申请季已有咨询，请从我的咨询继续原记录', { code: 'MASTERS_SEASON_CONFLICT', statusCode: 409 }) }
-  const conflictPage = loadPage('../pages/masters-materials/index.js')
+  const conflictPage = loadPage('../masters/materials/index.js')
   conflictPage.onLoad({ path: 'GUIDED', new: '1' })
   conflictPage.setData({ loggedIn: true, uploadConfigReady: true })
   await conflictPage.onServiceConsentChange({ detail: { value: ['service'] } })
@@ -487,7 +487,7 @@ async function run() {
     if (path === '/v1/masters/consultations/c_fix') return { consultation: { id: 'c_fix', profileVersion: 5, status: 'DRAFT', profile: model.emptyProfile(), documents: [] } }
     return requestBeforeSubmitErrors(path, options)
   }
-  const guidancePage = loadPage('../pages/masters-status/index.js')
+  const guidancePage = loadPage('../masters/status/index.js')
   guidancePage.onLoad({ id: 'c_fix' })
   await guidancePage.load()
   const submitWith = async (error) => {
@@ -502,20 +502,20 @@ async function run() {
   }
   const missingFields = await submitWith(new api.ApiError('请补齐提交所需的基本资料', { code: 'MASTERS_REQUIRED_FIELDS_MISSING', statusCode: 409, details: { fields: ['institution', 'major'] } }))
   assert(missingFields.shown.content.includes('本科院校') && missingFields.shown.content.includes('本科专业'), 'the dialog must name the fields that block submission')
-  assert(missingFields.urls.some((url) => url.startsWith('/pages/masters-materials/index?id=c_fix')))
+  assert(missingFields.urls.some((url) => url.startsWith('/masters/materials/index?id=c_fix')))
   const unconfirmed = await submitWith(new api.ApiError('请先核对并确认资料', { code: 'MASTERS_CONFIRMATION_REQUIRED', statusCode: 409 }))
-  assert(unconfirmed.urls.some((url) => url.startsWith('/pages/masters-confirm/index?id=c_fix')), 'an unconfirmed consultation must lead to the confirmation page')
+  assert(unconfirmed.urls.some((url) => url.startsWith('/masters/confirm/index?id=c_fix')), 'an unconfirmed consultation must lead to the confirmation page')
   const staleConfirmation = await submitWith(new api.ApiError('确认快照已过期，请重新确认', { code: 'MASTERS_CONFIRMATION_STALE', statusCode: 409 }))
-  assert(staleConfirmation.urls.some((url) => url.startsWith('/pages/masters-confirm/index?id=c_fix')))
+  assert(staleConfirmation.urls.some((url) => url.startsWith('/masters/confirm/index?id=c_fix')))
   const adultMissing = await submitWith(new api.ApiError('成人申请人需要明确确认已满18岁；未成年人请走人工路径', { code: 'MASTERS_ADULT_CONFIRMATION_REQUIRED', statusCode: 409 }))
-  assert(adultMissing.urls.some((url) => url.startsWith('/pages/masters-materials/index?id=c_fix')))
+  assert(adultMissing.urls.some((url) => url.startsWith('/masters/materials/index?id=c_fix')))
   api.request = requestBeforeSubmitErrors
 
   // A rejected upload only set a page-bottom banner without the file name; on a phone the tester could
   // not tell which of the files had been refused.
   const uploadBeforeRejection = masters.uploadDocument
   masters.uploadDocument = async () => { throw new api.ApiError('文件真实类型与扩展名不一致', { code: 'FILE_CONTENT_MISMATCH', statusCode: 415 }) }
-  const rejectionPage = loadPage('../pages/masters-materials/index.js')
+  const rejectionPage = loadPage('../masters/materials/index.js')
   rejectionPage.onLoad({ path: 'GUIDED' })
   rejectionPage.setData({ loggedIn: true, consultationId: 'c1', version: 1, serviceConsent: true, documents: [], profile: model.emptyProfile() })
   const showModalBeforeRejection = global.wx.showModal
@@ -549,8 +549,8 @@ async function run() {
     }
     return requestBeforeConflicts(path, options)
   }
-  const conflictConfirmPage = loadPage('../pages/masters-confirm/index.js')
-  const confirmPageModule = require('../pages/masters-confirm/index.js')
+  const conflictConfirmPage = loadPage('../masters/confirm/index.js')
+  const confirmPageModule = require('../masters/confirm/index.js')
   conflictConfirmPage.onLoad({ id: 'c_conf' })
   await conflictConfirmPage.load()
   const [fromResume, fromScore] = conflictConfirmPage.data.conflicts
@@ -566,19 +566,19 @@ async function run() {
   assert(!conflictMessage.includes('新版本') && conflictMessage.includes('冲突'), 'an extraction conflict must not be reported as a newer version')
   assert(confirmPageModule.errorText(new api.ApiError('资料已更新，请刷新后重试', { code: 'MASTERS_VERSION_CONFLICT', statusCode: 409 })).includes('新版本'))
   assert.strictEqual(confirmPageModule.errorText(new api.ApiError('确认值必须来自该附件原始提取结果', { code: 'MASTERS_EXTRACTION_VALUE_INVALID', statusCode: 409 })), '确认值必须来自该附件原始提取结果')
-  const confirmWxml = require('fs').readFileSync(require('path').resolve(__dirname, '../pages/masters-confirm/index.wxml'), 'utf8')
+  const confirmWxml = require('fs').readFileSync(require('path').resolve(__dirname, '../masters/confirm/index.wxml'), 'utf8')
   assert(confirmWxml.includes('data-reject="true"') && confirmWxml.includes('item.choices'), 'the conflict panel must offer per-source choices and a decline button')
   // Two documents of one type repeat every extracted field, so keying the review lists by field alone
   // repeated wx:key values (devtools warned "Do not set same key"); key by document and field instead.
   const confirmFieldKeys = conflictConfirmPage.data.extractionFields.map((item) => item.key)
   assert(confirmFieldKeys.every(Boolean) && new Set(confirmFieldKeys).size === confirmFieldKeys.length, 'confirm review rows need a key per document and field')
-  const keyedMaterialsPage = loadPage('../pages/masters-materials/index.js')
+  const keyedMaterialsPage = loadPage('../masters/materials/index.js')
   keyedMaterialsPage.onLoad({ id: 'c_conf', path: 'RESUME' })
   keyedMaterialsPage.setData({ loggedIn: true, consultationId: 'c_conf', version: 6, profile: model.emptyProfile() })
   await keyedMaterialsPage.loadExtraction()
   const materialsFieldKeys = keyedMaterialsPage.data.extractionFields.map((item) => item.key)
   assert(materialsFieldKeys.length === 2 && materialsFieldKeys.every(Boolean) && new Set(materialsFieldKeys).size === 2, 'materials review rows need a key per document and field')
-  assert(!/wx:for="\{\{extractionFields\}\}" wx:key="field"/.test(confirmWxml + require('fs').readFileSync(require('path').resolve(__dirname, '../pages/masters-materials/index.wxml'), 'utf8')), 'extraction review lists must not be keyed by field alone')
+  assert(!/wx:for="\{\{extractionFields\}\}" wx:key="field"/.test(confirmWxml + require('fs').readFileSync(require('path').resolve(__dirname, '../masters/materials/index.wxml'), 'utf8')), 'extraction review lists must not be keyed by field alone')
   api.request = requestBeforeConflicts
 
   masters.clearDraftId('c1')

@@ -37,7 +37,7 @@ Page({
     }
     this.setData({ pendingPath: 'LIST', error: '' })
     if (!session.currentUser()) return this.login()
-    wx.navigateTo({ url: '/pages/masters-list/index' })
+    wx.navigateTo({ url: '/masters/list/index' })
   },
 
   login() {
@@ -46,7 +46,7 @@ Page({
     return auth.loginFamilyUser()
       .then(() => {
         this.setData({ loggedIn: true })
-        if (this.data.pendingPath === 'LIST') wx.navigateTo({ url: '/pages/masters-list/index' })
+        if (this.data.pendingPath === 'LIST') wx.navigateTo({ url: '/masters/list/index' })
         else this.openMaterials(this.data.pendingPath)
       })
       .catch((error) => {
@@ -58,7 +58,7 @@ Page({
 
   openMaterials(path) {
     const channel = config.channel(this.data.channel)
-    wx.navigateTo({ url: `/pages/masters-materials/index?path=${safePath(path)}&channel=${encodeURIComponent(channel)}` })
+    wx.navigateTo({ url: `/masters/materials/index?path=${safePath(path)}&channel=${encodeURIComponent(channel)}` })
   },
 
   shareHint() { wx.showToast({ title: '请使用右上角转发入口', icon: 'none' }) },
@@ -66,7 +66,7 @@ Page({
   onShareAppMessage() {
     return {
       title: '香港硕士免费咨询',
-      path: `/pages/masters-intake/index?channel=${encodeURIComponent(config.channel(this.data.channel))}`
+      path: `/masters/intake/index?channel=${encodeURIComponent(config.channel(this.data.channel))}`
     }
   },
 

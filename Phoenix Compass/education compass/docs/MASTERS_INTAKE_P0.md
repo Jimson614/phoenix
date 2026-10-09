@@ -197,14 +197,14 @@ JSON 详情中的附件至少含 `id`、`consultationId`、canonical `type`、`o
 
 ### 7.2 原生小程序导入和路径
 
-当前实现对应文件为：
+当前实现对应文件为（六个页面在 `app.json` 的 `masters` 分包里，与主包同一版本上传和发布；`pages/home/index`、`pages/mine/index` 会预下载该分包。发布包校验按包计算：主包、每个分包各不超过 1.75 MiB）：
 
-- `pages/masters-intake/index.*`：介绍、`RESUME`/`GUIDED` 两条路径、登录和咨询列表入口。
-- `pages/masters-materials/index.*`：授权、字段保存、七类独立卡片、选择/上传、材料状态和继续流程。
-- `pages/masters-confirm/index.*`：资料核对、冲突和准确性确认。
-- `pages/masters-status/index.*`：提交、缺件、补件和进度。
-- `pages/masters-list/index.*`：本人咨询记录。
-- `pages/masters-report/index.*`：只展示已开放报告/导出。
+- `masters/intake/index.*`：介绍、`RESUME`/`GUIDED` 两条路径、登录和咨询列表入口。
+- `masters/materials/index.*`：授权、字段保存、七类独立卡片、选择/上传、材料状态和继续流程。
+- `masters/confirm/index.*`：资料核对、冲突和准确性确认。
+- `masters/status/index.*`：提交、缺件、补件和进度。
+- `masters/list/index.*`：本人咨询记录。
+- `masters/report/index.*`：只展示已开放报告/导出。
 - `services/masters.js`、`models/masters-intake.js`、`config/masters.js`：API、卡片模型、上限和 fail-closed 客户端开关。
 
 `services/masters.js` 应在文件选择前调用 `wx.requirePrivacyAuthorize()`；普通文件使用 `wx.chooseMessageFile`，图片提供 `wx.chooseMedia`/`wx.chooseImage` 的相册/拍照入口；上传使用带 bearer 身份和 `Idempotency-Key` 的 `wx.uploadFile`，查看/导出使用带身份的 `wx.downloadFile`。客户端必须从服务端重新加载咨询和文件清单，不能以短期本地路径恢复永久附件。

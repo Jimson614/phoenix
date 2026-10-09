@@ -175,7 +175,7 @@ Page({
       const consultation = await masters.confirmConsultation(this.data.consultationId, this.data.version, {
         accuracyConfirmed: true, consent: { accepted: true, copyVersion: config.SERVICE_CONSENT_VERSION }
       }, masters.createIdempotencyKey('confirm'))
-      wx.redirectTo({ url: `/pages/masters-status/index?id=${encodeURIComponent(consultation.id || this.data.consultationId)}` })
+      wx.redirectTo({ url: `/masters/status/index?id=${encodeURIComponent(consultation.id || this.data.consultationId)}` })
     } catch (error) {
       // Re-read so the conflict panel shows what the server still waits for.
       if (error && error.code === 'MASTERS_EXTRACTION_CONFLICT') await this.load()

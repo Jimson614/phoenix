@@ -2,12 +2,6 @@
   "pages": [
     "pages/welcome/index",
     "pages/home/index",
-    "pages/masters-intake/index",
-    "pages/masters-materials/index",
-    "pages/masters-confirm/index",
-    "pages/masters-status/index",
-    "pages/masters-list/index",
-    "pages/masters-report/index",
     "pages/family-edit/index",
     "pages/student-edit/index",
     "pages/compass/index",
@@ -23,6 +17,24 @@
     "pages/admin-families/index",
     "pages/admin-family/index"
   ],
+  "subpackages": [
+    {
+      "root": "masters",
+      "name": "masters",
+      "pages": [
+        "intake/index",
+        "materials/index",
+        "confirm/index",
+        "status/index",
+        "list/index",
+        "report/index"
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/home/index": { "network": "all", "packages": ["masters"] },
+    "pages/mine/index": { "network": "all", "packages": ["masters"] }
+  },
   "window": {
     "navigationBarBackgroundColor": "#FFFDF9",
     "navigationBarTextStyle": "black",

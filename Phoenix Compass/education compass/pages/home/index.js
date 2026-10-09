@@ -220,5 +220,5 @@ Page({
     if (!this.data.family) return this.goFamily()
     wx.navigateTo({ url: '/pages/advisor-request/index' })
   },
-  goMasters() { wx.navigateTo({ url: '/pages/masters-intake/index?channel=organic' }) }
+  goMasters() { wx.navigateTo({ url: '/masters/intake/index?channel=organic' }) }
 })
