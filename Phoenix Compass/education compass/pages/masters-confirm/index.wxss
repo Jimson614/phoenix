@@ -24,10 +24,10 @@
 .extraction-review .section-head, .conflict-review .section-head { align-items: center; margin-bottom: 8rpx; }
 .extraction-item, .conflict-item { border-top: 1rpx solid var(--line); display: flex; gap: 16rpx; justify-content: space-between; margin-top: 17rpx; padding-top: 17rpx; }
 .extraction-item__copy { flex: 1; min-width: 0; }
-.extraction-item__field, .extraction-item__value, .extraction-item__source, .extraction-item__decision, .conflict-item__field, .conflict-item__status { display: block; }
+.extraction-item__field, .extraction-item__value, .extraction-item__source, .extraction-item__decision, .conflict-item__field, .conflict-item__source, .conflict-item__status { display: block; }
 .extraction-item__field, .conflict-item__field { color: var(--gold-deep); font-size: 21rpx; font-weight: 650; }
 .extraction-item__value { color: var(--navy); font-size: 25rpx; margin-top: 6rpx; word-break: break-all; }
-.extraction-item__source { color: var(--muted); font-size: 19rpx; line-height: 1.5; margin-top: 6rpx; }
+.extraction-item__source, .conflict-item__source { color: var(--muted); font-size: 19rpx; line-height: 1.5; margin-top: 6rpx; }
 .extraction-item__decision, .conflict-item__status { color: var(--success); font-size: 20rpx; margin-top: 7rpx; }
 .extraction-item__actions { display: flex; flex-shrink: 0; flex-direction: column; }
 .extraction-item__actions .btn { font-size: 21rpx; height: 58rpx; padding: 0 10rpx; }

@@ -10,9 +10,22 @@ function display(value) {
   if (value && typeof value === 'object') return Object.keys(value).map((key) => `${labels.fieldLabel(key)}：${display(value[key])}`).join('；') || '未填写'
   return value === undefined || value === null || value === '' ? '未填写' : labels.studentValue(value)
 }
+// Only a version conflict means "newer data on the server"; other 409s carry their own reason.
 function errorText(error) {
-  if (error && Number(error.statusCode) === 409) return '服务端资料已有新版本，请返回资料页重新核对后再提交。'
+  const code = String(error && error.code || '')
+  if (code === 'MASTERS_EXTRACTION_CONFLICT') return '还有材料之间的冲突没有处理：请在下方「资料冲突」里逐份材料选择采用或不采用，再确认。'
+  if (code === 'MASTERS_VERSION_CONFLICT' || (error && Number(error.statusCode) === 409 && ['', 'HTTP_ERROR', 'REQUEST_FAILED'].includes(code))) return '服务端资料已有新版本，请返回资料页重新核对后再提交。'
   return error && error.message || '确认未完成，请稍后重试'
+}
+// The server accepts only a document's own extracted value for that document, so a conflict row
+// offers that source's values; values read from the other documents are shown for comparison only.
+function conflictChoices(extractionFields, documentId, field) {
+  const choices = []
+  extractionFields.forEach((item) => {
+    if (item.documentId !== documentId || item.field !== field || typeof item.value !== 'string' || !item.value.trim()) return
+    if (!choices.some((choice) => choice.raw === item.value)) choices.push({ raw: item.value, label: display(item.value) })
+  })
+  return choices
 }
 function sessionUserId() {
   const user = session.currentUser()
@@ -99,7 +112,15 @@ Page({
         ...item, field: String(item.field || ''), fieldLabel: labels.fieldLabel(item.field), valueLabel: display(item.value), sourceLabel: item.sourceName || item.source || '上传材料',
         locationLabel: item.location || item.snippet || '位置待核验', confidenceLabel: confidenceLabel(item.confidence), decisionLabel: item.accepted === true ? '已接受' : item.accepted === false ? '已拒绝' : '待你确认'
       }))
-      const conflicts = (extraction.conflicts || []).map((item) => ({ ...item, values: Array.isArray(item.values) ? item.values.map((value) => display(value)) : [], field: String(item.field || ''), fieldLabel: labels.fieldLabel(item.field), decisionLabel: decisionLabel(item.resolution) }))
+      const conflicts = (extraction.conflicts || []).map((item) => {
+        const field = String(item.field || '')
+        const documentId = String(item.documentId || '')
+        const choices = conflictChoices(extractionFields, documentId, field)
+        const source = extractionFields.find((entry) => entry.documentId === documentId)
+        const otherValues = (Array.isArray(item.values) ? item.values : []).filter((value) => !choices.some((choice) => choice.raw === value))
+        return { ...item, key: `${documentId}:${field}`, documentId, field, fieldLabel: labels.fieldLabel(field), sourceLabel: source ? source.sourceLabel : '上传材料',
+          choices, otherValuesLabel: otherValues.map(display).join('、'), decisionLabel: decisionLabel(item.resolution) }
+      })
       this.setData({ contactTypeLabel: labels.contactTypeLabel(profile.contact.type), targetYearLabel: labels.targetYearLabel(profile.targetYear), consultation, version: Number(consultation.version || consultation.profileVersion || 1), profile, documents, documentGroups: grouped, targetMajorsLabel: profile.targetMajors.length ? profile.targetMajors.join('、') : '方向待定', targetInstitutionsLabel: profile.targetInstitutions.length ? profile.targetInstitutions.join('、') : '尚未确定', resumeDraft: consultation.path === 'GUIDED' || !documents.some((item) => item.type === 'RESUME') ? model.resumeDraft(profile) : null, extractionFields, conflicts, extractionError, serviceConsent: Boolean(consultation.consent && (consultation.consent.accepted || consultation.consent.service || !consultation.consent.withdrawnAt)), accuracyConfirmed: Boolean(profile.accuracyConfirmed), loading: false })
     } catch (error) { this.setData({ loading: false, error: errorText(error) }) }
   },
@@ -134,11 +155,12 @@ Page({
 
   async resolveConflict({ currentTarget }) {
     const dataset = currentTarget && currentTarget.dataset || {}
-    const index = Number(dataset.index)
-    const conflict = this.data.conflicts[index]
-    if (!conflict || !conflict.documentId || dataset.value === undefined) return wx.showToast({ title: '冲突来源不完整，需人工核验', icon: 'none' })
+    const conflict = this.data.conflicts[Number(dataset.index)]
+    const decline = String(dataset.reject) === 'true'
+    const choice = !decline && conflict ? conflict.choices[Number(dataset.choice)] : null
+    if (!conflict || !conflict.documentId || (!decline && !choice)) return wx.showToast({ title: '冲突来源不完整，需人工核验', icon: 'none' })
     try {
-      await masters.resolveExtraction(this.data.consultationId, { version: this.data.version, documentId: conflict.documentId, field: conflict.field, value: dataset.value, accepted: true }, masters.createIdempotencyKey('conflict'))
+      await masters.resolveExtraction(this.data.consultationId, { version: this.data.version, documentId: conflict.documentId, field: conflict.field, value: decline ? null : choice.raw, accepted: !decline }, masters.createIdempotencyKey('conflict'))
       wx.showToast({ title: '已记录你的选择', icon: 'success' })
       await this.load()
     } catch (error) { this.setData({ error: errorText(error) }); wx.showToast({ title: errorText(error), icon: 'none' }) }
@@ -154,7 +176,11 @@ Page({
         accuracyConfirmed: true, consent: { accepted: true, copyVersion: config.SERVICE_CONSENT_VERSION }
       }, masters.createIdempotencyKey('confirm'))
       wx.redirectTo({ url: `/pages/masters-status/index?id=${encodeURIComponent(consultation.id || this.data.consultationId)}` })
-    } catch (error) { this.setData({ error: errorText(error) }); wx.showModal({ title: '确认未完成', content: errorText(error), showCancel: false }) }
+    } catch (error) {
+      // Re-read so the conflict panel shows what the server still waits for.
+      if (error && error.code === 'MASTERS_EXTRACTION_CONFLICT') await this.load()
+      this.setData({ error: errorText(error) }); wx.showModal({ title: '确认未完成', content: errorText(error), showCancel: false })
+    }
     finally { this.setData({ confirming: false }) }
   },
 

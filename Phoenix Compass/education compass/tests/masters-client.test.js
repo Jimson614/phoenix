@@ -527,6 +527,49 @@ async function run() {
   assert(rejectionPage.data.error.includes('synthetic-degree-cert.jpg'), 'the page must say which file was rejected')
   assert(rejectionDialog && rejectionDialog.content.includes('synthetic-degree-cert.jpg') && rejectionDialog.content.includes('文件真实类型与扩展名不一致'), 'a rejected upload must be reported in a dialog that names the file')
 
+  // 核对资料 was refused four times on the phone with MASTERS_EXTRACTION_CONFLICT, yet the page said
+  // 资料已有新版本 for every 409. The conflict buttons also offered the other document's value and sent the
+  // display label (雅思 for IELTS); the server only accepts a document's own raw value, and every source
+  // of a conflicting field needs a decision, but there was no way to decline one.
+  const requestBeforeConflicts = api.request
+  const conflictResolutions = []
+  api.request = async (path, options = {}) => {
+    if (path === '/v1/masters/consultations/c_conf' && !options.method) {
+      return { consultation: { id: 'c_conf', profileVersion: 6, status: 'DRAFT', path: 'RESUME', profile: model.emptyProfile(), consent: { accepted: true },
+        documents: [{ id: 'doc_a', type: 'RESUME', name: 'resume.docx', size: 128, uploadStatus: 'UPLOADED' }, { id: 'doc_b', type: 'LANGUAGE', name: 'score.pdf', size: 128, uploadStatus: 'UPLOADED' }] } }
+    }
+    if (path === '/v1/masters/consultations/c_conf/extraction') {
+      return { profileVersion: 6,
+        fields: [{ field: 'languageType', value: 'IELTS', documentId: 'doc_a', sourceName: 'resume.docx' }, { field: 'languageType', value: 'TOEFL', documentId: 'doc_b', sourceName: 'score.pdf' }],
+        conflicts: [{ field: 'languageType', values: ['IELTS', 'TOEFL'], resolution: 'PENDING', documentId: 'doc_a' }, { field: 'languageType', values: ['IELTS', 'TOEFL'], resolution: 'PENDING', documentId: 'doc_b' }] }
+    }
+    if (path === '/v1/masters/consultations/c_conf/extraction/resolve') {
+      conflictResolutions.push(options.data)
+      return { consultation: { id: 'c_conf', profileVersion: 7, status: 'DRAFT', profile: model.emptyProfile(), documents: [] } }
+    }
+    return requestBeforeConflicts(path, options)
+  }
+  const conflictConfirmPage = loadPage('../pages/masters-confirm/index.js')
+  const confirmPageModule = require('../pages/masters-confirm/index.js')
+  conflictConfirmPage.onLoad({ id: 'c_conf' })
+  await conflictConfirmPage.load()
+  const [fromResume, fromScore] = conflictConfirmPage.data.conflicts
+  assert(Array.isArray(fromResume.choices) && Array.isArray(fromScore.choices), 'each conflicting source must list the values it can adopt')
+  assert.deepStrictEqual(fromResume.choices.map((choice) => choice.raw), ['IELTS'], 'a source may only adopt its own value')
+  assert.deepStrictEqual(fromScore.choices.map((choice) => choice.raw), ['TOEFL'])
+  assert.strictEqual(fromResume.sourceLabel, 'resume.docx')
+  assert.notStrictEqual(fromResume.key, fromScore.key, 'each source needs its own list key')
+  await conflictConfirmPage.resolveConflict({ currentTarget: { dataset: { index: 0, choice: 0 } } })
+  await conflictConfirmPage.resolveConflict({ currentTarget: { dataset: { index: 1, reject: 'true' } } })
+  assert.deepStrictEqual(conflictResolutions.map((call) => [call.documentId, call.field, call.value, call.accepted]), [['doc_a', 'languageType', 'IELTS', true], ['doc_b', 'languageType', null, false]], 'adopting sends the raw value and the other source can be declined')
+  const conflictMessage = confirmPageModule.errorText(new api.ApiError('提取字段存在待确认冲突，请逐项确认', { code: 'MASTERS_EXTRACTION_CONFLICT', statusCode: 409 }))
+  assert(!conflictMessage.includes('新版本') && conflictMessage.includes('冲突'), 'an extraction conflict must not be reported as a newer version')
+  assert(confirmPageModule.errorText(new api.ApiError('资料已更新，请刷新后重试', { code: 'MASTERS_VERSION_CONFLICT', statusCode: 409 })).includes('新版本'))
+  assert.strictEqual(confirmPageModule.errorText(new api.ApiError('确认值必须来自该附件原始提取结果', { code: 'MASTERS_EXTRACTION_VALUE_INVALID', statusCode: 409 })), '确认值必须来自该附件原始提取结果')
+  const confirmWxml = require('fs').readFileSync(require('path').resolve(__dirname, '../pages/masters-confirm/index.wxml'), 'utf8')
+  assert(confirmWxml.includes('data-reject="true"') && confirmWxml.includes('item.choices'), 'the conflict panel must offer per-source choices and a decline button')
+  api.request = requestBeforeConflicts
+
   masters.clearDraftId('c1')
   config.resetEnabledForTests()
   api.request = originalRequest
