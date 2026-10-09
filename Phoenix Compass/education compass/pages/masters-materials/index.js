@@ -137,6 +137,7 @@ function extractionView(item, profile) {
         : Array.isArray(rawValue) ? rawValue.map((value) => labels.studentValue(value)).join('、') : labels.studentValue(rawValue)
   return {
     ...item,
+    key: `${item && item.documentId || ''}:${field}`,
     field,
     label: labels.fieldLabel(field),
     valueLabel,

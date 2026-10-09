@@ -109,7 +109,7 @@ Page({
       const documents = (consultation.documents || []).map(model.normalizeDocument).map((item) => ({ ...item, uploadStatusLabel: uploadStatusLabel(item.uploadStatus), parseStatusLabel: parseStatusLabel(item.parseStatus) }))
       const grouped = model.DOCUMENT_TYPES.map((type) => ({ type, title: model.DOCUMENT_META[type].title, files: documents.filter((item) => item.type === type) })).filter((group) => group.files.length)
       const extractionFields = (extraction.fields || []).map((item) => ({
-        ...item, field: String(item.field || ''), fieldLabel: labels.fieldLabel(item.field), valueLabel: display(item.value), sourceLabel: item.sourceName || item.source || '上传材料',
+        ...item, key: `${item.documentId || ''}:${item.field || ''}`, field: String(item.field || ''), fieldLabel: labels.fieldLabel(item.field), valueLabel: display(item.value), sourceLabel: item.sourceName || item.source || '上传材料',
         locationLabel: item.location || item.snippet || '位置待核验', confidenceLabel: confidenceLabel(item.confidence), decisionLabel: item.accepted === true ? '已接受' : item.accepted === false ? '已拒绝' : '待你确认'
       }))
       const conflicts = (extraction.conflicts || []).map((item) => {

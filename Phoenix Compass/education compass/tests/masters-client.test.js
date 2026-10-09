@@ -568,6 +568,17 @@ async function run() {
   assert.strictEqual(confirmPageModule.errorText(new api.ApiError('确认值必须来自该附件原始提取结果', { code: 'MASTERS_EXTRACTION_VALUE_INVALID', statusCode: 409 })), '确认值必须来自该附件原始提取结果')
   const confirmWxml = require('fs').readFileSync(require('path').resolve(__dirname, '../pages/masters-confirm/index.wxml'), 'utf8')
   assert(confirmWxml.includes('data-reject="true"') && confirmWxml.includes('item.choices'), 'the conflict panel must offer per-source choices and a decline button')
+  // Two documents of one type repeat every extracted field, so keying the review lists by field alone
+  // repeated wx:key values (devtools warned "Do not set same key"); key by document and field instead.
+  const confirmFieldKeys = conflictConfirmPage.data.extractionFields.map((item) => item.key)
+  assert(confirmFieldKeys.every(Boolean) && new Set(confirmFieldKeys).size === confirmFieldKeys.length, 'confirm review rows need a key per document and field')
+  const keyedMaterialsPage = loadPage('../pages/masters-materials/index.js')
+  keyedMaterialsPage.onLoad({ id: 'c_conf', path: 'RESUME' })
+  keyedMaterialsPage.setData({ loggedIn: true, consultationId: 'c_conf', version: 6, profile: model.emptyProfile() })
+  await keyedMaterialsPage.loadExtraction()
+  const materialsFieldKeys = keyedMaterialsPage.data.extractionFields.map((item) => item.key)
+  assert(materialsFieldKeys.length === 2 && materialsFieldKeys.every(Boolean) && new Set(materialsFieldKeys).size === 2, 'materials review rows need a key per document and field')
+  assert(!/wx:for="\{\{extractionFields\}\}" wx:key="field"/.test(confirmWxml + require('fs').readFileSync(require('path').resolve(__dirname, '../pages/masters-materials/index.wxml'), 'utf8')), 'extraction review lists must not be keyed by field alone')
   api.request = requestBeforeConflicts
 
   masters.clearDraftId('c1')
