@@ -581,6 +581,25 @@ async function run() {
   assert(!/wx:for="\{\{extractionFields\}\}" wx:key="field"/.test(confirmWxml + require('fs').readFileSync(require('path').resolve(__dirname, '../masters/materials/index.wxml'), 'utf8')), 'extraction review lists must not be keyed by field alone')
   api.request = requestBeforeConflicts
 
+  // Logging out kept PFS_MASTERS_DRAFT_ID_V1, so the next account on the same phone was pointed at the
+  // previous account's draft (the server refuses it, but the pointer is that account's data).
+  masters.rememberDraftId('c_logout')
+  const appBeforeLogout = global.getApp
+  global.getApp = () => ({ getCurrentUser: () => null, setCurrentUser: () => undefined })
+  await require('../services/auth').logout()
+  global.getApp = appBeforeLogout
+  assert.strictEqual(masters.draftId(), '', 'logging out must forget the masters draft pointer')
+
+  // Withdrawing a failed local upload left its 「file」reason in the page error.
+  const failedItemPage = loadPage('../masters/materials/index.js')
+  failedItemPage.onLoad({ path: 'GUIDED' })
+  failedItemPage.setData({ loggedIn: true, consultationId: 'c1', version: 1, profile: model.emptyProfile(), pendingUploads: 0,
+    documents: [{ localId: 'local_failed', type: 'DEGREE', name: 'synthetic-degree-cert.jpg', size: 128, uploadStatus: 'FAILED', uploadError: '文件真实类型与扩展名不一致' }],
+    error: '「synthetic-degree-cert.jpg」文件真实类型与扩展名不一致' })
+  await failedItemPage.removeDocument({ currentTarget: { dataset: { id: 'local_failed' } } })
+  assert.strictEqual(failedItemPage.data.documents.length, 0)
+  assert.strictEqual(failedItemPage.data.error, '', 'the failure message must go with the last failed item')
+
   masters.clearDraftId('c1')
   config.resetEnabledForTests()
   api.request = originalRequest

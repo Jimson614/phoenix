@@ -60,6 +60,8 @@ function logout() {
     : api.request('/v1/auth/session', { method: 'DELETE' }).catch(() => undefined)
   app.setCurrentUser(runtime.isDemo() ? '' : null)
   api.setAccessToken('')
+  // The masters draft pointer belongs to this account; the next account must not inherit it.
+  wx.removeStorageSync('PFS_MASTERS_DRAFT_ID_V1')
   if (!runtime.isDemo()) {
     ;['PFS_CURRENT_USER_ID', 'PFS_REMOTE_PROFILE_MAP_V1', 'PFS_COMPASS_ASSESSMENT_REFS_V1', 'PFS_COMPASS_ORDER_CACHE_V1'].forEach((key) => wx.removeStorageSync(key))
     try {

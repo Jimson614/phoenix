@@ -731,7 +731,10 @@ Page({
     const local = this.data.documents.find((item) => String(item.localId || '') === id && !item.id)
     if (local) {
       const documents = this.data.documents.filter((item) => String(item.localId || '') !== id)
-      this.setData({ documents, pendingUploads: Math.max(0, this.data.pendingUploads - (local.uploadStatus === 'UPLOADING' ? 1 : 0)), ...this.presentation(documents, this.data.profile.educationStatus) })
+      // Keep the page error in step with the failed items that are still listed.
+      const stillFailed = documents.filter((item) => item.uploadStatus === 'FAILED' && !item.id)
+      const error = local.uploadStatus === 'FAILED' ? stillFailed.map((item) => `「${item.name}」${item.uploadError || '上传失败'}`).join('；') : this.data.error
+      this.setData({ documents, error, pendingUploads: Math.max(0, this.data.pendingUploads - (local.uploadStatus === 'UPLOADING' ? 1 : 0)), ...this.presentation(documents, this.data.profile.educationStatus) })
       return
     }
     if (!options.silent) this.setData({ saving: true })
