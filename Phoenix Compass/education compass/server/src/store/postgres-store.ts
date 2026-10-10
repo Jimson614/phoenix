@@ -96,7 +96,24 @@ function valueFor(table: string, key: string, value: unknown): { value: unknown;
 }
 
 class PostgresTransaction implements StoreTransaction {
+  // A PoolClient runs one query at a time. Services call tx methods through Promise.all, and pg@8
+  // only tolerates that through an internal queue it deprecates ("client is already executing a
+  // query"; removed in pg@9). Queue here instead, and route BEGIN/COMMIT/ROLLBACK through the same
+  // queue so they never overtake work that was already issued.
+  private queue: Promise<unknown> = Promise.resolve()
+
   constructor(private readonly client: PoolClient) {}
+
+  run(text: string, values?: unknown[]) {
+    const result = this.queue.then(() => this.client.query(text, values))
+    this.queue = result.catch(() => undefined)
+    return result
+  }
+
+  /** Resolves once every query issued so far has finished, whatever its outcome. */
+  async drain(): Promise<void> {
+    await this.queue
+  }
 
   async findById<K extends TableName>(table: K, id: string, options?: { forUpdate?: boolean }): Promise<EntityMap[K] | null> {
     return this.findOne(table, { id } as Filter<EntityMap[K]>, options)
@@ -122,7 +139,7 @@ class PostgresTransaction implements StoreTransaction {
       return `$${index + 1}${encoded.cast}`
     }).join(', ')
     try {
-      const result = await this.client.query(
+      const result = await this.run(
         `INSERT INTO ${identifier(tableName)} (${columns}) VALUES (${placeholders}) RETURNING *`,
         values
       )
@@ -150,7 +167,7 @@ class PostgresTransaction implements StoreTransaction {
     })
     values.push(id)
     try {
-      const result = await this.client.query(
+      const result = await this.run(
         `UPDATE ${identifier(tableName)} SET ${assignments.join(', ')} WHERE id = $${values.length} RETURNING *`,
         values
       )
@@ -164,7 +181,7 @@ class PostgresTransaction implements StoreTransaction {
 
   async delete<K extends TableName>(table: K, id: string): Promise<boolean> {
     const tableName = TABLES[table]
-    const result = await this.client.query(
+    const result = await this.run(
       `DELETE FROM ${identifier(tableName)} WHERE id = $1`,
       [id]
     )
@@ -188,7 +205,7 @@ class PostgresTransaction implements StoreTransaction {
     const where = predicates.length ? ` WHERE ${predicates.join(' AND ')}` : ''
     const limitSql = limit ? ` LIMIT ${limit}` : ''
     const lockSql = forUpdate ? ' FOR UPDATE' : ''
-    const result = await this.client.query(
+    const result = await this.run(
       `SELECT * FROM ${identifier(tableName)}${where}${limitSql}${lockSql}`,
       values
     )
@@ -216,9 +233,11 @@ export class PostgresStore implements Store {
 
   async read<T>(work: (tx: StoreTransaction) => Promise<T>): Promise<T> {
     const client = await this.pool.connect()
+    const tx = new PostgresTransaction(client)
     try {
-      return await work(new PostgresTransaction(client))
+      return await work(tx)
     } finally {
+      await tx.drain()
       client.release()
     }
   }
@@ -226,13 +245,14 @@ export class PostgresStore implements Store {
   async transaction<T>(work: (tx: StoreTransaction) => Promise<T>): Promise<T> {
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       const client = await this.pool.connect()
+      const tx = new PostgresTransaction(client)
       try {
-        await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE')
-        const result = await work(new PostgresTransaction(client))
-        await client.query('COMMIT')
+        await tx.run('BEGIN ISOLATION LEVEL SERIALIZABLE')
+        const result = await work(tx)
+        await tx.run('COMMIT')
         return result
       } catch (error) {
-        await client.query('ROLLBACK').catch(() => undefined)
+        await tx.run('ROLLBACK').catch(() => undefined)
         const code = (error as { code?: string }).code
         // SERIALIZABLE protects the read-then-create workflows. PostgreSQL can
         // still surface a concurrent unique-key winner as 23505 (translated by
@@ -241,6 +261,7 @@ export class PostgresStore implements Store {
         if (attempt < 3 && (code === '40001' || code === '40P01' || code === 'UNIQUE_CONSTRAINT')) continue
         throw error
       } finally {
+        await tx.drain()
         client.release()
       }
     }

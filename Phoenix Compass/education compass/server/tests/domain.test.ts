@@ -16,6 +16,7 @@ import { ProfileService } from '../src/services/profile-service'
 import { ReportService } from '../src/services/report-service'
 import { FileStore } from '../src/store/file-store'
 import { InMemoryStore } from '../src/store/memory-store'
+import { Pool } from 'pg'
 import { PostgresStore } from '../src/store/postgres-store'
 import { Clock, randomId } from '../src/utils/runtime'
 
@@ -512,4 +513,42 @@ test('file adapter persists isolated state and migration matches production mode
   assert.match(feishuMigration, /UNIQUE \(provider, table_id, external_record_id\)/)
   const postgres = new PostgresStore({ connectionString: 'postgresql://unused:unused@127.0.0.1:1/unused', connectionTimeoutMillis: 1 })
   await postgres.close()
+})
+
+test('postgres transactions send one query at a time and finish queued work before rollback or release', async () => {
+  // pg@8 warns "Calling client.query() when the client is already executing a query" and pg@9 drops
+  // that internal queue. Services call tx methods through Promise.all, so the store queues them itself,
+  // and ROLLBACK/release must wait for queued work instead of overtaking it.
+  const log: string[] = []
+  let active = 0
+  let maxActive = 0
+  const client = {
+    query: async (text: string) => {
+      log.push(`${text.split(' ')[0]}@${active}`)
+      active += 1
+      maxActive = Math.max(maxActive, active)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      active -= 1
+      return { rows: [], rowCount: 0 }
+    },
+    release: () => { log.push(`release@${active}`) }
+  }
+  const pool = Object.assign(Object.create(Pool.prototype), { connect: async () => client, end: async () => undefined }) as Pool
+  const store = new PostgresStore(pool)
+  await store.transaction(async (tx) => {
+    await Promise.all([tx.findMany('users'), tx.findMany('sessions'), tx.findById('users', 'u1')])
+  })
+  assert.equal(maxActive, 1)
+  assert.deepEqual(log, ['BEGIN@0', 'SELECT@0', 'SELECT@0', 'SELECT@0', 'COMMIT@0', 'release@0'])
+  log.length = 0
+  await assert.rejects(store.transaction(async (tx) => {
+    await Promise.all([tx.findMany('users'), Promise.reject(new Error('boom')), tx.findMany('sessions')])
+  }), /boom/)
+  assert.equal(maxActive, 1)
+  assert.deepEqual(log, ['BEGIN@0', 'SELECT@0', 'SELECT@0', 'ROLLBACK@0', 'release@0'])
+  log.length = 0
+  await assert.rejects(store.read(async (tx) => {
+    await Promise.all([tx.findMany('users'), Promise.reject(new Error('early')), tx.findMany('sessions')])
+  }), /early/)
+  assert.deepEqual(log, ['SELECT@0', 'SELECT@0', 'release@0'])
 })
