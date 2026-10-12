@@ -1110,15 +1110,18 @@ async function testGrowthPurchaseRecordsLocalOrder() {
     getStorageSync: wx.getStorageSync,
     setStorageSync: wx.setStorageSync,
     removeStorageSync: wx.removeStorageSync,
-    requestPayment: wx.requestPayment,
+    login: wx.login,
+    requestVirtualPayment: wx.requestVirtualPayment,
     redirectTo: wx.redirectTo,
     showModal: wx.showModal,
     createGrowthOrder: educationCompass.createGrowthOrder,
-    createWechatPrepay: educationCompass.createWechatPrepay,
+    createVirtualPayment: educationCompass.createVirtualPayment,
     getOrder: educationCompass.getOrder
   }
   const storage = new Map()
   const redirects = []
+  const attempts = []
+  const sheets = []
   let definition
   const order = {
     orderId: 'ord_growth_cache', outTradeNo: 'PX_growth_cache', status: 'PENDING',
@@ -1129,15 +1132,22 @@ async function testGrowthPurchaseRecordsLocalOrder() {
     wx.getStorageSync = (key) => storage.get(key)
     wx.setStorageSync = (key, value) => { storage.set(key, JSON.parse(JSON.stringify(value))) }
     wx.removeStorageSync = (key) => { storage.delete(key) }
-    wx.requestPayment = (options) => options.success({ errMsg: 'requestPayment:ok' })
+    // Each attempt is signed with the session_key of a fresh login code, then paid through
+    // wx.requestVirtualPayment (Apple payment on iOS, WeChat Pay elsewhere).
+    wx.login = ({ success }) => success({ code: `fresh-code-${attempts.length + 1}` })
+    wx.requestVirtualPayment = (options) => { sheets.push(options); options.success({ errMsg: 'requestVirtualPayment:ok' }) }
     wx.redirectTo = ({ url }) => { redirects.push(url) }
     wx.showModal = (options) => { throw new Error(`unexpected modal: ${options.content}`) }
     global.getApp = () => ({ getCurrentUser: () => ({ id: 'usr_growth_cache', role: 'family_user' }) })
     global.Page = (value) => { definition = value }
     educationCompass.createGrowthOrder = async () => ({ ...order })
-    educationCompass.createWechatPrepay = async () => ({
-      paymentParams: { timeStamp: '1', nonceStr: 'n', package: 'prepay_id=p', signType: 'RSA', paySign: 's' }
-    })
+    educationCompass.createVirtualPayment = async (orderId, code) => {
+      attempts.push({ orderId, code })
+      return {
+        orderId, status: 'PENDING', outTradeNo: 'PX_growth_cache',
+        virtualPayment: { signData: '{"outTradeNo":"PX_growth_cache"}', paySig: 'pay-sig', signature: 'user-sig', mode: 'short_series_goods' }
+      }
+    }
     // The common case: the notification lands first, so the very first check is already PAID.
     educationCompass.getOrder = async () => ({ ...order, status: 'PAID', paidAt: '2026-09-28T08:00:00.000Z' })
     payment.clearOrderCache()
@@ -1154,17 +1164,43 @@ async function testGrowthPurchaseRecordsLocalOrder() {
     await definition.purchase.call(instance)
 
     assert.deepStrictEqual(redirects, ['/pages/report/index?id=rpt_growth_cache'])
+    assert.deepStrictEqual(attempts, [{ orderId: 'ord_growth_cache', code: 'fresh-code-1' }])
+    assert.strictEqual(sheets.length, 1)
+    assert.deepStrictEqual(
+      { signData: sheets[0].signData, paySig: sheets[0].paySig, signature: sheets[0].signature, mode: sheets[0].mode },
+      { signData: '{"outTradeNo":"PX_growth_cache"}', paySig: 'pay-sig', signature: 'user-sig', mode: 'short_series_goods' }
+    )
+
     const cached = payment.listCachedOrders()
     assert.strictEqual(cached.length, 1, 'a confirmed growth purchase must appear in the local recent orders')
     assert.strictEqual(cached[0].orderId, 'ord_growth_cache')
     assert.strictEqual(cached[0].status, 'PAID', 'the local list must show the server-verified status, not the creation status')
     assert.strictEqual(cached[0].assessmentId, 'asm_growth_cache')
+
+    // A cancelled sheet lands on the result page, which reads the server order.
+    redirects.length = 0
+    wx.requestVirtualPayment = (options) => options.fail({ errMsg: 'requestVirtualPayment:fail cancel', errCode: -2 })
+    educationCompass.getOrder = async () => ({ ...order, status: 'PENDING' })
+    await definition.purchase.call(instance)
+    assert.strictEqual(redirects.length, 1)
+    assert.ok(redirects[0].startsWith('/pages/payment-result/index?orderId=ord_growth_cache') && redirects[0].includes('clientOutcome=cancelled'), redirects[0])
+    assert.deepStrictEqual(attempts.map((item) => item.code), ['fresh-code-1', 'fresh-code-2'], 'every attempt brings its own login code')
+
+    // A WeChat version without virtual payment is told to upgrade instead of being sent to pay.
+    const modals = []
+    wx.requestVirtualPayment = undefined
+    wx.showModal = (options) => { modals.push(options.content) }
+    redirects.length = 0
+    await definition.purchase.call(instance)
+    assert.strictEqual(redirects.length, 0)
+    assert.strictEqual(attempts.length, 2, 'no attempt is signed for a client that cannot pay')
+    assert.ok(modals.length === 1 && modals[0].includes('升级微信'), modals.join('|'))
   } finally {
     payment.clearOrderCache()
     educationCompass.createGrowthOrder = originals.createGrowthOrder
-    educationCompass.createWechatPrepay = originals.createWechatPrepay
+    educationCompass.createVirtualPayment = originals.createVirtualPayment
     educationCompass.getOrder = originals.getOrder
-    for (const name of ['getAccountInfoSync', 'getStorageSync', 'setStorageSync', 'removeStorageSync', 'requestPayment', 'redirectTo', 'showModal']) {
+    for (const name of ['getAccountInfoSync', 'getStorageSync', 'setStorageSync', 'removeStorageSync', 'login', 'requestVirtualPayment', 'redirectTo', 'showModal']) {
       const original = name === 'getAccountInfoSync' ? originals.accountInfo : originals[name]
       if (original === undefined) delete wx[name]
       else wx[name] = original
@@ -1315,6 +1351,19 @@ async function testPaymentCacheStorageFailure() {
     assert.strictEqual(instance.data.error, '')
     assert.strictEqual(instance.data.order.status, 'PAID',
       'payment status rendering must not fail merely because cache persistence failed')
+
+    // After the buyer closes the payment sheet the order is still pending on the server: the page
+    // says the payment was cancelled, and checks once instead of polling as if a payment were coming.
+    let orderReads = 0
+    api.request = async () => {
+      orderReads += 1
+      return { order: { id: 'ord_storage_failure', report_id: 'rpt_storage_failure', amount_fen: 3990, currency: 'CNY', status: 'PENDING' } }
+    }
+    const cancelled = { ...definition, data: { ...definition.data, orderId: 'ord_storage_failure', clientOutcome: 'cancelled', checking: false } }
+    cancelled.setData = function setData(update) { this.data = { ...this.data, ...update } }
+    await definition.check.call(cancelled, true)
+    assert.strictEqual(cancelled.data.view.title, '已取消本次支付')
+    assert.strictEqual(orderReads, 1)
     api.request = async (path) => {
       assert.strictEqual(path, '/v1/auth/session')
       return undefined
@@ -1369,7 +1418,10 @@ async function testApiAdapter() {
     if (path === '/v1/assessments/asm_growth/result') return { assessmentId: 'asm_growth', resultState: 'LOCKED' }
     if (path === '/v1/education-compass/products/growth-discovery') return { product: { product_code: 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1', amount_fen: 3990, currency: 'CNY', payment_timing: 'AFTER_SUBMIT_BEFORE_REPORT' } }
     if (path === '/v1/assessments/asm_growth/orders') return { order: { id: 'ord_1', assessment_id: 'asm_growth', product_code: 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1', amount_fen: 3990, status: 'CREATED' } }
-    if (path === '/v1/orders/ord_1/wechat-prepay') return { payment: { orderId: 'ord_1', paymentParams: { package: 'prepay_id=test' } } }
+    if (path === '/v1/orders/ord_1/virtual-payment') {
+      assert.deepStrictEqual(options.data, { code: 'login-code-1' })
+      return { orderId: 'ord_1', status: 'PENDING', outTradeNo: 'PX_1', virtualPayment: { signData: '{}', paySig: 'p', signature: 's', mode: 'short_series_goods' } }
+    }
     if (path === '/v1/orders/ord_1') return { order: { id: 'ord_1', status: 'PAID', amount_fen: 3990 } }
     if (path === '/v1/me/integration-consents/feishu-profile') return { consent: { status: 'ACTIVE' } }
     if (path === '/v1/me/education-compass/consents/stu_1/STUDENT_ASSESSMENT_ASSENT') {
@@ -1425,7 +1477,8 @@ async function testApiAdapter() {
     api.request = validRequest
     const orderKey = client.createIdempotencyKey('order')
     assert.strictEqual((await client.createGrowthOrder('asm_growth', orderKey)).productCode, client.GROWTH_PRODUCT_CODE)
-    assert.strictEqual((await client.createWechatPrepay('ord_1')).paymentParams.package, 'prepay_id=test')
+    assert.strictEqual((await client.createVirtualPayment('ord_1', 'login-code-1')).virtualPayment.mode, 'short_series_goods')
+    await assert.rejects(client.createVirtualPayment('ord_1', ''), (error) => error.code === 'WECHAT_LOGIN_CODE_REQUIRED')
     assert.strictEqual((await client.getOrder('ord_1')).status, 'PAID')
     assert.strictEqual((await client.updateFeishuProfileConsent({
       studentId: 'stu_1', consentVersion: 'feishu_profile_mirror_opt_in_v1.0.0-rc1',

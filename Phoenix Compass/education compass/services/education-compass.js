@@ -268,11 +268,17 @@ async function createGrowthOrder(assessmentId, idempotencyKey) {
   }))
 }
 
-async function createWechatPrepay(orderId) {
+/**
+ * Signs one virtual payment attempt. The code comes from a wx.login made just before paying: the
+ * server signs with the session_key it yields, which also rules out an expired login state.
+ */
+async function createVirtualPayment(orderId, code) {
   ensureRemote()
-  return unwrap(await api.request(`/v1/orders/${encodeURIComponent(requireId(orderId, 'orderId'))}/wechat-prepay`, {
-    method: 'POST', data: {}
-  }), ['payment', 'prepay'])
+  const loginCode = String(code || '').trim()
+  if (!loginCode) throw new api.ApiError('微信登录 code 不能为空', { code: 'WECHAT_LOGIN_CODE_REQUIRED' })
+  return unwrap(await api.request(`/v1/orders/${encodeURIComponent(requireId(orderId, 'orderId'))}/virtual-payment`, {
+    method: 'POST', data: { code: loginCode }
+  }))
 }
 
 async function getOrder(orderId) {
@@ -319,7 +325,7 @@ module.exports = {
   createGrowthOrder,
   createIdempotencyKey,
   createStudentGrowthAssessment,
-  createWechatPrepay,
+  createVirtualPayment,
   getAssessmentQuestionnaire,
   getDraft,
   getGrowthProduct,

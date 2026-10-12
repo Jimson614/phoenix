@@ -199,8 +199,8 @@ const copyContract = {
     '学生本人 Assent', '由学生本人开始成长发现'
   ],
   'pages/compass-preview/index.wxml': [
-    '微信支付并解锁', '免费测评 · 有限 AI 分析', '不等同于', '完整报告',
-    '提交后付款 · 单次解锁', '支付状态仅以服务端订单查询和微信支付通知为准'
+    '支付并解锁', '免费测评 · 有限 AI 分析', '不等同于', '完整报告',
+    '提交后付款 · 单次解锁', '支付状态仅以服务端订单查询和微信平台通知为准'
   ],
   'pages/agent-chat/index.wxml': [
     '不保证录取', '监护人', '可信来源', '删除这段对话', '撤回 AI 同意'
@@ -292,7 +292,7 @@ assert(compassEntryWxml.includes('wx:if="{{isV05 && level === 2 && level2EntryAu
   'the product/price card must render only in a server-authorized V0.5 Level 2 entry')
 assert(!compassEntryWxml.includes('wx:if="{{!isV05 || level === 2}}" class="product-card"'),
   'Level 1 and demo first entry must not render the historical product/price card')
-assert(!compassEntryWxml.includes('微信支付并解锁'),
+assert(!compassEntryWxml.includes('支付并解锁'),
   'the questionnaire entry page must not expose a payment CTA before a submitted result exists')
 
 const compassEntryJs = readSource('pages/compass/index.js')

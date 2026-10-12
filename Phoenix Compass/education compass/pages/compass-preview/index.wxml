@@ -88,7 +88,7 @@
       <view class="locked-report locked-report--strict">
         <view class="locked-report__icon" aria-label="报告已锁定"><image src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" /><text class="visually-hidden">锁</text></view>
         <text class="h2 locked-report__title">付款后解锁本次完整报告</text>
-        <text class="locked-report__copy">未付款前不展示结论、信号、证据或六项报告内容。支付状态仅以服务端订单查询和微信支付通知为准。</text>
+        <text class="locked-report__copy">未付款前不展示结论、信号、证据或六项报告内容。支付状态仅以服务端订单查询和微信平台通知为准。</text>
         <view class="locked-product">
           <text class="locked-product__name">{{product.productName || product.name || 'Education Growth Discovery'}}</text>
           <text class="locked-product__price">{{product.displayPrice}}</text>
@@ -100,7 +100,7 @@
     </view>
     <view class="purchase-bar">
       <view class="purchase-bar__summary"><text class="purchase-bar__price">{{product.displayPrice}}</text><text class="purchase-bar__type">提交后付款 · 单次解锁</text></view>
-      <button class="btn btn--gold purchase-bar__button" loading="{{paying}}" disabled="{{paying || !canPurchase}}" bindtap="purchase">{{canPurchase ? '微信支付并解锁' : '支付通道暂未开放'}}</button>
+      <button class="btn btn--gold purchase-bar__button" loading="{{paying}}" disabled="{{paying || !canPurchase}}" bindtap="purchase">{{canPurchase ? '支付并解锁' : '支付通道暂未开放'}}</button>
     </view>
   </block>
 

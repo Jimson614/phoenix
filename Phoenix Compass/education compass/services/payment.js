@@ -1,6 +1,7 @@
 const api = require('./api')
 const runtime = require('../config/runtime')
 const { repository } = require('./demo-runtime')
+const virtualPayment = require('./virtual-payment')
 const { PRODUCT } = require('../config/compass')
 const { isoNow } = require('../utils/date')
 
@@ -107,23 +108,6 @@ function normalizeOrder(result) {
   }
 }
 
-function normalizePrepay(result) {
-  const prepay = unwrap(result, ['payment', 'prepay']) || {}
-  const rawParams = prepay.paymentParams || prepay.payment_params
-  const paymentParams = rawParams ? {
-    ...rawParams,
-    timeStamp: rawParams.timeStamp || rawParams.time_stamp,
-    nonceStr: rawParams.nonceStr || rawParams.nonce_str,
-    package: rawParams.package,
-    signType: rawParams.signType || rawParams.sign_type,
-    paySign: rawParams.paySign || rawParams.pay_sign
-  } : null
-  return {
-    ...prepay,
-    orderId: prepay.orderId || prepay.order_id,
-    paymentParams
-  }
-}
 function cacheOrder(order) {
   if (!order || !validOrderId(order.orderId)) return order
   const cache = orderCache()
@@ -199,23 +183,6 @@ async function createOrder(assessmentId) {
   return cacheOrder({ ...order, assessmentId })
 }
 
-function invokeRequestPayment(params) {
-  return new Promise((resolve) => {
-    wx.requestPayment({
-      timeStamp: params.timeStamp,
-      nonceStr: params.nonceStr,
-      package: params.package,
-      signType: params.signType,
-      paySign: params.paySign,
-      success: () => resolve({ clientOutcome: 'accepted' }),
-      fail: (error) => resolve({
-        clientOutcome: String(error.errMsg || '').toLowerCase().includes('cancel') ? 'cancelled' : 'failed',
-        clientMessage: error.errMsg || ''
-      })
-    })
-  })
-}
-
 async function requestWeChatPayment(orderId) {
   if (runtime.isDemo()) {
     const order = repository.getById('orders', orderId)
@@ -232,12 +199,17 @@ async function requestWeChatPayment(orderId) {
     return { clientOutcome: 'demo_accepted' }
   }
 
-  const prepay = normalizePrepay(await api.request(`/v1/orders/${encodeURIComponent(orderId)}/wechat-prepay`, { method: 'POST', data: {} }))
-  if (!prepay.paymentParams) throw new api.ApiError('支付参数缺失，请稍后重试', { code: 'PAYMENT_PARAMS_MISSING' })
-  cacheOrder(prepay)
-  // The callback only reports what the WeChat client displayed. Payment state is
-  // always read from GET /orders/:id after the signed server notification.
-  return invokeRequestPayment(prepay.paymentParams)
+  if (!virtualPayment.supported()) {
+    throw new api.ApiError('当前微信版本不支持本次支付，请升级微信后重试', { code: 'VIRTUAL_PAYMENT_UNSUPPORTED' })
+  }
+  const attempt = unwrap(await api.request(`/v1/orders/${encodeURIComponent(orderId)}/virtual-payment`, {
+    method: 'POST', data: { code: await virtualPayment.loginCode() }
+  }), []) || {}
+  if (!virtualPayment.validParams(attempt.virtualPayment)) throw new api.ApiError('支付参数缺失，请稍后重试', { code: 'PAYMENT_PARAMS_MISSING' })
+  cacheOrder({ orderId: attempt.orderId || orderId, status: attempt.status, outTradeNo: attempt.outTradeNo })
+  // The callback only reports what the payment sheet displayed. Payment state is
+  // always read from GET /orders/:id after the server has verified it.
+  return virtualPayment.request(attempt.virtualPayment)
 }
 
 async function getOrder(orderId) {
@@ -275,5 +247,5 @@ function statusLabel(status) {
 
 module.exports = {
   FINAL_STATUSES, ORDER_CACHE_KEY, cacheOrder, clearOrderCache, createOrder, getOrder,
-  listCachedOrders, normalizeOrder, normalizePrepay, pollOrder, refreshCachedOrders, requestWeChatPayment, statusLabel
+  listCachedOrders, normalizeOrder, pollOrder, refreshCachedOrders, requestWeChatPayment, statusLabel
 }

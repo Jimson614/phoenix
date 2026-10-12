@@ -395,14 +395,13 @@ console.log('✓ paid Compass: versioned questionnaire, 70-point gate, six-modul
   console.log('✓ dual analysis client: free assessment and paid report contracts, independent consent and bounded polling')
 
   assert.strictEqual(payment.normalizeOrder({ data: { order: { id: 'nested_order', amountFen: 3990, reportId: 'nested_report' } } }).orderId, 'nested_order')
-  assert.strictEqual(payment.normalizePrepay({ payment: { orderId: 'nested_order', paymentParams: { time_stamp: '1', nonce_str: 'n', package: 'prepay_id=x', sign_type: 'RSA', pay_sign: 's' } } }).paymentParams.paySign, 's')
   payment.cacheOrder({
     orderId: 'privacy_order', status: 'PENDING', amountFen: 3990,
-    paymentParams: { nonceStr: 'must-not-persist', package: 'prepay_id=must-not-persist', paySign: 'must-not-persist' }
+    virtualPayment: { signData: 'must-not-persist', paySig: 'must-not-persist', signature: 'must-not-persist', mode: 'short_series_goods' }
   })
   const persistedOrder = memory.get(payment.ORDER_CACHE_KEY).privacy_order
-  assert.strictEqual(persistedOrder.paymentParams, undefined, 'prepay parameters must never be persisted')
-  assert(!JSON.stringify(persistedOrder).includes('must-not-persist'), 'prepay signing material must not appear in order cache')
+  assert.strictEqual(persistedOrder.virtualPayment, undefined, 'payment signatures must never be persisted')
+  assert(!JSON.stringify(persistedOrder).includes('must-not-persist'), 'payment signing material must not appear in order cache')
   const nestedReport = reportService.normalizeResponse({ data: { report: {
     access: 'full',
     capabilities: {

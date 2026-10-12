@@ -99,7 +99,7 @@
 
       <view class="data-note">
         <view class="data-note__mark" aria-hidden="true">✦</view>
-        <view><text class="data-note__title">家庭数据原则</text><text class="data-note__copy">家庭档案、成长洞察与关系历史共同组成 Family OS。付费状态以服务端微信支付通知为准；任何专家协作都必须经过家庭授权。</text></view>
+        <view><text class="data-note__title">家庭数据原则</text><text class="data-note__copy">家庭档案、成长洞察与关系历史共同组成 Family OS。付费状态以服务端核验的微信平台通知为准；任何专家协作都必须经过家庭授权。</text></view>
       </view>
 
       <button class="btn btn--text mine-logout" bindtap="logout">退出登录</button>

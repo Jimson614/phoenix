@@ -22,5 +22,5 @@
     <button wx:if="{{order.status === 'PENDING' || order.status === 'PAYING' || !order}}" class="btn btn--outline" loading="{{checking}}" bindtap="refresh">刷新支付状态</button>
     <button class="btn btn--text" bindtap="home">返回家庭中心</button>
   </view>
-  <text class="payment-result__note">小程序不会根据 wx.requestPayment 的客户端回调自行标记已支付；这里只展示服务端核验结果。</text>
+  <text class="payment-result__note">小程序不会根据支付弹窗的客户端回调自行标记已支付；这里只展示服务端核验结果。</text>
 </view>

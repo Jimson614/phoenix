@@ -1,6 +1,7 @@
 const session = require('../../services/session')
 const assessmentService = require('../../services/assessment')
 const payment = require('../../services/payment')
+const virtualPayment = require('../../services/virtual-payment')
 const analytics = require('../../services/analytics')
 const educationCompass = require('../../services/education-compass')
 const questionnaireModel = require('../../models/education-compass-questionnaire')
@@ -62,30 +63,6 @@ function familyPresentation(sections) {
     primarySignalSource: primary ? primary.title : '家庭教育观察',
     overviewCards
   }
-}
-
-function paymentParams(result) {
-  const value = (result && (result.paymentParams || result.payment_params)) || result || {}
-  return {
-    timeStamp: value.timeStamp || value.time_stamp || '',
-    nonceStr: value.nonceStr || value.nonce_str || '',
-    package: value.package || '',
-    signType: value.signType || value.sign_type || '',
-    paySign: value.paySign || value.pay_sign || ''
-  }
-}
-
-function invokePayment(params) {
-  return new Promise((resolve) => {
-    wx.requestPayment({
-      ...params,
-      success: () => resolve({ clientOutcome: 'accepted' }),
-      fail: (error) => resolve({
-        clientOutcome: String(error.errMsg || '').toLowerCase().includes('cancel') ? 'cancelled' : 'failed',
-        clientMessage: error.errMsg || ''
-      })
-    })
-  })
 }
 
 Page({
@@ -196,6 +173,10 @@ Page({
   async purchase() {
     if (runtime.isDemo()) return this.purchaseLegacy()
     if (this.data.paying || this.data.viewKind !== 'growth-locked' || !this.data.product || !this.data.canPurchase) return
+    if (!virtualPayment.supported()) {
+      wx.showModal({ title: '暂时无法支付', content: '当前微信版本不支持本次支付，请升级微信到最新版本后重试。', showCancel: false })
+      return
+    }
     this.setData({ paying: true })
     try {
       this.orderKey = this.orderKey || educationCompass.createIdempotencyKey('growth_order')
@@ -214,12 +195,11 @@ Page({
         this.orderKey = ''
         return this.goToVerifiedOrder(verified, 'already_paid')
       }
-      const prepay = await educationCompass.createWechatPrepay(order.orderId)
-      const params = paymentParams(prepay)
-      if (!params.timeStamp || !params.nonceStr || !params.package || !params.signType || !params.paySign) {
-        throw new Error('微信支付参数不完整，请稍后重试')
-      }
-      const client = await invokePayment(params)
+      // Every attempt is signed afresh: the platform takes an order number once, and the user
+      // signature needs the session_key of a login made just now.
+      const attempt = await educationCompass.createVirtualPayment(order.orderId, await virtualPayment.loginCode())
+      if (!virtualPayment.validParams(attempt && attempt.virtualPayment)) throw new Error('支付参数不完整，请稍后重试')
+      const client = await virtualPayment.request(attempt.virtualPayment)
       const verified = await educationCompass.getOrder(order.orderId)
       this.orderKey = ''
       analytics.track('education_growth_payment_client_returned', {

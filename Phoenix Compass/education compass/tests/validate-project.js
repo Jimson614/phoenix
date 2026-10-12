@@ -111,14 +111,19 @@ console.log('✓ questionnaire schema: client fields match the cross-layer contr
 console.log('✓ required data models and future placeholders present')
 
 const previewWxml = fs.readFileSync(path.join(root, 'pages', 'compass-preview', 'index.wxml'), 'utf8')
-assert(previewWxml.includes('微信支付并解锁'), 'native payment CTA should exist')
+assert(previewWxml.includes('支付并解锁') && !previewWxml.includes('微信支付并解锁'),
+  'the payment CTA must not promise WeChat Pay: iOS pays through Apple')
 assert(previewWxml.includes('免费测评 · 有限 AI 分析') && previewWxml.includes('不等同于付费完整报告'),
   'free preview must clearly distinguish limited assessment analysis from the paid report')
 assert(!previewWxml.includes('<web-view'), 'paid Compass must stay native and not use web-view')
 const questionnairePage = fs.readFileSync(path.join(root, 'pages', 'compass-questionnaire', 'index.js'), 'utf8')
 assert(!questionnairePage.includes("require('../../services/ai-provider')"), 'questionnaire page must not generate the full report on device')
 const paymentService = fs.readFileSync(path.join(root, 'services', 'payment.js'), 'utf8')
-assert(paymentService.includes('wx.requestPayment'), 'remote provider must invoke native WeChat payment')
+const virtualPaymentService = fs.readFileSync(path.join(root, 'services', 'virtual-payment.js'), 'utf8')
+assert(virtualPaymentService.includes('wx.requestVirtualPayment'), 'remote payments must use Mini Program virtual payment')
+for (const file of ['services/payment.js', 'services/virtual-payment.js', 'pages/compass-preview/index.js']) {
+  assert(!fs.readFileSync(path.join(root, ...file.split('/')), 'utf8').includes('wx.requestPayment'), `${file} must not use ordinary WeChat Pay for virtual goods`)
+}
 assert(paymentService.includes('/v1/orders/${encodeURIComponent(orderId)}'), 'payment result must query the server order')
 console.log('✓ paid Compass pages: native preview/payment result flow and server-authoritative payment checks')
 
