@@ -150,6 +150,7 @@ test('the workbench page signs in with a login code, revokes the session on logo
     assert.ok(js.includes("'/v1/internal/masters/workbench-session'"), 'the page must exchange the login code without a bearer token')
     assert.ok(/fetch\('\/v1\/auth\/session',\s*\{method:'DELETE'/.test(js), 'logging out must revoke the server session')
     assert.ok(js.includes("api+'/staff'") && js.includes("'/suspend'"), 'a founder must be able to grant and suspend roles')
+    assert.ok(/await loadStaff\(\)\.catch\(/.test(js), 'a staff list that fails to load must not stop a founder from entering the workbench')
   } finally {
     await app.close()
     await rm(dir, { recursive: true, force: true })

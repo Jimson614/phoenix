@@ -70,7 +70,7 @@ async function loadStaff(){
 }
 async function enter(token){
  session=token;staff=(await request(api+'/me')).staff;const advisors=(await request(api+'/advisors')).advisors;el('advisor').replaceChildren();for(const a of advisors){const o=document.createElement('option');o.value=a.userId;o.textContent=a.userId;el('advisor').append(o);}
- el('staff-panel').hidden=staff?.role!=='founder';if(staff?.role==='founder')await loadStaff();await refresh();
+ el('staff-panel').hidden=staff?.role!=='founder';if(staff?.role==='founder')await loadStaff().catch(e=>{el('staff-list').textContent='工作人员列表暂时读取失败：'+e.message;});await refresh();
 }
 bind('code-connect',async()=>{const code=el('login-code').value.trim();el('login-code').value='';const r=await fetch('/v1/internal/masters/workbench-session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});const data=await r.json();if(!r.ok)throw Error((data.error?.message||'登录码无效')+' · '+(data.request_id||''));await enter(data.accessToken);});
 bind('connect',async()=>{const token=el('token').value.trim();el('token').value='';await enter(token);});
