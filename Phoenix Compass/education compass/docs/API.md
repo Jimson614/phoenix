@@ -225,25 +225,31 @@ placeholder、Source版本不一致、生成/QA失败或未锁定报告返回错
 
 相同用户和幂等键返回同一业务结果；幂等键不得复用于其他测评或商品。
 
-### POST /v1/orders/:orderId/wechat-prepay
+### POST /v1/orders/:orderId/virtual-payment
 
-服务端创建或复用同一安全订单的prepay；预支付事务会再次检查购买开关、测评/报告关联、监护人同意未撤回、商品仍启用且为单次3990分/CNY、Source Catalog版本与QA锁定状态，并在微信返回后落库前再次复核。中途状态变化时先关微信订单，关单成功后才本地取消。微信下单请求的 `time_expire` 使用服务端订单 `expiresAt`；进入收银台等待阶段后订单主状态为 `PENDING`。
+本产品属于小程序内销售的虚拟商品，按微信要求通过**小程序虚拟支付**收款（`wx.requestVirtualPayment`，iOS 走 Apple 支付，其他终端走微信支付），不再使用普通 JSAPI 支付。
+
+请求体只有 `code`：支付前刚调用 `wx.login` 得到的登录码。服务端用它调 code2Session，要求得到的 OpenID 就是当前登录用户的微信身份（否则 `403 PAYMENT_PAYER_MISMATCH`），再用返回的 `session_key` 计算用户态签名；`session_key` 只在这次请求的内存中使用，不落库。每个用户每分钟最多 20 次。
+
+签名前会再次检查购买开关、测评/报告关联、同意未撤回、商品仍启用且为单次3990分/CNY、该商品已配置虚拟支付道具（否则 `409 VIRTUAL_PAYMENT_PRODUCT_NOT_CONFIGURED`）、Source Catalog 与 QA 锁定状态。
+
+平台的订单号只能使用一次，所以同一订单的每次尝试都会得到新的 `outTradeNo`（第一次沿用订单号），全部尝试号都记在订单上；重新尝试前，服务端先查此前的尝试，已付款就直接结算并返回 `409 ORDER_ALREADY_PAID`，不会重复收费。一个订单最多 10 次尝试。
 
 ~~~json
 {
   "orderId": "ord_xxx",
   "status": "PENDING",
-  "paymentParams": {
-    "timeStamp": "1787215000",
-    "nonceStr": "...",
-    "package": "prepay_id=...",
-    "signType": "RSA",
-    "paySign": "..."
+  "outTradeNo": "PX...",
+  "virtualPayment": {
+    "signData": "{\"offerId\":\"...\",\"buyQuantity\":1,\"env\":0,\"currencyType\":\"CNY\",\"productId\":\"EDUCATION_GROWTH_DISCOVERY_SINGLE_V1\",\"goodsPrice\":3990,\"outTradeNo\":\"PX...\",\"attach\":\"ord_xxx\"}",
+    "paySig": "...",
+    "signature": "...",
+    "mode": "short_series_goods"
   }
 }
 ~~~
 
-客户端只把 `paymentParams` 传给 `wx.requestPayment`。success/cancel/fail只能改变页面提示，不能修改服务端订单或解锁报告。
+客户端把 `virtualPayment` 原样传给 `wx.requestVirtualPayment`。success/cancel/fail 只能改变页面提示，不能修改服务端订单或解锁报告。
 
 ### GET /v1/orders/:orderId
 
@@ -264,30 +270,34 @@ placeholder、Source版本不一致、生成/QA失败或未锁定报告返回错
 
 客户端轮询使用退避和最大等待时间；超时显示“仍在确认”，不能自行把订单标为失败。
 
-`PENDING` 到达 `expiresAt` 时不能直接改为取消：服务端先查微信订单；`SUCCESS` 走正常交付，`USERPAYING` 保持等待，只有 `NOTPAY` 且微信关单成功后才写 `CANCELLED`。`CREATED` 且从未预支付的过期订单可本地取消。
+`PENDING` 到达 `expiresAt` 时：虚拟支付没有关单接口，服务端逐个查询该订单的全部尝试；有已付款的走正常交付并调用 `notify_provide_goods` 告知已发货；全部未付款时本地写 `CANCELLED`。平台查不到的尝试（买家从未打开支付弹窗）要等过期 30 分钟后才算未付款。`CREATED` 且从未发起支付的过期订单可本地取消。同一测评再次下单前，会先这样处理已过期但仍占着购买位置的订单。
 
-微信查单的非成功响应可省略 `payer` 与 `amount`。服务端对 `SUCCESS` 始终严格要求并核对OpenID、3990分、CNY和transaction_id；对 `NOTPAY/CLOSED/USERPAYING` 等状态，appid、mchid、out_trade_no、trade_type仍为必检，amount/payer若返回也必须匹配。
+查单结果按 `query_order` 的 `status` 映射：2/3/4 为已支付，5/7/8 为退款状态，6 为已关闭，其余为未支付。对已支付结果严格核对 3990 分、本环境、尝试号属于该订单和付款 OpenID。
 
-## 7. 微信支付通知
+## 7. 消息推送（虚拟支付事件）
 
-### POST /v1/webhooks/wechat-pay/transactions
+### GET/POST /v1/webhooks/wechat-message
 
-- 不使用用户Bearer会话，必须读取原始body；
-- 在占用回调处理槽前快速检查必需 `Wechatpay-*` 头、5分钟时间窗及Content-Length；应用层使用128KB上限和5秒body读取期限，服务端设置短headers/request/keepalive timeout；
-- 验证 `Wechatpay-*` 请求头、签名时间窗及微信支付公钥ID；
-- AES-256-GCM解密resource；
-- 核对appid、mchid、out_trade_no、transaction_id、SUCCESS、3990、CNY及付款OpenID；
-- provider event ID、transaction_id和权益唯一约束防重；
-- 在同一事务中写事件、订单PAID、一次ACTIVE entitlement、报告DELIVERED及一次时间线/交付记录；
-- 不在支付后才生成或QA报告。
+小程序后台「开发管理 → 消息推送」配置为本地址，**安全模式 + JSON**。沙箱与现网共用这一个地址。
 
-重复的合法成功通知返回成功，但不能重复授权或交付。无效签名或业务字段不一致返回错误并写脱敏安全记录。
+- GET：保存配置时微信发来的校验，`signature = sha1(sort(Token, timestamp, nonce))` 正确才原样返回 `echostr`；
+- POST：只接受安全模式（`encrypt_type=aes`），先校验 `msg_signature = sha1(sort(Token, timestamp, nonce, Encrypt))`，再用 EncodingAESKey 做 AES-256-CBC 解密，明文末尾的 AppID 必须是本小程序；明文模式、签名不符一律 401。不使用用户 Bearer 会话，128KB 上限、5 秒读取期限，按来源每分钟 300 次；
+- 回包为 `success`（无需加密）；需要内容的回包（iOS 退款问询）加密并签名后返回 `{Encrypt, MsgSignature, TimeStamp, Nonce}`。返回非成功时微信会重试，最多 15 次。
 
-关闭 `PAID_COMPASS_ENABLED` 只阻止新的创单/预支付。若某订单已取得签名支付参数，随后开关关闭或当前Source Catalog被撤回，其通过签名、appid、mchid、金额、币种、transaction_id和付款OpenID校验的成功通知/查单结果仍授予既有锁定报告权益，避免扣款后拒绝交付。目录异常须进入人工事故与退款流程，不能用静默不交付代替退款。
+按事件处理：
 
-### POST /v1/webhooks/wechat-pay/refunds
+- `xpay_goods_deliver_notify`：`Env` 与本服务环境不同的直接确认、不生效（写 `PAYMENT_PUSH_OTHER_ENV_IGNORED` 审计）。否则用 `GoodsInfo.Attach`（订单 ID）找到订单，要求 `OutTradeNo` 是该订单的尝试号，核对道具 ID、数量 1、实付 3990 分和付款 OpenID，再在同一事务中写事件、订单 PAID（订单号改为付款的那次尝试）、一次 ACTIVE entitlement、报告 DELIVERED 及一次时间线。按尝试号幂等；同内容重复推送只处理一次。找不到订单返回 404，让微信重试；
+- 同一订单两次尝试都付款，或已取消的订单在新订单付款后又收到付款：保留一笔，另一笔写 `DUPLICATE_PAYMENT_MANUAL_REFUND_REQUIRED` 审计，需在虚拟支付后台人工退款。已取消订单晚到的付款会让同一测评下新的未付款订单让位；
+- `xpay_refund_notify`：本库没有对应订单的视为另一环境的推送，确认后不处理。`RetCode=0` 为退款成功，撤回权益；`SUCCESS` 为单调终态，后到的其他状态不得恢复访问。没有对应退款记录的（Apple 自行退款、商户后台手工退款）补记一条 `PLATFORM_REFUND` 退款记录再撤回权益；
+- `xpay_subscribe_ios_refund_query_notify`：Apple 询问是否同意 iOS 退款，须 3 秒内应答。按 OD-07 的同一政策：支付 7 天内且报告 PDF 未下载回 `result_code=0`（不拦截），已下载或超过 7 天回 `1` 并附依据；找不到已支付订单回 `0`。最终由 Apple 决定；
+- `xpay_complaint_notify`、`xpay_wxpay_callback_notify`：只记录投诉单号、事件类型等到审计日志，不保存投诉正文；
+- 其他事件：直接确认。
 
-执行同等的原始body验签、解密、字段核对和幂等处理。当前安全默认是退款成功后把该订单的 entitlement 改为 `REVOKED`；`SUCCESS` 为单调终态，后到的 `PROCESSING/CLOSED/ABNORMAL` 不得恢复访问或倒退账本。持久化对账任务每分钟扫描 `PROCESSING`：正常情况主动查退款；若只落了退款意图、尚无provider退款ID，则以同一 `out_refund_no` 幂等重放申请，再通过验签查询进入相同迁移。任何保留或恢复访问的例外须等OD-07批准并修改合同测试。
+关闭购买开关只阻止新的创单和签名。已签名的尝试之后若付款成功，仍按既有锁定报告交付，避免扣款后拒绝交付；目录异常须进入人工事故与退款流程。
+
+### 退款
+
+管理员退款通过 `refund_order` 发起（需要买家 OpenID；账号已注销的订单只能在虚拟支付后台人工退款），再用 `query_order` 查退款单（5/8 成功、7 失败）。iOS 订单开发者不能主动退款，返回 `409 REFUND_APPLE_UNSUPPORTED`。持久化对账任务每分钟扫描 `PROCESSING` 的退款，以同一退款单号幂等重放申请并查询。支付时间 180 天内的退款平台退还手续费。
 
 ## 8. 完整报告、PDF与反馈
 

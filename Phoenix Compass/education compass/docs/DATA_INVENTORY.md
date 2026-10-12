@@ -25,7 +25,7 @@
 | `unionid` | `wechat_identities` | 同一微信开放平台主体下的用户标识，可选 |
 | `token_hash` | `sessions` | 会话凭据的哈希，不存明文 |
 
-服务端调用微信 `code2Session` 换取 openid，**不保留 `session_key`**（`server/src/auth/wechat-auth-provider.ts` 只取 openid 与 unionid）。
+服务端调用微信 `code2Session` 换取 openid，**不保留 `session_key`**。登录只存 openid 与 unionid；虚拟支付时客户端再传一个新的登录 code，服务端用换到的 `session_key` 计算这一次的用户态签名后即丢弃，不写库、不写日志（`server/src/services/auth-service.ts` 的 `payerSession`）。
 不收集微信昵称、头像、手机号授权。
 
 ### 2.2 家长（`families`）
@@ -66,8 +66,8 @@
 
 ### 2.5 交易与权益
 
-`orders`、`entitlements`、`payment_events`、`refunds` 保存订单号、金额（固定 3990 分）、支付状态、
-第三方交易号与回调摘要。**不保存银行卡号、支付密码或任何支付凭据**。
+`orders`、`entitlements`、`payment_events`、`refunds` 保存订单号（含同一订单历次支付尝试的单号）、金额（固定 3990 分）、支付状态、
+第三方交易号与推送摘要。**不保存银行卡号、支付密码或任何支付凭据**。虚拟支付的投诉推送只记投诉单号，不存投诉正文。
 
 ### 2.6 报告与衍生内容
 
@@ -102,7 +102,7 @@ AI 对话正文在入库前用 `AI_CONTENT_KEYRING_JSON` 的密钥加密（`serv
 
 | 接收方 | 发出的内容 | 当前状态 |
 | --- | --- | --- |
-| **微信**（腾讯） | 登录 code 换取 openid；支付时的订单号与金额 | 登录已启用 |
+| **微信**（腾讯） | 登录 code 换取 openid；虚拟支付时的 openid、订单号、道具 ID、金额和我方订单 ID（作为透传字段 attach）；iOS 上由微信转交 Apple 支付 | 登录已启用；虚拟支付已签约，未开放收款 |
 | **AI 服务商**（OpenAI 或 DeepSeek） | 见下方 3.3 | **未启用**，`AGENT_PROVIDER=mock` |
 | **飞书多维表格** | 见下方 3.4 | **未启用**，`FEISHU_BITABLE_ENABLED=false` |
 | **腾讯云 COS** | 数据库备份（含全部个人信息） | 已启用 |

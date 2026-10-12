@@ -1,6 +1,6 @@
 # ADR-0001：Education Compass ¥39.90 原生小程序付费闭环
 
-- 状态：Accepted
+- 状态：Accepted；支付渠道部分（JSAPI + wx.requestPayment）已被 [ADR-0002](ADR-0002-virtual-payment.md) 取代
 - 日期：2026-08-20
 - 决策范围：Phoenix Family OS Mini Program MVP V0.1 工作副本
 

@@ -41,7 +41,7 @@ async function main() {
     '/v1/assessments/{assessmentId}/submit:',
     '/v1/assessments/{assessmentId}/result:',
     '/v1/assessments/{assessmentId}/orders:',
-    '/v1/orders/{orderId}/wechat-prepay:',
+    '/v1/orders/{orderId}/virtual-payment:',
     '/v1/me/integration-consents/feishu-profile:',
     '/v1/assessments/{assessmentId}/agent-analyses:',
     '/v1/assessments/{assessmentId}/agent-analyses/latest:',
@@ -58,6 +58,10 @@ async function main() {
   assert.ok(openapi.includes('const: EDUCATION_GROWTH_DISCOVERY_SINGLE_V1'))
   assert.ok(openapi.includes('amountFen: { const: 3990 }'))
   assert.ok(openapi.includes('paymentTiming: { const: AFTER_SUBMIT_BEFORE_REPORT }'))
+  assert.ok(!openapi.includes('wechat-prepay') && !openapi.includes('wx.requestPayment'),
+    'OpenAPI must not describe ordinary WeChat Pay: virtual goods are sold through virtual payment')
+  assert.ok(openapi.includes('mode: { const: short_series_goods }') && openapi.includes('code: { type: string, minLength: 1, maxLength: 512 }'),
+    'OpenAPI must describe the virtual payment attempt and its login code')
   for (const questionnaireVersion of [
     'free_parent_compass_v1.0.0-rc1',
     'education_growth_discovery_v1.0.0-rc1',

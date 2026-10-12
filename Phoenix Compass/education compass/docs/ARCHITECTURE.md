@@ -61,20 +61,21 @@ sequenceDiagram
   participant U as 家庭用户
   participant M as 小程序
   participant S as 服务端
-  participant W as 微信支付
+  participant W as 微信虚拟支付
 
   U->>M: 同意并完成版本化问卷
   M->>S: 提交不可变测评快照
   S->>S: 23字段完整度/硬规则/生成六模块/QA/LOCKED
   S-->>M: 白名单免费预览
   U->>M: 选择一次性购买 ¥39.90
-  M->>S: 幂等创单/预支付
-  S->>W: API v3 JSAPI/小程序下单
-  W-->>S: prepay_id
-  S-->>M: RSA 调起参数
-  M->>W: wx.requestPayment
+  M->>S: 幂等创单
+  M->>M: wx.login 取新 code
+  M->>S: 本次支付尝试（code）
+  S->>S: code2Session、核对付款人、paySig + 用户态签名
+  S-->>M: signData / paySig / signature
+  M->>W: wx.requestVirtualPayment（iOS 走 Apple 支付）
   W-->>M: 前端临时结果
-  W->>S: 支付加密通知
+  W->>S: 消息推送 xpay_goods_deliver_notify（安全模式）
   S->>S: 验签、解密、字段核对、事务性授权+DELIVERED
   M->>S: 轮询/读取订单
   S-->>M: PAID + ACTIVE entitlement
@@ -84,7 +85,9 @@ sequenceDiagram
 
 六模块必须在收费前已经生成并通过事实/安全QA；支付成功后只授予权益并标记交付，不得在扣款后才生成或QA。前端回调只改变页面提示，不改变服务端订单。回调缺失时由服务端主动查单；两条路径复用同一幂等状态迁移。
 
-`PAID_COMPASS_ENABLED` 是默认关闭的服务端 kill switch。创单与预支付同时要求开关开启、verified Source Catalog版本匹配及报告 `LOCKED/LOCKED + qaPassed`。关闭开关只阻止新的创单/预支付，不阻断通知、查单、退款或既有权益读取。已经取得签名支付参数的交易如在开关关闭或目录撤回后可信成功，仍交付收费前锁定的快照；目录异常作为人工退款/事故事件处置。
+支付渠道是小程序虚拟支付（见 [ADR-0002](decisions/ADR-0002-virtual-payment.md)）：每次尝试一个平台单号，推送与查单复用同一幂等迁移，没有关单接口。
+
+收款开关（V0.5 为 `GROWTH_DISCOVERY_PAYMENT_ENABLED`，旧版为 `PAID_COMPASS_ENABLED`）默认关闭。创单与签名同时要求开关开启、verified Source Catalog版本匹配及报告 `LOCKED/LOCKED + qaPassed`。关闭开关只阻止新的创单和签名，不阻断通知、查单、退款或既有权益读取。已经取得签名支付参数的交易如在开关关闭或目录撤回后可信成功，仍交付收费前锁定的快照；目录异常作为人工退款/事故事件处置。
 
 ## 5. 领域状态
 

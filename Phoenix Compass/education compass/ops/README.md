@@ -60,8 +60,8 @@ git checkout
 | `check-cos-access.sh` | 用已保存的凭据复测 COS 读写权限，并解释失败原因 | COS 上传失败时排查 |
 | `set-uat-wechat-secret.sh` | 录入小程序 AppSecret（隐藏输入），让联调环境改用真实微信登录并重启 | 更换 AppSecret 时 |
 | `set-uat-deepseek-key.sh` | 录入 DeepSeek API Key（隐藏输入），验证余额、应用迁移 006、切换联调 AI 供应商并重启 | 启用 DeepSeek 时 |
-| `set-wechat-pay.sh --check` | 只读体检生产 `server/.env` 的微信支付配置：格式、密钥文件权限与位数、回调地址同源 | 随时 |
-| `set-wechat-pay.sh --base-url … --key … --pub … [--cert …]` | 录入商户号、证书序列号、APIv3 密钥、公钥 ID（隐藏输入），核对私钥与证书配套，把 PEM 装到 `/etc/phoenix/wechatpay`，写好两个回调地址 | 拿到商户凭据后 |
+| `set-virtual-payment.sh --check [--env-file …]` | 只读体检虚拟支付与消息推送配置：offerId、环境（生产必须现网）、AppKey、道具 ID、Token、EncodingAESKey、收款开关 | 随时 |
+| `set-virtual-payment.sh --env 0\|1 [--env-file …] [--only xpay\|message]` | 录入 offerId、道具 ID、对应环境的 AppKey、消息推送 Token 与 EncodingAESKey（秘密隐藏输入），写前备份，写后自动体检 | 虚拟支付开通后；配消息推送时 |
 | `setup-postgres-tls.sh` | 生成私有 CA 和服务端证书（各 10 年），让 PostgreSQL 支持 `sslmode=verify-full` | 首次配置或轮换 CA 时 |
 | `setup-postgres-tls.sh --check` | 体检证书、`ssl_cert_file`、客户端 CA 副本和已强制 TLS 的库 | 随时 |
 | `setup-postgres-tls.sh --enforce <库名>…` | 对指定库加 `hostnossl reject` + `hostssl`，拒绝明文连接 | 目标库的连接串都改好之后 |

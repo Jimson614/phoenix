@@ -351,26 +351,33 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
         '503': { $ref: '#/components/responses/Unavailable' }
-  /v1/orders/{orderId}/wechat-prepay:
+  /v1/orders/{orderId}/virtual-payment:
     post:
       tags: [Payment]
-      operationId: createGrowthDiscoveryWechatPrepay
+      operationId: createGrowthDiscoveryVirtualPayment
+      description: >-
+        为一次小程序虚拟支付签名。code 必须是支付前刚调用 wx.login 得到的登录码，且属于当前登录用户的微信身份；
+        服务端用它换取 session_key 计算用户态签名，用后即弃、不保存。平台的订单号只能使用一次，
+        所以同一订单的每次尝试都会得到新的 outTradeNo。
       parameters:
         - $ref: '#/components/parameters/OrderId'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
               additionalProperties: false
+              required: [code]
+              properties:
+                code: { type: string, minLength: 1, maxLength: 512 }
       responses:
         '200':
-          description: 传给 wx.requestPayment 的参数；该响应和客户端回调都不代表权益已授予
+          description: 传给 wx.requestVirtualPayment 的参数；该响应和客户端回调都不代表权益已授予
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WechatPrepay'
+                $ref: '#/components/schemas/VirtualPaymentAttempt'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
@@ -1347,22 +1354,23 @@ components:
         reportId: { type: string }
         paidAt: { type: string, format: date-time }
         refundedAt: { type: string, format: date-time }
-    WechatPrepay:
+    VirtualPaymentAttempt:
       type: object
       additionalProperties: false
-      required: [orderId, status, paymentParams]
+      required: [orderId, status, outTradeNo, virtualPayment]
       properties:
         orderId: { type: string }
         status: { const: PENDING }
-        paymentParams:
+        outTradeNo: { type: string, description: 本次尝试的平台订单号 }
+        virtualPayment:
           type: object
-          required: [timeStamp, nonceStr, package, signType, paySign]
+          additionalProperties: false
+          required: [signData, paySig, signature, mode]
           properties:
-            timeStamp: { type: string }
-            nonceStr: { type: string }
-            package: { type: string }
-            signType: { type: string }
-            paySign: { type: string }
+            signData: { type: string, description: 'JSON 字符串：offerId、buyQuantity、env、currencyType、productId、goodsPrice、outTradeNo、attach' }
+            paySig: { type: string }
+            signature: { type: string }
+            mode: { const: short_series_goods }
     ReportResponse:
       oneOf:
         - type: object

@@ -1,215 +1,140 @@
-# WeChat Pay Runbook：Education Compass ¥39.90
+# 小程序虚拟支付手册：Education Compass ¥39.90
 
 ## 1. 适用范围
 
-本手册用于普通商户模式的原生微信小程序支付。商品为 COMPASS_REPORT_SINGLE_39_9，服务端固定金额3990分、CNY。小程序只调起收银台；订单和权益的事实源在服务端。
+本产品是小程序内销售的虚拟商品（付费测评报告）。按微信《小程序虚拟支付业务管理规范》（2026-02-27 更新，2026-04-01 起执行），这类商品在全部终端都必须走**小程序虚拟支付**，普通微信支付（JSAPI）能力会被关闭。原来的 API v3 商户证书方案已经整体移除。
 
-官方依据应在每次上线前复核：
+- 只出售一个道具：V0.5「学生成长发现」完整报告（`EDUCATION_GROWTH_DISCOVERY_SINGLE_V1`），3990 分、CNY，模式为道具直购（`short_series_goods`）。旧版 `COMPASS_REPORT_SINGLE_39_9` 没有配置道具，不能购买。
+- `wx.requestVirtualPayment` 在 iOS 上走 Apple 支付，在 Android、鸿蒙、Windows 上走微信支付。小程序只拉起支付；订单和权益的事实源在服务端。
 
-- JSAPI/小程序下单：https://pay.wechatpay.cn/doc/v3/merchant/4012791897
-- 小程序调起支付：https://pay.wechatpay.cn/doc/v3/merchant/4012791898
-- 支付成功通知：https://pay.wechatpay.cn/doc/v3/merchant/4012791861
-- 回调与查单：https://pay.wechatpay.cn/doc/v3/merchant/4012075249
-- API v3规则：https://pay.wechatpay.cn/doc/v3/merchant/4012081606
+官方依据（每次上线前复核）：
 
-## 2. 配置原则
+- 虚拟支付总览、消息推送字段与签名：https://developers.weixin.qq.com/miniprogram/dev/platform-capabilities/business-capabilities/virtual-payment.html
+- 技术服务费：https://developers.weixin.qq.com/miniprogram/dev/platform-capabilities/business-capabilities/virtual-payment/devplan.html
+- `wx.requestVirtualPayment`：https://developers.weixin.qq.com/miniprogram/dev/api/payment/wx.requestVirtualPayment.html
+- 查单 / 退款 / 通知已发货：https://developers.weixin.qq.com/miniprogram/dev/server/API/VirtualPayment/api_query_order 、api_refund_order 、api_notify_provide_goods
+- 消息推送（安全模式验签与解密）：https://developers.weixin.qq.com/miniprogram/dev/framework/server-ability/message-push.html
+- 业务运营指南：https://developers.weixin.qq.com/community/minihome/doc/00002cf077cd4810fee42f4b865c01
 
-环境变量只保存引用或由秘密管理注入的值。不要把任何真实值提交到仓库、粘贴到工单、打印到日志或打进小程序。
+## 2. 开通与后台配置（小程序管理员操作）
+
+1. 小程序后台「虚拟支付」开通：签协议 → 提交营业执照、提现账户、支付管理员 → 审核 1–7 个工作日 → 账户验证 → 扫码签约（约 1–2 个工作日）。显示「已签约」即开通了一个新的微信支付商户号。
+2. 「虚拟支付 → 基础配置」：记下 offerId；沙箱 AppKey 与现网 AppKey 是秘密，只用 `ops/server/set-virtual-payment.sh` 隐藏输入录到服务器。
+3. 配置**小程序简称**（iOS 走 Apple 支付必须有）。
+4. 「虚拟支付 → 道具管理」：建一个道具，道具 ID 默认 `EDUCATION_GROWTH_DISCOVERY_SINGLE_V1`（后台不接受时换一个，并写进 `WECHAT_XPAY_GROWTH_PRODUCT_ID`），价格 39.90 元，名称与小程序页面的商品名一致。先上传到开发版本供沙箱测试，沙箱通过后再发布到现网（发布后约 10 分钟生效）。
+5. 「开发管理 → 消息推送」：URL `https://<API 域名>/v1/webhooks/wechat-message`，消息加解密方式选**安全模式**，数据格式选 **JSON**，Token 与 EncodingAESKey 与服务器配置一致。保存时微信会立即访问 URL 校验，所以必须先部署服务端、录好 Token 和 EncodingAESKey 再保存。一个小程序只有一个推送地址，沙箱与现网的推送都到这里。
+
+## 3. 配置项
+
+不要把任何真实值提交到仓库、粘贴到聊天或工单、打印到日志或打进小程序。
 
 | 变量 | 用途 | 是否秘密 |
 | --- | --- | --- |
-| NODE_ENV | development/test/production | 否 |
-| PORT | 服务监听端口 | 否 |
-| PUBLIC_BASE_URL | 对外HTTPS origin；无路径、查询、fragment或userinfo | 否 |
-| DATABASE_URL | PostgreSQL连接；production必须显式 `sslmode=verify-full` | 是 |
-| SESSION_SECRET | 服务端会话签名/派生密钥 | 是 |
-| PAYMENT_PROVIDER | mock 或 wechat | 否 |
-| WECHAT_APP_ID | 已认证小程序 AppID | 通常不作为密钥，但不必进前端配置以外位置 |
-| WECHAT_APP_SECRET | code2Session凭据 | 是 |
-| WECHAT_MCH_ID | 微信支付商户号 | 敏感配置 |
-| WECHAT_MCH_CERT_SERIAL_NO | 商户API证书序列号 | 敏感配置 |
-| WECHAT_MCH_PRIVATE_KEY_PATH | 只读私钥文件路径 | 是 |
-| WECHATPAY_API_V3_KEY | 通知资源解密 | 是 |
-| WECHATPAY_PUBLIC_KEY_ID | 微信支付公钥ID | 敏感配置 |
-| WECHATPAY_PUBLIC_KEY_PATH | 只读验签公钥路径 | 敏感配置 |
-| WECHAT_PAY_NOTIFY_URL | 支付公网HTTPS通知地址 | 否 |
-| WECHAT_REFUND_NOTIFY_URL | 退款公网HTTPS通知地址 | 否 |
-| PAID_COMPASS_ENABLED | ¥39.90购买 kill switch；默认 `false` | 否 |
-| SOURCE_CATALOG_MODE | `verified` 或 `placeholder`；生产只能为 `verified` | 否 |
-| SOURCE_CATALOG_PATH | 已批准、通过 schema 校验的来源清单路径 | 否（清单本身应受控） |
+| `PAYMENT_PROVIDER` | `mock` 或 `wechat`（= 虚拟支付）；生产禁止 mock | 否 |
+| `WECHAT_APP_ID` / `WECHAT_APP_SECRET` | code2Session、获取接口凭证（stable_token） | Secret 是 |
+| `WECHAT_XPAY_OFFER_ID` | 基础配置里的 offerId | 否 |
+| `WECHAT_XPAY_ENV` | `1` 沙箱、`0` 现网；生产必须为 `0` | 否 |
+| `WECHAT_XPAY_APP_KEY` | 与 `WECHAT_XPAY_ENV` 对应的 AppKey，用于 `paySig` | 是 |
+| `WECHAT_XPAY_GROWTH_PRODUCT_ID` | 道具 ID | 否 |
+| `WECHAT_MESSAGE_TOKEN` | 消息推送 Token（3–32 位字母数字） | 是 |
+| `WECHAT_MESSAGE_AES_KEY` | 消息推送 EncodingAESKey（43 位） | 是 |
+| `GROWTH_DISCOVERY_PAYMENT_ENABLED` | V0.5 报告的收款开关，默认 `false` | 否 |
+| `SOURCE_CATALOG_MODE` / `SOURCE_CATALOG_PATH` | 生产只能为 `verified` | 否 |
 
-若实现中的变量名不同，以 server/.env.example 为准并同步更新本表。
+录入与体检：`./set-virtual-payment.sh --check [--env-file …]`、`./set-virtual-payment.sh --env 1|0 [--env-file …] [--only xpay|message]`。联调环境传 `--env-file …/server/.env.uat`。改完需重启服务。
 
-### 2.1 五项支付凭据从哪里取
-
-> **⚠️ 先看这里：本节描述的普通商户号（JSAPI）这条路，对本产品很可能不适用。**
-> 微信 2026-02-27 更新《小程序虚拟支付业务管理规范》，要求小程序内销售虚拟商品
-> （含「在线教育、视频课程」形态）自 2026-04-01 起全终端接入**小程序虚拟支付**，
-> 并会关闭这类小程序在安卓等非 iOS 端的**普通微信支付**能力。付费测评报告属于该范畴，
-> 豁免只有线上问诊和法律咨询。虚拟支付走 `wx.requestVirtualPayment` 和 `/xpay/*`
-> 接口（HMAC-SHA256 + AppKey + session_key），与本手册描述的 API v3 商户证书体系
-> 完全不同，商户号也改为在小程序后台「虚拟支付」模块单独开通。
-> 在与平台确认本小程序的类目判定之前，不要按本节申请商户 API 证书。
-> 依据：[虚拟支付：企业、个体户](https://developers.weixin.qq.com/miniprogram/dev/platform-capabilities/business-capabilities/virtual-payment)、
-> [虚拟支付业务运营指南](https://developers.weixin.qq.com/community/minihome/doc/00002cf077cd4810fee42f4b865c01)
-
-全部在**微信支付商户平台** https://pay.weixin.qq.com，需要超级管理员登录并通过操作证书或短信验证。前置条件：已有微信支付商户号（申请需营业执照与对公账户），且商户号与本项目的小程序 AppID 已完成关联——商户平台「产品中心 → AppID 账号管理」发起关联，再由小程序管理员在微信公众平台确认。未关联时下单会返回 appid 与 mchid 不匹配。
-
-| 变量 | 商户平台位置 | 注意 |
-| --- | --- | --- |
-| `WECHAT_MCH_ID` | 账户中心 → 商户信息 | 10 位数字，登录后右上角也能看到 |
-| `WECHAT_MCH_CERT_SERIAL_NO` | 账户中心 → API 安全 → API 证书 → 申请/查看证书 | 40 位十六进制。证书由「微信支付证书工具」在本机生成 |
-| `WECHAT_MCH_PRIVATE_KEY_PATH` | 同上，证书工具生成的 `apiclient_key.pem` | 私钥只在生成时那一次能拿到；丢失只能作废重申 |
-| `WECHATPAY_API_V3_KEY` | 账户中心 → API 安全 → APIv3 密钥 → 设置密钥 | 自己定的 32 个字符；设置后不可查看，只能重置 |
-| `WECHATPAY_PUBLIC_KEY_ID` / `WECHATPAY_PUBLIC_KEY_PATH` | 账户中心 → API 安全 → 微信支付公钥 → 下载公钥 | 得到 `PUB_KEY_ID_…` 和 `pub_key.pem`。本实现只支持公钥模式，不走已弃用的平台证书 |
-
-录入用 `ops/server/set-wechat-pay.sh`：隐藏输入、校验格式、核对私钥与证书是否配套、把两个 PEM 装到 `/etc/phoenix/wechatpay`（目录 700、文件 600），并按 §3 的同源固定路径规则写好两个回调地址。`--check` 是只读体检，随时可重跑。
-
-### 2.2 小程序服务器域名
-
-微信公众平台 https://mp.weixin.qq.com → 开发管理 → 开发设置 → 服务器域名 → 修改。本项目实际发起的网络请求只有两类，因此只需登记两处，且填同一个域名：
-
-- **request 合法域名**：`https://api.<域名>`（`services/api.js` 的 `wx.request`）
-- **downloadFile 合法域名**：同上（`services/report.js` 的报告 PDF 下载）
-
-uploadFile、socket、udp 合法域名都不需要——代码里没有对应调用。业务域名（web-view）也不需要，项目没有 `web-view` 组件。域名必须是已完成 ICP 备案的 HTTPS 域名，不能填 IP、端口或路径；服务器域名每月可修改的次数有限，一次填完整。
-
-支付回调地址（`WECHAT_PAY_NOTIFY_URL` / `WECHAT_REFUND_NOTIFY_URL`）是微信服务器到本服务的调用，不需要登记为合法域名，但同样要求公网可达的、已备案域名上的 HTTPS。
-
-## 3. 生产启动闸门
+## 4. 上线闸门
 
 ### 小程序候选包
 
-仓库根目录只用于开发/demo，禁止直接上传。使用已批准参数生成正式候选包：
-
-```text
-PHOENIX_API_BASE_URL=https://... PHOENIX_MINIPROGRAM_APPID=wx... npm.cmd run build:release
-```
-
-微信开发者工具只导入`dist/release`。发布前核对`RELEASE_BUILD.json`、`project.config.json`和产物清单：运行模式必须为remote；页面从`app.json`和demo-admin排除规则动态派生（当前14个家庭端页面并含双分析/追问页）；不得含本地数据库、demo报告生成器、admin页、OpenAI SDK/服务端Prompt/Key或`server/`源码。API/AppID参数不是支付或Agent上线证据，仍须满足以下服务端闸门。
+仓库根目录只用于开发/demo，禁止直接上传。用已批准参数生成 `dist/release`（`PHOENIX_API_BASE_URL=https://... PHOENIX_MINIPROGRAM_APPID=wx... npm run build:release`），只上传该目录。API/AppID 参数不是支付上线证据，仍须满足服务端闸门。
 
 ### 服务端闸门
 
-production 启动时必须检查：
+1. `PAYMENT_PROVIDER=wechat`，生产 `WECHAT_XPAY_ENV=0`，offerId、AppKey、Token、EncodingAESKey 格式正确且 AppKey 不复用其他密钥（启动时校验，失败拒绝启动）。
+2. 道具已发布到现网，价格 39.90 元，道具 ID 与配置一致。
+3. 消息推送已用安全模式 + JSON 保存成功（URL 校验通过）。
+4. 小程序简称已配置。
+5. `DATABASE_URL` 指向已迁移的生产 PostgreSQL 且 `sslmode=verify-full`。
+6. `SOURCE_CATALOG_MODE=verified`；隐私、条款、监护人同意版本已配置。
+7. `GROWTH_DISCOVERY_PAYMENT_ENABLED` 最后开启，并需要书面发布批准。
 
-1. PAYMENT_PROVIDER=wechat；mock 必须拒绝启动或禁用购买。
-2. AppID 不是 touristappid，且与商户号绑定。
-3. 商户私钥、证书序列号、API v3密钥、微信支付公钥ID/公钥全部可读。
-4. `PUBLIC_BASE_URL` 是无凭据/路径/查询的公网 HTTPS origin；两个notify URL必须与它同源，且路径分别精确为 `/v1/webhooks/wechat-pay/transactions` 和 `/v1/webhooks/wechat-pay/refunds`。
-5. DATABASE_URL 指向已迁移、可事务写入的生产 PostgreSQL，并显式使用 `sslmode=verify-full` 与受信CA完成主机名/证书校验；任何私网明文例外都必须单独风险审批，当前代码不接受。
-6. `SOURCE_CATALOG_MODE=verified`，`SOURCE_CATALOG_PATH` 指向已批准且通过 schema 校验的 manifest；缺失或无效时启动/收费均失败关闭。适用年份与内容时效由发布审批另行核验。
-7. 隐私/条款/监护人同意版本已配置。
-8. `PAID_COMPASS_ENABLED` 默认保持 `false`。受控真机支付验收只能在支付配置齐全并取得书面测试审批后临时设为 `true`；生产常开还必须等待全部上线证据和最终发布批准。
+任一检查失败都不得退回 mock，也不得向客户端返回可用的签名。
 
-任一检查失败都不得自动回退到 mock，也不得向客户端返回可调起支付的参数。
+## 5. 正常支付链路
 
-## 4. 正常支付链路
+1. 用户已登录；测评已提交，报告已在收费前生成并通过 QA（`LOCKED/LOCKED`、`qaPassed=true`）。
+2. 客户端用幂等键创建订单；服务端固定 3990 分。
+3. 客户端调 `wx.login` 拿新的登录码，`POST /v1/orders/:id/virtual-payment {code}`。服务端 code2Session，要求 OpenID 等于当前用户的微信身份，用返回的 `session_key` 计算 `signature`，用 AppKey 计算 `paySig`；`session_key` 用后即弃。签名前再次检查收款开关、同意、商品、道具配置与报告锁定状态。
+4. 平台订单号只能用一次：第一次尝试用订单号，之后每次重试换新号，全部记在订单的 `payment_params.attempts`。重试前先查之前的尝试，已付款就直接结算。
+5. 客户端把 `signData/paySig/signature/mode` 原样传给 `wx.requestVirtualPayment`，之后只查服务端订单，不自行标记已支付。
+6. 支付成功后平台推送 `xpay_goods_deliver_notify`；服务端核对并在同一事务中写事件、订单 `PAID`、一次 `ACTIVE` 权益、报告 `READY/DELIVERED`，回 `success`（即视为已发货）。
+7. 推送没到时，查单补偿：`GET /v1/orders/:id` 至少每 5 秒查一次平台，逐个查全部尝试；查到已付款的复用同一幂等事务，并调用 `notify_provide_goods` 告知已发货。
 
-1. 用户已登录，服务端持有其当前小程序 OpenID。
-2. assessment 已提交：有效监护人同意、同一份23字段问卷合同往返一致、完整度不低于70。
-3. 服务端按规则与 verified Source Catalog 生成全部六模块并完成事实/安全QA；只有 `qaPassed=true`、`status=LOCKED`、`deliveryStatus=LOCKED` 的完整快照可进入收费。
-4. 客户端用幂等键创建订单；服务端忽略客户端金额并固定写入3990分。`PHOENIX_MEMBER_199` 不能替代本SKU，也不能解锁本报告。
-5. 服务端创建/复用唯一 out_trade_no，将订单的 `expiresAt` 作为微信请求 `time_expire`，把订单置为 `PENDING` 并调用微信 JSAPI/小程序下单。
-6. 服务端生成 timeStamp、nonceStr、package、signType、paySign，客户端调用 wx.requestPayment。
-7. 客户端回到页面后只轮询服务端订单，不自行写 `PAID` 或解锁。
-8. 服务端验证并解密通知，核对 appid、mchid、订单号、transaction_id、SUCCESS、3990和CNY。
-9. 在同一事务中记录 provider event、把订单改为 `PAID`、授予一次 `ACTIVE` 权益，并把既有报告改为 `status=READY`、`deliveryStatus=DELIVERED`。支付回调不得再生成、补写或QA报告正文。
-10. 回调未到时由服务端主动查单补偿；查单响应必须验签并复用同一幂等交付事务。
+## 6. 消息推送处理
 
-创单和预支付各自都检查 `PAID_COMPASS_ENABLED=true`、verified Source Catalog版本一致、六模块完整和QA锁定。不要依靠仅隐藏客户端按钮来关闭收费。
+- 只接受安全模式：`msg_signature = sha1(sort(Token, timestamp, nonce, Encrypt))` 校验后，用 `Base64(EncodingAESKey + "=")` 作 AES-256-CBC 密钥、前 16 字节作 IV 解密，PKCS#7 块大小 32；明文为 `random(16) + len(4, 大端) + msg + AppID`，AppID 必须是本小程序。
+- 128KB 上限、5 秒读取期限、按来源限流；回 `success` 无需加密，带内容的回包（iOS 退款问询）加密签名后返回。返回非成功时微信最多重试 15 次（间隔 2、4、8、16… 秒）。
+- 发货推送：`Env` 不是本服务环境的直接确认、不处理；用 `GoodsInfo.Attach`（订单 ID）找订单，`OutTradeNo` 必须是该订单的尝试号，核对道具 ID、数量 1、实付 3990 分、付款 OpenID；按尝试号幂等。找不到订单返回 404 让微信重试。
+- 退款推送：本库找不到订单视为另一环境，确认不处理；`RetCode=0` 成功、撤回权益；没有退款记录的（Apple 自行退款、后台手工退款）补记 `PLATFORM_REFUND`。
+- iOS 退款问询：3 秒内应答，按 OD-07 同一政策（7 天内且未下载 → 0 不拦截；否则 1 拦截并附依据），最终由 Apple 决定。
+- 投诉、风控事件：只记投诉单号、事件类型到审计日志，不存投诉正文；需人工在虚拟支付后台处理。
 
-## 5. 回调处理
-
-- 读取原始请求体，不能在验签前重新序列化。
-- 必需签名头、时间窗和声明长度在占用处理槽前快验；应用限制回调body为128KB、读取期限5秒，并配置短headers/request/keepalive timeout。
-- 使用 Wechatpay-Timestamp、Wechatpay-Nonce、原始 body 和 Wechatpay-Signature 验签。
-- 根据 Wechatpay-Serial 选择微信支付公钥或平台证书；未知序列号拒绝。
-- 验签通过后，用API v3密钥、resource.nonce、associated_data和ciphertext进行AES-256-GCM解密。
-- 校验所有业务字段后再改订单；字段不一致记录脱敏安全事件并返回失败。
-- notification_id 和 transaction_id 用唯一约束防重；已处理通知仍返回成功，不能再次发权益。
-- 报告正文已在收费前锁定；通知路径只执行短事务中的订单确认、权益授予和交付状态切换，随后尽快按官方要求应答。
-- 通知、主动查单、退款和补偿路径不得同步调用Agent/OpenAI；可以提交既有业务事务或本地待处理记录，但Agent队列、worker或上游故障不能改变微信应答。
-- 应用层限制不能替代边缘防护：生产ingress/WAF必须设置连接/慢请求/请求体/速率限制、容量保留和告警；若经反向代理，必须明确可信代理与真实源IP策略，应用默认不信任客户端伪造的转发头。
-
-## 6. 常见事件处理
+## 7. 常见事件处理
 
 ### PENDING 时间过长
 
-1. 按 order_id 查询本地订单和审计记录。
-2. 服务端对同一订单的微信主动查单至少间隔5秒；客户端更频繁轮询只读取本地状态。
-3. 用 out_trade_no 调微信查单并验证响应。
-   非成功态的官方响应可能省略payer/amount；此时仍核对appid、mchid、out_trade_no和trade_type。只有SUCCESS必须同时具备并严格匹配OpenID、3990分/CNY及transaction_id；可选字段一旦返回也必须匹配。
-4. SUCCESS：走与通知相同的幂等事务。
-5. USERPAYING：保持PENDING并按退避策略重试。
-6. 到达本地 `expiresAt` 也不能直接取消PENDING；若可信查询为NOTPAY，先调用微信关单，关单成功后才改CANCELLED。
-7. CLOSED/REVOKED/PAYERROR：按映射进入内部终态并提示用户重新下单。
-8. 不得因为客户端截图或 success 回调人工写 PAID。
+1. 查本地订单、`payment_params.attempts` 和审计记录。
+2. `GET /v1/orders/:id` 触发查单（至少间隔 5 秒），逐个查全部尝试。`query_order` 的 `status`：2/3/4 已支付，5/7/8 退款状态，6 已关闭，0/1 未支付。
+3. 已支付：走与推送相同的幂等事务并通知已发货。
+4. 虚拟支付没有关单接口：过期且全部尝试未付款时本地取消；平台查不到的尝试（买家没打开支付弹窗）在过期 30 分钟后才算未付款。
+5. 不得因为客户端截图或 success 回调人工写 `PAID`。
+
+### 重复付款
+
+同一订单两次尝试都付款，或已取消订单在新订单付款后又收到付款，服务端保留一笔，另一笔写 `DUPLICATE_PAYMENT_MANUAL_REFUND_REQUIRED` 审计。按审计里的单号到「虚拟支付 → 交易订单」人工退款，退款推送到达后台账自动核对。
 
 ### 紧急关闭购买
 
-1. 把 `PAID_COMPASS_ENABLED=false` 并发布服务端配置，确认新创单和新预支付均返回 `PAID_COMPASS_DISABLED`。
-2. 继续保留通知、主动查单、退款、报告读取和已购权益服务，不删除在途订单或支付验签材料。
-3. 已经取得签名支付参数的订单可能在关闭后成功。其通知/查单若通过签名、appid、mchid、订单号、transaction_id、3990分、CNY和OpenID核对，仍应原子授予权益并交付收费前锁定报告。
-4. 如果关闭原因是 verified Source Catalog 被撤回或发现事实问题，不得以拒绝交付代替退款。登记安全/内容事故，圈定受影响报告与订单，由授权管理员发起退款并保留通知、查退款和审计证据。
+1. `GROWTH_DISCOVERY_PAYMENT_ENABLED=false` 并重启，确认新创单与新签名均被拒绝。
+2. 保留推送、查单、退款、报告读取和已购权益；不删除在途订单。
+3. 已签名的尝试之后付款成功，仍按收费前锁定的报告交付；目录或事实问题走事故与退款流程，不以拒绝交付代替退款。
 
-### 重复通知
+### 金额、道具或付款人不一致
 
-检查 notification_id、transaction_id、订单状态和 entitlement 唯一约束。若已有相同成功记录，返回成功并停止后续交付；若字段冲突，升级为安全事件。
-
-### 金额或商户字段不一致
-
-不得接受、不得部分交付。保留 body digest、Request-ID和脱敏字段，告警支付负责人，使用官方查单核实。不要记录完整 OpenID 或密文解密后的敏感数据。
-
-### 用户重复支付风险
-
-同一 user/product/report/idempotency_key 返回原订单。调起前先查订单；已有ACTIVE权益直接进入报告。prepay/order过期时先查原订单；只有确认NOTPAY并成功关单、原订单成为CANCELLED后，才允许以新的幂等键创建新订单，不能在原订单仍未决时盲目生成新 out_trade_no。
+不接受、不部分交付，推送返回错误让平台重试并告警；用 `query_order` 核实。日志不记完整 OpenID。
 
 ### 报告未解锁
 
-核对顺序：订单是否服务端 `PAID` → entitlement 是否 `ACTIVE` → report 是否 `READY/DELIVERED` → provider event 与时间线是否落库。若报告在收费前并非六模块齐全、`qaPassed=true`、`LOCKED/LOCKED`，应升级为收费闸门事故，不能在支付后临时生成正文。修复必须走幂等补偿命令，不直接改客户端缓存。
+依次核对：订单 `PAID` → 权益 `ACTIVE` → 报告 `READY/DELIVERED` → 支付事件与时间线是否落库。修复走幂等补偿，不改客户端缓存。
 
-## 7. 退款
+## 8. 退款
 
-- 退款仅由服务端管理员接口发起，要求RBAC、幂等键、原因和审计。
-- 服务端生成唯一 out_refund_no，金额不得超过原订单可退金额。
-- 退款通知必须验签和解密；重复通知不得重复撤权。
-- 当前实现的安全默认是退款成功后撤销该订单的报告权益；OD-07仍须批准是否允许例外、恢复或部分退款。在政策未定前，不向用户开放自动退款按钮。
-- `SUCCESS` 是退款单调终态；任何迟到的 `PROCESSING`、`CLOSED` 或 `ABNORMAL` 不得把退款/订单倒退或恢复权益。
-- 退款申请响应已显示终态或怀疑回调丢失时，立即主动查退款并验证微信响应；可信查询结果复用通知的幂等迁移，可补偿丢失回调。
-- 后台每分钟扫描持久化的PROCESSING退款并退避查单。若进程在写入退款意图后、首次调用微信前崩溃，任务使用同一out_refund_no幂等重放退款，再查退款；失败只记录脱敏计数并告警，不恢复权益或伪造终态。
-- 退款、权益和财务记录要可一一对账。
+- 只由服务端管理员接口发起（RBAC、幂等键、原因、审计），政策见 OD-07（7 天内且未下载；因我方原因走 `MERCHANT_FAULT`）。
+- 调 `refund_order`（需要买家 OpenID、本次剩余可退金额 `left_fee`），再用 `query_order` 查退款单（5/8 成功，7 失败）。持久化任务每分钟扫描 `PROCESSING`，以同一退款单号幂等重放并查询。
+- 账号已注销的订单没有 OpenID，只能在虚拟支付后台人工退款。
+- iOS（Apple 支付）订单开发者不能发起退款，接口返回 `REFUND_APPLE_UNSUPPORTED`；用户向 Apple 申请，我们只应答退款问询。
+- 支付 180 天内的退款平台退还手续费；支付超过 365 天的订单不能再通过接口退款。
+- 退款成功撤回权益；`SUCCESS` 单调，迟到的其他状态不得恢复访问。
 
-## 8. 密钥与公钥轮换
+## 9. 密钥轮换
 
-1. 在秘密管理中加入新版本，不覆盖或删除仍用于在途验证的旧版本。
-2. 部署支持新旧验签材料并完成健康检查。
-3. 用非真实扣款的签名fixture和受控查单验证。
-4. 切换主动签名配置。
-5. 观察通知验签失败、下单失败和查单错误。
-6. 超过在途窗口后撤销旧版本，并记录轮换时间、执行人和回滚点。
+- AppKey：在后台重置后，用 `set-virtual-payment.sh --only xpay` 录入并重启；重置到录入之间的签名会失败（用户重试即可），推送不受影响。
+- Token / EncodingAESKey：先用 `--only message` 录入新值并重启，再立即在后台保存同样的新值。两步之间到达的推送验签失败，微信会重试，不会丢。
+- 每次轮换记录时间、执行人和回滚点。
 
-## 9. 监控与告警
+## 10. 测试
 
-至少监控：
+- Android / 鸿蒙 / Windows：`WECHAT_XPAY_ENV=1` + 沙箱 AppKey + 道具开发版本，可在联调环境完整测试正常支付、取消、推送重复、推送丢失（查单补偿）和退款。
+- iOS：**Apple 支付不支持沙箱**，只能在现网用真钱测（最低 1 元），且开发者不能主动退款。需要 iOS 15+、微信 8.0.68+、中国大陆 App Store 账户。iOS 现网测试要单独审批，测试期间推送地址对应的服务须配置 `WECHAT_XPAY_ENV=0`。
+- 自动化测试覆盖：官方文档的签名、解密示例；重试换单号、晚到推送、重复付款、过期取消；平台退款；iOS 退款问询；推送入口（`server/tests/wechat-virtual-payment.test.ts`、`domain.test.ts`、`http.test.ts`）。
 
-- 下单成功率、错误码和延迟；
-- PENDING订单年龄分布；
-- 同一订单主动查单频率、到期NOTPAY关单成功率及关单失败；
-- 通知验签/解密失败；
-- 金额、appid、mchid或订单字段不一致；
-- 重复通知和幂等冲突；
-- PAID无ACTIVE权益、ACTIVE权益无PAID订单；
-- `PAID` 后交付状态转换失败、报告读取403/5xx、鉴权PDF生成/下载失败；
-- 退款对账任务失败、PROCESSING年龄、重放次数和退款/权益差异。
-- kill switch关闭后的在途成功交易，以及Source Catalog撤回关联的人工退款事件。
+## 11. 监控与告警
 
-告警不得包含私钥、API v3密钥、完整OpenID、问卷答案或报告正文。
+至少关注：签名接口错误率；PENDING 订单年龄；推送验签/解密失败；金额、道具、付款人不一致；`DUPLICATE_PAYMENT_MANUAL_REFUND_REQUIRED`、`PAYMENT_COMPLAINT_RECEIVED`、`PAYMENT_RISK_EVENT_RECEIVED`、`IOS_REFUND_QUERY_ANSWERED` 审计；PAID 无 ACTIVE 权益；退款 `PROCESSING` 年龄。告警不得包含 AppKey、Token、EncodingAESKey、完整 OpenID、问卷答案或报告正文。
 
-## 10. 发布与回滚
+## 12. 发布与回滚
 
-- 先运行根目录`npm.cmd run test:all`；该命令统一执行客户端测试、服务端typecheck和服务端测试，并回归证明支付路径Agent provider调用为0。
-- 先部署数据库向后兼容migration，再部署服务端，最后发布小程序。
-- 以受控参数重新生成 `dist/release`，只上传该目录；禁止直接上传仓库根目录。
-- `PAID_COMPASS_ENABLED` 最后开启；回滚时先设为 `false`，只停止新创单/预支付，保持在途通知/查单、退款和已购报告可用。
-- 不删除在途订单、通知去重记录或权益。
-- 每次发布完成 MANUAL_E2E_CHECKLIST，并记录版本和测试订单。
+- 先跑 `npm run test:p0`；数据库迁移先于服务端，服务端先于小程序。
+- 收款开关最后开启；回滚时先关开关，只停止新创单和新签名，保留推送、查单、退款与已购报告。
+- 不删除在途订单、支付事件或权益。

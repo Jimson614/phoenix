@@ -12,7 +12,7 @@
 - 评分：`NONE`。区间成绩题选填，不采集精确分数。
 - 草稿以服务端 `revision` 为准；保存成功后 revision 自增。旧 revision 返回 `409 DRAFT_REVISION_STALE`。
 - Level 2 提交后返回锁定元数据，不返回任何完整报告 section 或 `evidence_refs`。
-- `wx.requestPayment` 的客户端成功回调不授予权益。小程序必须轮询订单/结果，最终以服务端验证的支付通知为准。
+- `wx.requestVirtualPayment` 的客户端成功回调不授予权益。小程序必须轮询订单/结果，最终以服务端验证的发货推送或查单结果为准。
 - OpenAI、飞书和微信支付密钥只属于后端。小程序包不得包含这些密钥，也不得直连外部服务。
 
 ## 2. 本地准备
@@ -232,15 +232,15 @@ Idempotency-Key: example-growth-order-001
 }
 ```
 
-创建预支付：
+发起一次虚拟支付（`code` 来自支付前刚调用的 `wx.login`）：
 
 ```http
-POST /v1/orders/{orderId}/wechat-prepay
+POST /v1/orders/{orderId}/virtual-payment
 
-{}
+{ "code": "<wx.login code>" }
 ```
 
-将 `paymentParams` 原样传给 `wx.requestPayment`。无论客户端回调成功或失败，都随后读取：
+将 `virtualPayment` 原样传给 `wx.requestVirtualPayment`。无论客户端回调成功或失败，都随后读取：
 
 ```http
 GET /v1/orders/{orderId}
