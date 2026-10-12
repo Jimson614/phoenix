@@ -15,6 +15,7 @@ import type {
 } from '../src/domain/masters/contracts'
 import { PostgresStore } from '../src/store/postgres-store'
 import { MastersService } from '../src/services/masters-service'
+import { MastersWorkbenchAuth } from '../src/masters/workbench-auth'
 import { runMastersPostgresHttpFlow, MastersPostgresHttpFlowResult } from './fixtures/masters-postgres-http-flow'
 
 /**
@@ -667,6 +668,27 @@ if (guardError) {
       })
       assert.ok(httpFlow)
 
+      await t.test('workbench role grants and suspensions are audited without a consultation through the application role', async () => {
+        const auditStore = new PostgresStore(appConfig)
+        try {
+          const founder = (await database.getPool().query("SELECT user_id FROM masters_staff WHERE role = 'founder' AND status = 'ACTIVE' LIMIT 1")).rows[0]?.user_id as string | undefined
+          assert.ok(founder, 'the HTTP flow leaves an active founder')
+          const staffUser = 'usr_masters_pg_workbench_staff'
+          await auditStore.transaction((tx) => tx.insert('users', { id: staffUser, role: 'family_user', createdAt: NOW }))
+          const workbench = new MastersWorkbenchAuth(auditStore, `${randomUUID()}${randomUUID()}`)
+          const granted = await workbench.grantByEnrollCode(founder, (await workbench.issueCode(staffUser, 'enroll')).code, 'advisor')
+          await new MastersService(auditStore).suspendStaff(founder, staffUser)
+          const audits = await database.getPool().query(
+            "SELECT action, consultation_id, actor_user_id, metadata FROM masters_audit_logs WHERE metadata->>'userId' = $1 ORDER BY created_at, action",
+            [staffUser]
+          )
+          assert.deepEqual(audits.rows, [
+            { action: 'STAFF_GRANTED', consultation_id: null, actor_user_id: founder, metadata: { staffId: granted.id, userId: staffUser, role: 'advisor', previousRole: null, previousStatus: null } },
+            { action: 'STAFF_SUSPENDED', consultation_id: null, actor_user_id: founder, metadata: { staffId: granted.id, userId: staffUser, role: 'advisor', previousStatus: 'ACTIVE' } }
+          ])
+        } finally { await auditStore.close() }
+      })
+
       process.stdout.write(`${JSON.stringify({
         status: httpFlow.pdfExport === 'PASS' ? 'PASS' : 'PASS_WITH_EXTERNAL_BLOCK',
         suite: 'masters-postgres',
@@ -678,6 +700,7 @@ if (guardError) {
         staleLeaseFence: 'PASS',
         tlsVerifyFull: 'PASS',
         applicationRoleIsolation: 'PASS',
+        staffAuditWithoutConsultation: 'PASS',
         isolatedBackupRestore: httpFlow.isolatedBackupRestore,
         httpFlow: httpFlow.status === 'PASS' ? 'PASS' : 'BLOCKED_EXTERNAL',
         httpPostgresFlow: httpFlow
