@@ -780,7 +780,9 @@ export class MastersService {
       const staff = await tx.findOne('mastersStaff', { userId: targetUserId }, { forUpdate: true })
       invariant(staff, 404, 'MASTERS_STAFF_NOT_FOUND', '工作台授权不存在')
       const now = iso(this.clock)
-      return tx.update('mastersStaff', staff.id, { status: 'SUSPENDED', updatedAt: now })
+      const suspended = await tx.update('mastersStaff', staff.id, { status: 'SUSPENDED', updatedAt: now })
+      await this.audit(tx, founderUserId, null, 'STAFF_SUSPENDED', { staffId: staff.id, userId: targetUserId, role: staff.role, previousStatus: staff.status }, now)
+      return suspended
     })
   }
 

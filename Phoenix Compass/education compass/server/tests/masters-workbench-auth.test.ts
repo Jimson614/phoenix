@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AddressInfo } from 'node:net'
+import { isDeepStrictEqual } from 'node:util'
 import { MockWechatAuthProvider } from '../src/auth/wechat-auth-provider'
 import { AuthService } from '../src/services/auth-service'
 import { ProfileService } from '../src/services/profile-service'
@@ -113,6 +114,44 @@ test('one-time workbench codes: founder bootstrap, role grants by enrolment code
     // Logging out revokes the workbench session at once.
     assert.equal((await app.call('/v1/auth/session', session.body.accessToken, 'DELETE')).status, 204)
     assert.equal((await app.call('/v1/internal/masters/me', session.body.accessToken)).status, 401)
+  } finally {
+    await app.close()
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('the first-founder bootstrap, role grants and suspensions are written to the audit log', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'masters-workbench-audit-'))
+  const app = await start(dir)
+  try {
+    const founder = await app.login('synthetic-audit-founder')
+    const advisor = await app.login('synthetic-audit-advisor')
+    const enrol = async (token: string) => (await app.call('/v1/masters/workbench/enroll-code', token, 'POST', {})).body.code as string
+    const founderCode = await enrol(founder.accessToken)
+    const founderStaff = await app.workbench.bootstrapFounder(founderCode)
+    const loginCode = (await app.call('/v1/masters/workbench/login-code', founder.accessToken, 'POST', {})).body.code
+    const session = (await app.call('/v1/internal/masters/workbench-session', '', 'POST', { code: loginCode })).body.accessToken
+    const advisorCode = await enrol(advisor.accessToken)
+    const granted = (await app.call('/v1/internal/masters/staff', session, 'POST', { enrollCode: advisorCode, role: 'advisor' })).body.staff
+    assert.equal((await app.call(`/v1/internal/masters/staff/${advisor.user.id}/suspend`, session, 'POST', {})).status, 200)
+    const regrantCode = await enrol(advisor.accessToken)
+    assert.equal((await app.call('/v1/internal/masters/staff', session, 'POST', { enrollCode: regrantCode, role: 'assignment_manager' })).status, 201)
+
+    const logs = await app.store.read(tx => tx.findMany('mastersAuditLogs'))
+    const entries = logs.map(({ actorUserId, consultationId, action, metadata }) => ({ actorUserId, consultationId, action, metadata }))
+    const expected = [
+      // The server-side bootstrap has no workbench actor.
+      { actorUserId: null, consultationId: null, action: 'STAFF_FOUNDER_BOOTSTRAPPED', metadata: { staffId: founderStaff.id, userId: founder.user.id, role: 'founder', previousRole: null, previousStatus: null } },
+      { actorUserId: founder.user.id, consultationId: null, action: 'STAFF_GRANTED', metadata: { staffId: granted.id, userId: advisor.user.id, role: 'advisor', previousRole: null, previousStatus: null } },
+      { actorUserId: founder.user.id, consultationId: null, action: 'STAFF_SUSPENDED', metadata: { staffId: granted.id, userId: advisor.user.id, role: 'advisor', previousStatus: 'ACTIVE' } },
+      { actorUserId: founder.user.id, consultationId: null, action: 'STAFF_GRANTED', metadata: { staffId: granted.id, userId: advisor.user.id, role: 'assignment_manager', previousRole: 'advisor', previousStatus: 'SUSPENDED' } }
+    ]
+    assert.equal(entries.length, expected.length, `unexpected audit rows: ${JSON.stringify(entries)}`)
+    for (const entry of expected) assert.ok(entries.some(actual => isDeepStrictEqual(actual, entry)), `missing audit row ${JSON.stringify(entry)} in ${JSON.stringify(entries)}`)
+    const serialized = JSON.stringify(logs)
+    for (const code of [founderCode, advisorCode, regrantCode, loginCode]) {
+      assert.ok(!serialized.includes(code) && !serialized.includes(code.replace('-', '')), 'audit rows must not keep a code')
+    }
   } finally {
     await app.close()
     await rm(dir, { recursive: true, force: true })

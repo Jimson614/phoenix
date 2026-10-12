@@ -175,6 +175,7 @@ JSON 详情中的附件至少含 `id`、`consultationId`、canonical `type`、`o
 - 工作人员在小程序"我的申请咨询 → 工作人员入口"生成登录码，在电脑打开 `/internal/masters` 输入登录码进入；网页只在内存保留会话，"退出并作废会话"会调用 `DELETE /v1/auth/session`。原"可信服务端会话"输入框保留为运维备用。
 - 没有角色的人在同一入口生成申请码，私下告诉 Founder；Founder 在工作台"工作人员与角色"里输入申请码、选择角色授予，也可暂停。
 - 第一个 Founder 没有人能授予：在服务器上用对方的申请码运行 `node --env-file=<服务运行环境> server/scripts/masters-grant-first-founder.js --code XXXXX-XXXXX`（先 `npm run build`）。只在还没有活动 Founder 时生效。
+- 授予、恢复、暂停和首个 Founder 引导都写入 `masters_audit_logs`（`consultation_id` 为空；动作 `STAFF_GRANTED`、`STAFF_SUSPENDED`、`STAFF_FOUNDER_BOOTSTRAPPED`，后者没有操作人），记录对象、角色和变更前的角色与状态，不记录任何码。
 - 一次性码保存在 `sessions` 表（id 前缀 `mwc_`），摘要用由 `SESSION_SECRET` 派生的独立密钥计算，因此任何码都不能当作 bearer 会话使用；码字母表去掉 0/O/1/I/L，约 49.5 位随机性，单次使用、限时、换取接口限流。不新增数据表或迁移。
 
 ## 6. 持久化、归属、版本和分类

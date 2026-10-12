@@ -96,7 +96,7 @@ export class MastersWorkbenchAuth {
       invariant(founder?.role === 'founder', 403, 'MASTERS_FOUNDER_REQUIRED', '只有 Founder 可以授予工作台角色')
       const targetUserId = await this.redeem(tx, 'enroll', code)
       invariant(targetUserId !== founderUserId, 400, 'MASTERS_STAFF_SELF_GRANT', '不能给自己授予角色')
-      return this.upsertStaff(tx, targetUserId, role, founderUserId)
+      return this.upsertStaff(tx, targetUserId, role, founderUserId, 'STAFF_GRANTED')
     })
   }
 
@@ -106,7 +106,7 @@ export class MastersWorkbenchAuth {
     return this.store.transaction(async (tx) => {
       invariant(!(await tx.findOne('mastersStaff', { role: 'founder', status: 'ACTIVE' })), 409, 'MASTERS_FOUNDER_EXISTS', '已有 Founder，请由 Founder 在工作台授予角色')
       const userId = await this.redeem(tx, 'enroll', code)
-      return this.upsertStaff(tx, userId, 'founder', null)
+      return this.upsertStaff(tx, userId, 'founder', null, 'STAFF_FOUNDER_BOOTSTRAPPED')
     })
   }
 
@@ -118,10 +118,14 @@ export class MastersWorkbenchAuth {
     })
   }
 
-  private async upsertStaff(tx: StoreTransaction, userId: string, role: MastersStaffRole, grantedBy: string | null): Promise<MastersStaff> {
+  /** Grants are audited apart from any consultation; the bootstrap has no workbench actor. */
+  private async upsertStaff(tx: StoreTransaction, userId: string, role: MastersStaffRole, grantedBy: string | null, action: 'STAFF_GRANTED' | 'STAFF_FOUNDER_BOOTSTRAPPED'): Promise<MastersStaff> {
     const now = iso(this.clock)
     const current = await tx.findOne('mastersStaff', { userId }, { forUpdate: true })
-    if (current) return tx.update('mastersStaff', current.id, { role, status: 'ACTIVE', grantedBy, updatedAt: now })
-    return tx.insert('mastersStaff', { id: this.ids('mstf'), userId, role, status: 'ACTIVE', grantedBy, createdAt: now, updatedAt: now })
+    const staff = current
+      ? await tx.update('mastersStaff', current.id, { role, status: 'ACTIVE', grantedBy, updatedAt: now })
+      : await tx.insert('mastersStaff', { id: this.ids('mstf'), userId, role, status: 'ACTIVE', grantedBy, createdAt: now, updatedAt: now })
+    await tx.insert('mastersAuditLogs', { id: this.ids('maud'), consultationId: null, actorUserId: grantedBy, action, metadata: { staffId: staff.id, userId, role, previousRole: current?.role ?? null, previousStatus: current?.status ?? null }, createdAt: now })
+    return staff
   }
 }
