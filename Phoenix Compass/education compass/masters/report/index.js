@@ -1,8 +1,8 @@
 const auth = require('../../services/auth')
-const config = require('../../config/masters')
-const masters = require('../../services/masters')
+const config = require('../config/masters')
+const masters = require('../services/masters')
 const session = require('../../services/session')
-const labels = require('../../models/masters-labels')
+const labels = require('../models/masters-labels')
 
 function errorText(error) {
   if (error && (error.code === 'MASTERS_REPORT_NOT_RELEASED' || Number(error.statusCode) === 403)) return '咨询报告尚未获批并开放，当前不能查看草稿。'

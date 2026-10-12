@@ -1,6 +1,6 @@
 const auth = require('../../services/auth')
-const config = require('../../config/masters')
-const masters = require('../../services/masters')
+const config = require('../config/masters')
+const masters = require('../services/masters')
 const session = require('../../services/session')
 
 // 工作人员入口. Active staff get a one-time code for signing in to the web workbench; anyone else

@@ -1,5 +1,5 @@
-const api = require('./api')
-const runtime = require('../config/runtime')
+const api = require('../../services/api')
+const runtime = require('../../config/runtime')
 const config = require('../config/masters')
 const model = require('../models/masters-intake')
 const profilePayload = require('../models/masters-profile-payload')

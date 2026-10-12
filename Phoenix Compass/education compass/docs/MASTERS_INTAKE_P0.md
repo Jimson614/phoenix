@@ -221,11 +221,11 @@ JSON 详情中的附件至少含 `id`、`consultationId`、canonical `type`、`o
 - `masters/list/index.*`：本人咨询记录。
 - `masters/report/index.*`：只展示已开放报告/导出。
 - `masters/workbench/index.*`：工作人员入口，生成工作台登录码（已有角色）或申请码（尚无角色）。
-- `services/masters.js`、`models/masters-intake.js`、`config/masters.js`：API、卡片模型、上限和 fail-closed 客户端开关。
+- `masters/services/masters.js`、`masters/models/masters-intake.js`（及 `masters-labels.js`、`masters-profile-payload.js`）、`masters/config/masters.js`：API、卡片模型、上限和 fail-closed 客户端开关。它们只供咨询页面使用，放在分包里，不占主包；主包页面不能引用分包模块（发布包校验会检查）。
 
-`services/masters.js` 应在文件选择前调用 `wx.requirePrivacyAuthorize()`；普通文件使用 `wx.chooseMessageFile`，图片提供 `wx.chooseMedia`/`wx.chooseImage` 的相册/拍照入口；上传使用带 bearer 身份和 `Idempotency-Key` 的 `wx.uploadFile`，查看/导出使用带身份的 `wx.downloadFile`。客户端必须从服务端重新加载咨询和文件清单，不能以短期本地路径恢复永久附件。
+`masters/services/masters.js` 应在文件选择前调用 `wx.requirePrivacyAuthorize()`；普通文件使用 `wx.chooseMessageFile`，图片提供 `wx.chooseMedia`/`wx.chooseImage` 的相册/拍照入口；上传使用带 bearer 身份和 `Idempotency-Key` 的 `wx.uploadFile`，查看/导出使用带身份的 `wx.downloadFile`。客户端必须从服务端重新加载咨询和文件清单，不能以短期本地路径恢复永久附件。
 
-六个 Masters 页面已注册在 app.json。导入目录为当前 education compass（原生小程序，不是旧 Next.js 工程）。客户端 config/masters.js 默认关闭；仅在隔离开发副本显式启用 MASTERS_ENABLED，同时在 config/runtime.js 配置获批准的测试 HTTPS 地址并打开 FORCE_REMOTE_IN_DEVELOPMENT。不能用关闭 urlCheck 绕过域名验收。开发工具和真机的隐私授权、文件选择、拍照、上传、下载尚未执行，保持 BLOCKED_EXTERNAL。
+六个 Masters 页面已注册在 app.json。导入目录为当前 education compass（原生小程序，不是旧 Next.js 工程）。客户端 masters/config/masters.js 默认关闭；仅在隔离开发副本显式启用 MASTERS_ENABLED，同时在 config/runtime.js 配置获批准的测试 HTTPS 地址并打开 FORCE_REMOTE_IN_DEVELOPMENT。不能用关闭 urlCheck 绕过域名验收。开发工具和真机的隐私授权、文件选择、拍照、上传、下载尚未执行，保持 BLOCKED_EXTERNAL。
 
 ## 8. 服务授权、隐私和 AI 边界
 

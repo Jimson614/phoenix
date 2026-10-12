@@ -34,7 +34,7 @@ const profile = {
   targetPreference: '希望顾问建议', experiences: []
 }
 // Import the actual client serializer; do not hand-write a cleaner server-only payload.
-const clientProfilePayload = require('../../../models/masters-profile-payload') as (value: unknown) => Record<string, unknown>
+const clientProfilePayload = require('../../../masters/models/masters-profile-payload') as (value: unknown) => Record<string, unknown>
 const catalog = validateSourceCatalog({ version: 'MASTERS-SYNTHETIC-TEST', dataAsOf: '2026-09-05', reviewedAt: '2026-09-05T00:00:00.000Z', reviewedBy: 'Synthetic fixture', entries: [{ sourceId: 'SYNTHETIC-TEST', title: 'Synthetic source', applicableYear: '2026', verifiedAt: '2026-09-05T00:00:00.000Z' }] })
 
 async function start(directory: string) {

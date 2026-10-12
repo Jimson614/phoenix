@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict')
-const labels = require('../models/masters-labels')
+const labels = require('../masters/models/masters-labels')
 const fs = require('node:fs')
 const path = require('node:path')
 assert.equal(labels.targetYearLabel('UNDECIDED'), '尚未确定，希望顾问建议')

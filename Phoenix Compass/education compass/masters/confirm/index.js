@@ -1,8 +1,8 @@
-const labels = require('../../models/masters-labels')
+const labels = require('../models/masters-labels')
 const auth = require('../../services/auth')
-const config = require('../../config/masters')
-const masters = require('../../services/masters')
-const model = require('../../models/masters-intake')
+const config = require('../config/masters')
+const masters = require('../services/masters')
+const model = require('../models/masters-intake')
 const session = require('../../services/session')
 
 function display(value) {

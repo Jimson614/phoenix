@@ -69,11 +69,11 @@ async function run() {
   installWx()
   let currentUserId = 'user_1'
   global.getApp = () => ({ getCurrentUser: () => currentUserId ? ({ id: currentUserId, role: 'family_user' }) : null })
-  const config = require('../config/masters')
+  const config = require('../masters/config/masters')
   config.setEnabledForTests(true)
-  const model = require('../models/masters-intake')
+  const model = require('../masters/models/masters-intake')
   const api = require('../services/api')
-  const masters = require('../services/masters')
+  const masters = require('../masters/services/masters')
   const originalRequest = api.request
   const originalUploadResult = global.__uploadResult
 

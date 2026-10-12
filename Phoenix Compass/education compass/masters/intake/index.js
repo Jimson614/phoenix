@@ -1,6 +1,6 @@
 const auth = require('../../services/auth')
-const masters = require('../../services/masters')
-const config = require('../../config/masters')
+const masters = require('../services/masters')
+const config = require('../config/masters')
 const session = require('../../services/session')
 
 function safePath(value) { return config.path(value) }

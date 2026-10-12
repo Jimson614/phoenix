@@ -33,7 +33,10 @@ function allPages(appConfig) {
   return (appConfig.pages || []).concat(...(appConfig.subpackages || []).map((pkg) => pkg.pages.map((page) => `${pkg.root}/${page}`)))
 }
 
+// WeChat lets a subpackage require main-package modules but never the reverse, and a subpackage
+// cannot require another subpackage.
 function assertClientModulesResolve(directory, subpackageRoots) {
+  const packageOf = (file) => subpackageRoots.find((root) => slash(path.relative(directory, file)).startsWith(`${root}/`)) || ''
   const roots = ['app.js', 'components', 'config', 'models', 'pages', 'services', 'utils', ...subpackageRoots]
   const files = roots.flatMap((name) => {
     const target = path.join(directory, name)
@@ -50,7 +53,11 @@ function assertClientModulesResolve(directory, subpackageRoots) {
       if (!request.startsWith('.')) continue
       const target = path.resolve(path.dirname(file), request)
       const candidates = path.extname(target) ? [target] : [`${target}.js`, path.join(target, 'index.js')]
-      assert(candidates.some((candidate) => fs.existsSync(candidate)), `release contains unresolved module: ${path.relative(directory, file)} -> ${request}`)
+      const resolved = candidates.find((candidate) => fs.existsSync(candidate))
+      assert(resolved, `release contains unresolved module: ${path.relative(directory, file)} -> ${request}`)
+      const from = packageOf(file)
+      const to = packageOf(resolved)
+      assert(!to || to === from, `release ${from ? `subpackage ${from}` : 'main package'} cannot require subpackage ${to}: ${path.relative(directory, file)} -> ${request}`)
     }
   }
 }
@@ -81,6 +88,9 @@ try {
     return `${root} ${size}/${PACKAGE_BUDGET_BYTES}`
   })
   assert(!relativeFiles.some((file) => file.startsWith('pages/masters-')), 'masters pages must not remain in the main package')
+  // Consultation modules travel with the consultation pages instead of counting against the main package.
+  const mainMastersModules = relativeFiles.filter((file) => !subpackageRoots.some((root) => inSubpackage(file, root)) && /(^|\/)masters[^/]*\.js$/.test(file))
+  assert.deepStrictEqual(mainMastersModules, [], `masters modules must live in the masters subpackage: ${mainMastersModules.join(', ')}`)
 
   const brandAndUiFiles = files.filter((file) => {
     const relative = slash(path.relative(output, file))

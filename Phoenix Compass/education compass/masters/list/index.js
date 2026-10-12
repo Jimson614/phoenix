@@ -1,7 +1,7 @@
-const labels = require('../../models/masters-labels')
+const labels = require('../models/masters-labels')
 const auth = require('../../services/auth')
-const config = require('../../config/masters')
-const masters = require('../../services/masters')
+const config = require('../config/masters')
+const masters = require('../services/masters')
 const session = require('../../services/session')
 
 const STATUS_COPY = {
