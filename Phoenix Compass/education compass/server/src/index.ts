@@ -31,6 +31,7 @@ import { PrivateFiles } from './masters/private-files'
 import { MastersService } from './services/masters-service'
 import { MastersHttp } from './masters/http'
 import { MastersWorker } from './masters/worker'
+import { MastersWorkbenchAuth } from './masters/workbench-auth'
 import { resolve, dirname } from 'node:path'
 import { existsSync } from 'node:fs'
 
@@ -89,7 +90,7 @@ async function main(): Promise<void> {
   const reports = new ReportService(store)
   const education = new EducationCompassService(store, config.growthDiscoveryPaymentEnabled)
   const mastersService = mastersConfig.enabled ? new MastersService(store, undefined, undefined, { retentionDays: mastersConfig.retentionDays }) : undefined
-  const masters = mastersService && mastersFiles ? new MastersHttp(mastersService, mastersFiles, store, mastersConfig.pdfFontPath) : undefined
+  const masters = mastersService && mastersFiles ? new MastersHttp(mastersService, mastersFiles, store, mastersConfig.pdfFontPath, new MastersWorkbenchAuth(store, config.sessionSecret)) : undefined
   const mastersWorker = mastersService && mastersFiles ? new MastersWorker(mastersService, mastersFiles, store, mastersConfig.retentionDays) : undefined
   let agent: AgentService | undefined
   const currentAgentKey = config.aiContentKeyring[config.aiContentCurrentKeyVersion]

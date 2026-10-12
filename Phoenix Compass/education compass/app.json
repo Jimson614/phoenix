@@ -27,7 +27,8 @@
         "confirm/index",
         "status/index",
         "list/index",
-        "report/index"
+        "report/index",
+        "workbench/index"
       ]
     }
   ],

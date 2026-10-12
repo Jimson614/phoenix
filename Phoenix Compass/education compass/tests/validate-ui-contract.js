@@ -179,11 +179,11 @@ const legacyPages = routeBaseline.pages
 const mastersSubpackage = {
   root: 'masters',
   name: 'masters',
-  pages: ['intake/index', 'materials/index', 'confirm/index', 'status/index', 'list/index', 'report/index']
+  pages: ['intake/index', 'materials/index', 'confirm/index', 'status/index', 'list/index', 'report/index', 'workbench/index']
 }
 const mastersPages = mastersSubpackage.pages.map((page) => `${mastersSubpackage.root}/${page}`)
 assert.strictEqual(legacyPages.length, 16, 'approved pre-UI baseline must continue to cover all 16 legacy pages')
-assert.strictEqual(mastersPages.length, 6, 'masters client route contract must cover all six registered pages')
+assert.strictEqual(mastersPages.length, 7, 'masters client route contract must cover all seven registered pages')
 assert.deepStrictEqual(app.pages, legacyPages, 'app.json main-package pages changed from the approved legacy baseline')
 assert.deepStrictEqual(app.subpackages, [mastersSubpackage], 'the six masters pages must form the masters subpackage')
 assert.deepStrictEqual(app.preloadRule, {

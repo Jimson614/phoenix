@@ -1,0 +1,28 @@
+<view class="masters-workbench page--screen">
+  <view class="page masters-workbench__page">
+    <view class="masters-workbench__topbar"><button class="btn btn--text" bindtap="back">‹ 返回</button><text class="eyebrow">STAFF ACCESS</text></view>
+    <view wx:if="{{!enabled}}" class="ui-state"><text class="h3">香港硕士免费咨询暂未开放</text><text class="muted">当前不会签发工作台登录码。</text></view>
+    <view wx:elif="{{!loggedIn}}" class="ui-state"><text class="h3">请先登录后继续</text><text class="muted">工作台身份跟随当前微信登录。</text><button class="btn btn--gold" loading="{{loginBusy}}" disabled="{{loginBusy}}" bindtap="login">登录并继续</button></view>
+    <block wx:elif="{{loggedIn}}">
+      <view class="masters-workbench__heading">
+        <text class="eyebrow">WORKBENCH</text>
+        <text class="h1">工作人员入口</text>
+        <text wx:if="{{isStaff}}" class="muted">你的工作台角色：{{roleLabel}}。生成登录码后，在电脑上打开工作台，输入登录码即可进入。</text>
+        <text wx:elif="{{suspended}}" class="muted">你的工作台角色（{{roleLabel}}）已暂停。如需恢复，请联系 Founder；也可以生成申请码请 Founder 重新授予。</text>
+        <text wx:else class="muted">你还没有工作台角色。生成申请码后告诉 Founder，由 Founder 在工作台为你授予角色。</text>
+      </view>
+      <view wx:if="{{loading}}" class="ui-state ui-state--short" aria-busy="true"><text class="h3">正在读取…</text></view>
+      <view wx:else class="panel masters-workbench__panel">
+        <view wx:if="{{code}}" class="masters-workbench__code">
+          <text class="masters-workbench__code-label">{{isStaff ? '工作台登录码' : '工作台申请码'}}</text>
+          <text class="masters-workbench__code-value" user-select="true">{{code}}</text>
+          <text class="muted">{{isStaff ? '5 分钟内有效，只能用一次；进入工作台后 8 小时内有效。' : '30 分钟内有效，只能用一次。'}}{{expiresLabel ? '有效至 ' + expiresLabel + '。' : ''}}</text>
+          <button class="btn btn--outline masters-workbench__action" bindtap="copy">复制</button>
+        </view>
+        <button class="btn btn--gold masters-workbench__action" loading="{{issuing}}" disabled="{{issuing}}" bindtap="issue">{{code ? '重新生成' : (isStaff ? '生成工作台登录码' : '生成工作台申请码')}}</button>
+        <text class="muted masters-workbench__note">{{isStaff ? '登录码等同于临时钥匙，只在本页显示，不要截图或转发。' : '申请码只私下发给 Founder 本人，不要发到群里。'}}</text>
+      </view>
+      <view wx:if="{{error}}" class="masters-workbench__error">{{error}}<button class="btn btn--text" bindtap="retry">重新读取</button></view>
+    </block>
+  </view>
+</view>

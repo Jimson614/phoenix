@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run build && node --test dist/tests/domain.test.js dist/tests/http.test.js dist/tests/wechat-pay.test.js dist/tests/feishu.test.js dist/tests/agent.test.js dist/tests/education-contracts.test.js dist/tests/education-http.test.js dist/tests/education-integrations.test.js dist/tests/masters-domain.test.js dist/tests/masters-files.test.js dist/tests/masters-exports.test.js dist/tests/masters-http.test.js dist/tests/masters-workflow-http.test.js",
+    "test": "npm run build && node --test dist/tests/domain.test.js dist/tests/http.test.js dist/tests/wechat-pay.test.js dist/tests/feishu.test.js dist/tests/agent.test.js dist/tests/education-contracts.test.js dist/tests/education-http.test.js dist/tests/education-integrations.test.js dist/tests/masters-domain.test.js dist/tests/masters-files.test.js dist/tests/masters-exports.test.js dist/tests/masters-http.test.js dist/tests/masters-workflow-http.test.js dist/tests/masters-workbench-auth.test.js",
     "test:education-contracts": "npm run build && node --test dist/tests/education-contracts.test.js",
     "test:education-http": "npm run build && node --test dist/tests/education-http.test.js",
     "test:education-integrations": "npm run build && node --test dist/tests/education-integrations.test.js",

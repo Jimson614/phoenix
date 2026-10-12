@@ -2,7 +2,7 @@
 // opaque session and an explicit Masters staff grant. Tokens never enter URLs/storage.
 export const workbenchHtml = `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Application Compass · 咨询工作台</title>
 <link rel="stylesheet" href="/internal/masters/style.css"><main><h1>Application Compass</h1><p>香港硕士咨询 · 隔离测试工作台</p>
-<section id="login"><label>可信服务端会话 <input id="token" type="password" autocomplete="off" placeholder="仅在此设备内存中使用"></label><button id="connect">进入工作台</button><button id="logout">清除会话</button><p>使用现有微信登录签发的会话。工作人员须预先取得服务端授权。此入口不会创建管理员。</p></section>
+<section id="login"><label>工作台登录码 <input id="login-code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="小程序：我的申请咨询 → 工作人员入口 → 生成登录码"></label><button id="code-connect">用登录码进入</button><button id="logout">退出并作废会话</button><p>登录码 5 分钟内有效、只能用一次，进入后 8 小时内有效。工作人员须先由 Founder 授予角色。此入口不会创建管理员。</p><label>运维备用：可信服务端会话 <input id="token" type="password" autocomplete="off" placeholder="仅在此设备内存中使用"></label><button id="connect">用会话进入</button></section><section id="staff-panel" hidden><h2>工作人员与角色</h2><p>请对方在小程序"工作人员入口"生成申请码（30 分钟内有效）告诉你，再在这里授予角色。</p><label>申请码 <input id="enroll-code" autocomplete="off" autocapitalize="characters" spellcheck="false"></label><label>角色 <select id="staff-role"><option value="advisor">顾问（复核报告）</option><option value="assignment_manager">分配负责人</option><option value="founder">Founder（审批、开放）</option></select></label><button id="grant-staff">授予角色</button><div id="staff-list"></div></section>
 <p id="message" role="status"></p><section><button id="refresh">刷新咨询</button><div id="list"></div></section>
 <section id="case" hidden><h2 id="case-title"></h2><p id="progress"></p><h3>申请资料</h3><pre id="profile"></pre><h3>分类材料</h3><div id="documents"></div>
 <div id="assign-panel"><label>顾问 <select id="advisor"></select></label><button id="assign">分配／改派</button></div>
@@ -23,7 +23,7 @@ const api = '/v1/internal/masters';
 const key = () => crypto.randomUUID();
 function message(value) { el('message').textContent = value; }
 async function request(path, method = 'GET', body) {
- if (!session) throw Error('请先输入可信登录会话');
+ if (!session) throw Error('请先用登录码进入工作台');
  const r = await fetch(path, {method, headers:{Authorization:'Bearer '+session,'Content-Type':'application/json', 'Idempotency-Key':key()}, ...(body ? {body:JSON.stringify(body)} : {})});
  const data = await r.json();
  if (!r.ok) throw Error((data.error?.message || '请求失败') + ' · ' + (data.request_id || ''));
@@ -61,8 +61,21 @@ async function load(id) {
 const casePath=()=>{if(!selected)throw Error('请先选择咨询');return api+'/consultations/'+selected.id;};
 const reportBody=()=>{const r=selected?.currentReport;if(!r)throw Error('尚未生成报告');return {version:r.version,reportId:r.id,...(el('note').value.trim()?{note:el('note').value.trim()}:{})};};
 async function action(suffix,body){await request(casePath()+suffix,'POST',body);await load(selected.id);}
-bind('connect',async()=>{session=el('token').value.trim();el('token').value='';staff=(await request(api+'/me')).staff;const advisors=(await request(api+'/advisors')).advisors;el('advisor').replaceChildren();for(const a of advisors){const o=document.createElement('option');o.value=a.userId;o.textContent=a.userId;el('advisor').append(o);}await refresh();});
-bind('logout',async()=>{session='';selected=null;staff=null;el('case').hidden=true;el('list').replaceChildren();el('profile').textContent='';el('documents').replaceChildren();el('report-editor').value='';});
+const roleLabels={founder:'Founder',advisor:'顾问',assignment_manager:'分配负责人'};
+async function loadStaff(){
+ const rows=(await request(api+'/staff')).staff; el('staff-list').replaceChildren();
+ for(const row of rows){const p=document.createElement('p');p.textContent=(roleLabels[row.role]||row.role)+' · '+(row.status==='ACTIVE'?'有效':'已暂停')+' · '+row.userId;
+  if(row.status==='ACTIVE'&&row.userId!==staff.userId){const b=document.createElement('button');b.textContent='暂停';b.onclick=()=>request(api+'/staff/'+encodeURIComponent(row.userId)+'/suspend','POST',{}).then(loadStaff).then(()=>message('已暂停')).catch(e=>message(e.message));p.append(' ',b);}
+  el('staff-list').append(p);}
+}
+async function enter(token){
+ session=token;staff=(await request(api+'/me')).staff;const advisors=(await request(api+'/advisors')).advisors;el('advisor').replaceChildren();for(const a of advisors){const o=document.createElement('option');o.value=a.userId;o.textContent=a.userId;el('advisor').append(o);}
+ el('staff-panel').hidden=staff?.role!=='founder';if(staff?.role==='founder')await loadStaff();await refresh();
+}
+bind('code-connect',async()=>{const code=el('login-code').value.trim();el('login-code').value='';const r=await fetch('/v1/internal/masters/workbench-session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});const data=await r.json();if(!r.ok)throw Error((data.error?.message||'登录码无效')+' · '+(data.request_id||''));await enter(data.accessToken);});
+bind('connect',async()=>{const token=el('token').value.trim();el('token').value='';await enter(token);});
+bind('logout',async()=>{if(session)await fetch('/v1/auth/session',{method:'DELETE',headers:{Authorization:'Bearer '+session}}).catch(()=>undefined);session='';selected=null;staff=null;el('case').hidden=true;el('staff-panel').hidden=true;el('staff-list').replaceChildren();el('list').replaceChildren();el('profile').textContent='';el('documents').replaceChildren();el('report-editor').value='';});
+bind('grant-staff',async()=>{const enrollCode=el('enroll-code').value.trim();el('enroll-code').value='';await request(api+'/staff','POST',{enrollCode,role:el('staff-role').value});await loadStaff();});
 bind('refresh',refresh);
 bind('assign',()=>action('/assignment',{advisorUserId:el('advisor').value,version:selected.profileVersion}));
 bind('request-documents',()=>action('/request-documents',{types:[...document.querySelectorAll('input[name="request-type"]:checked')].map(input=>input.value),...(el('note').value.trim()?{note:el('note').value.trim()}:{})}));

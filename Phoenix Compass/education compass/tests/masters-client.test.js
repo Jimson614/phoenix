@@ -581,6 +581,49 @@ async function run() {
   assert(!/wx:for="\{\{extractionFields\}\}" wx:key="field"/.test(confirmWxml + require('fs').readFileSync(require('path').resolve(__dirname, '../masters/materials/index.wxml'), 'utf8')), 'extraction review lists must not be keyed by field alone')
   api.request = requestBeforeConflicts
 
+  // 工作人员入口: staff get a one-time workbench login code; anyone else gets an enrolment code that a
+  // founder enters in the workbench to grant a role. Both are shown large and can be copied.
+  const requestBeforeWorkbench = api.request
+  let workbenchStaff = null
+  const issuedPurposes = []
+  api.request = async (path, options = {}) => {
+    if (path === '/v1/masters/workbench/status') return { staff: workbenchStaff }
+    if (path === '/v1/masters/workbench/login-code' && options.method === 'POST') { issuedPurposes.push('login'); return { code: 'ABCDE-FGHJK', expiresAt: '2026-10-12T02:05:00.000Z' } }
+    if (path === '/v1/masters/workbench/enroll-code' && options.method === 'POST') { issuedPurposes.push('enroll'); return { code: 'MNPQR-STUVW', expiresAt: '2026-10-12T02:30:00.000Z' } }
+    return requestBeforeWorkbench(path, options)
+  }
+  const workbenchListPage = loadPage('../masters/list/index.js')
+  const navigationBeforeEntry = navigationCalls.length
+  workbenchListPage.openWorkbench()
+  assert.strictEqual(navigationCalls[navigationBeforeEntry].url, '/masters/workbench/index', '我的申请咨询 must link to 工作人员入口')
+  const workbenchPage = loadPage('../masters/workbench/index.js')
+  workbenchPage.onLoad({})
+  workbenchPage.onShow()
+  await workbenchPage.load()
+  assert.strictEqual(workbenchPage.data.isStaff, false)
+  await workbenchPage.issue()
+  assert.deepStrictEqual(issuedPurposes, ['enroll'], 'a person without a role gets an enrolment code')
+  assert.strictEqual(workbenchPage.data.code, 'MNPQR-STUVW')
+  assert(workbenchPage.data.expiresLabel, 'the page must say until when the code is valid')
+  workbenchStaff = { role: 'advisor', status: 'ACTIVE' }
+  await workbenchPage.load()
+  assert.strictEqual(workbenchPage.data.isStaff, true)
+  assert.strictEqual(workbenchPage.data.code, '', 'a new status must clear the previous code')
+  await workbenchPage.issue()
+  assert.deepStrictEqual(issuedPurposes, ['enroll', 'login'], 'active staff get a login code')
+  const clipboardBefore = global.wx.setClipboardData
+  let copied
+  global.wx.setClipboardData = ({ data, success }) => { copied = data; if (success) success() }
+  workbenchPage.copy()
+  global.wx.setClipboardData = clipboardBefore
+  assert.strictEqual(copied, 'ABCDE-FGHJK')
+  workbenchStaff = { role: 'advisor', status: 'SUSPENDED' }
+  await workbenchPage.load()
+  assert.strictEqual(workbenchPage.data.isStaff, false, 'a suspended role cannot request a login code')
+  const workbenchWxml = require('fs').readFileSync(require('path').resolve(__dirname, '../masters/workbench/index.wxml'), 'utf8')
+  assert(workbenchWxml.includes('bindtap="issue"') && workbenchWxml.includes('bindtap="copy"') && workbenchWxml.includes('{{code}}'))
+  api.request = requestBeforeWorkbench
+
   // Logging out kept PFS_MASTERS_DRAFT_ID_V1, so the next account on the same phone was pointed at the
   // previous account's draft (the server refuses it, but the pointer is that account's data).
   masters.rememberDraftId('c_logout')

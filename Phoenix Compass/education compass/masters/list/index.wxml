@@ -8,7 +8,7 @@
       <view wx:if="{{loading}}" class="ui-state ui-state--short" aria-busy="true"><text class="h3">正在读取…</text></view>
       <view wx:elif="{{!consultations.length}}" class="panel empty"><text class="empty__mark">◇</text><text class="h3">还没有咨询记录</text><text class="muted">可以先通过简短引导建立一份免费咨询。</text></view>
       <view wx:else class="masters-list__items"><view wx:for="{{consultations}}" wx:key="id" class="panel consultation-row" data-id="{{item.id}}" bindtap="open"><view class="consultation-row__head"><text class="h3">香港硕士免费咨询</text><text class="status status--warm">{{item.statusLabel}}</text></view><text class="muted">目标入学：{{item.targetYear}} · 资料版本 {{item.version || item.profileVersion || 1}}</text><text class="consultation-row__date">{{item.updatedAt || '日期以服务端为准'}}</text><text class="chevron">›</text></view></view>
-      <button class="btn btn--gold masters-list__new" bindtap="newConsultation">建立新的免费咨询</button>
+      <button class="btn btn--gold masters-list__new" bindtap="newConsultation">建立新的免费咨询</button><button class="btn btn--text masters-list__staff" bindtap="openWorkbench">工作人员入口</button>
       <view wx:if="{{error}}" class="masters-list__error">{{error}}<button class="btn btn--text" bindtap="retry">重新加载</button></view>
     </block>
   </view>

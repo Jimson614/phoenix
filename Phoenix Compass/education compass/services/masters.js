@@ -164,6 +164,21 @@ async function listConsultations() {
   return model.normalizeList(await requestWithToken(config.API_PREFIX))
 }
 
+// 工作人员入口: whether this account holds a workbench role, and one-time codes for signing in to the
+// web workbench (staff) or for asking a founder to grant a role (anyone).
+async function workbenchStatus() {
+  assertFeatureEnabled()
+  const result = await requestWithToken('/v1/masters/workbench/status')
+  return { staff: result && result.staff ? { role: String(result.staff.role || ''), status: String(result.staff.status || '') } : null }
+}
+
+async function issueWorkbenchCode(purpose) {
+  assertFeatureEnabled()
+  const path = purpose === 'login' ? '/v1/masters/workbench/login-code' : '/v1/masters/workbench/enroll-code'
+  const result = await requestWithToken(path, { method: 'POST', data: {} })
+  return { code: String(result && result.code || ''), expiresAt: String(result && result.expiresAt || '') }
+}
+
 async function getConsultation(consultationId) {
   assertFeatureEnabled()
   return consultationPayload(await requestWithToken(consultPath(consultationId)))
@@ -490,6 +505,6 @@ module.exports = {
   getExtraction, getReport, listConsultations, normalizeExtraction, normalizeReport,
   privacyAuthorize, rememberDraftId, removeDocument, saveProfile, submitConsultation,
   uploadDocument, validateFile, withdrawConsultation, confirmConsultation, resolveExtraction,
-  retryDocumentExtraction,
+  retryDocumentExtraction, workbenchStatus, issueWorkbenchCode,
   updateProfile: saveProfile
 }

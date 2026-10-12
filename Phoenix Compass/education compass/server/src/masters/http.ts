@@ -9,6 +9,7 @@ import { MAX_DOCUMENT_BYTES, MAX_DOCUMENTS, PrivateFiles } from './private-files
 import { contentDigest, ExportReport, renderMastersPdf, renderMastersXlsx } from './exports'
 import { recordExtractionRetry } from './document-operations'
 import { reportAssistance } from './report-assistance'
+import { MastersWorkbenchAuth } from './workbench-auth'
 
 export interface MastersHttpResult { status: number; body?: Record<string, unknown>; binary?: Buffer; contentType?: string; filename?: string }
 
@@ -54,7 +55,18 @@ function detailDto(detail: MastersConsultationDetail, internal: boolean) {
 
 export class MastersHttp {
   private activeParsers = 0
-  constructor(readonly service: MastersService, readonly files: PrivateFiles, readonly store: Store, readonly pdfFontPath = '') {}
+  constructor(readonly service: MastersService, readonly files: PrivateFiles, readonly store: Store, readonly pdfFontPath = '', readonly workbench?: MastersWorkbenchAuth) {}
+
+  private workbenchAuth(): MastersWorkbenchAuth {
+    invariant(this.workbench, 503, 'MASTERS_WORKBENCH_LOGIN_DISABLED', '工作台登录码尚未开启')
+    return this.workbench
+  }
+
+  /** Unauthenticated: the one-time login code is the credential (see app.ts for the rate limit). */
+  async exchangeWorkbenchCode(body: Record<string, unknown>): Promise<MastersHttpResult> {
+    exact(body, ['code'])
+    return { status: 200, body: await this.workbenchAuth().exchangeLoginCode(body.code) }
+  }
 
   private async staff(userId: string) {
     const staff = await this.store.read(tx => tx.findOne('mastersStaff', { userId, status: 'ACTIVE' }))
@@ -92,6 +104,24 @@ export class MastersHttp {
     const json = (body: Record<string, unknown>, status = 200): MastersHttpResult => ({ status, body })
     if (method === 'GET' && url.pathname === '/v1/masters/capabilities') return json({ ...this.service.contract(), maxFileBytes: MAX_DOCUMENT_BYTES, maxDocuments: MAX_DOCUMENTS, extensions: ['pdf', 'docx', 'jpg', 'jpeg', 'png'], aiEnabled: false })
     if (internal && method === 'GET' && url.pathname === `${prefix}/me`) return json({ staff: await this.staff(userId) })
+    // Workbench sign-in codes (Mini Program side) and role grants (founder side).
+    if (!internal && method === 'GET' && url.pathname === '/v1/masters/workbench/status') return json(await this.workbenchAuth().status(userId))
+    if (!internal && method === 'POST' && (url.pathname === '/v1/masters/workbench/login-code' || url.pathname === '/v1/masters/workbench/enroll-code')) {
+      exact(await readJson(), [])
+      return json(await this.workbenchAuth().issueCode(userId, url.pathname.endsWith('/login-code') ? 'login' : 'enroll'), 201)
+    }
+    if (internal && url.pathname === `${prefix}/staff`) {
+      if (method === 'GET') return json({ staff: await this.workbenchAuth().listStaff(userId) })
+      if (method === 'POST') {
+        const body = exact(await readJson(), ['enrollCode', 'role'])
+        return json({ staff: await this.workbenchAuth().grantByEnrollCode(userId, body.enrollCode, body.role) }, 201)
+      }
+    }
+    const suspend = internal && method === 'POST' ? new RegExp(`^${prefix}/staff/([^/]+)/suspend$`).exec(url.pathname) : null
+    if (suspend) {
+      exact(await readJson(), [])
+      return json({ staff: await this.service.suspendStaff(userId, decodeURIComponent(suspend[1] ?? '')) })
+    }
     if (internal && method === 'GET' && url.pathname === `${prefix}/advisors`) return json({ advisors: (await this.store.read(tx => tx.findMany('mastersStaff', { role: 'advisor', status: 'ACTIVE' }))).map(s => ({ userId: s.userId })) })
     const base = `${prefix}/consultations`
     if (url.pathname === base) {

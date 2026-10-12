@@ -178,6 +178,16 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
         return json(response, 204)
       }
 
+      // Staff exchange a one-time code issued in the Mini Program for a workbench session, so this
+      // route has no bearer token yet. Behind the reverse proxy every caller shares one address, which
+      // makes the limit a global brake on guessing as well.
+      if (method === 'POST' && url.pathname === '/v1/internal/masters/workbench-session') {
+        invariant(deps.masters, 404, 'ROUTE_NOT_FOUND', '接口不存在')
+        invariant(await rateLimiter.consume(`masters-workbench-code:${request.socket.remoteAddress ?? 'unknown'}`, 30, 600_000), 429, 'RATE_LIMITED', '尝试过于频繁，请稍后重试')
+        const result = await deps.masters.exchangeWorkbenchCode(parseJson(await readRawBody(request)))
+        return json(response, result.status, { ...(result.body ?? {}), request_id: requestId })
+      }
+
       if (method === 'POST' && url.pathname === '/v1/webhooks/wechat-pay/transactions') {
         const headers = validateWebhookIngress(request)
         invariant(await rateLimiter.consume(`webhook:${request.socket.remoteAddress ?? 'unknown'}`, 300, 60_000), 429, 'RATE_LIMITED', '回调请求过于频繁')

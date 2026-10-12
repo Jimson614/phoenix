@@ -56,6 +56,7 @@ Page({
   },
   // new=1 tells the materials page not to reopen the draft this phone remembers.
   newConsultation() { wx.navigateTo({ url: '/masters/materials/index?path=GUIDED&channel=organic&new=1' }) },
+  openWorkbench() { wx.navigateTo({ url: '/masters/workbench/index' }) },
   back() { wx.navigateBack({ delta: 1 }) },
   retry() { return this.load() }
 })

@@ -13,6 +13,7 @@
 .consultation-row__date { color: var(--muted); display: block; font-size: 20rpx; margin-top: 12rpx; }
 .consultation-row .chevron { position: absolute; right: 28rpx; top: 50%; transform: translateY(-50%); }
 .masters-list__new { margin-top: 28rpx; width: 100%; }
+button.masters-list__staff { color: var(--muted); display: block; font-size: 22rpx; margin: 18rpx auto 0; }
 .ui-state--short { min-height: 260rpx; }
 .masters-list__error { background: #fff1ee; border-radius: var(--radius-md); color: var(--danger); font-size: 22rpx; line-height: 1.55; margin-top: 18rpx; padding: 18rpx 20rpx; }
 .masters-list__error .btn { color: var(--danger); display: block; font-size: 21rpx; margin: 10rpx 0 0; padding-left: 0; }
