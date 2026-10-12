@@ -9,17 +9,19 @@ export interface AppConfig {
   listenHost: string
   databaseUrl: string
   sessionSecret: string
+  /** wechat = Mini Program virtual payment (小程序虚拟支付). */
   paymentProvider: 'mock' | 'wechat'
   wechatAppId: string
   wechatAppSecret: string
-  wechatMchId: string
-  wechatMchCertSerialNo: string
-  wechatMchPrivateKeyPath: string
-  wechatPayApiV3Key: string
-  wechatPayPublicKeyId: string
-  wechatPayPublicKeyPath: string
-  wechatPayNotifyUrl: string
-  wechatRefundNotifyUrl: string
+  virtualPaymentOfferId: string
+  /** 0 现网, 1 沙箱; production always uses 0. */
+  virtualPaymentEnv: 0 | 1
+  /** The AppKey of virtualPaymentEnv from 虚拟支付 → 基础配置. */
+  virtualPaymentAppKey: string
+  /** 道具ID of the Growth Discovery report; the only product sold through virtual payment. */
+  virtualPaymentGrowthProductId: string
+  wechatMessageToken: string
+  wechatMessageAesKey: string
   publicBaseUrl: string
   paidCompassEnabled: boolean
   growthDiscoveryPaymentEnabled: boolean
@@ -114,24 +116,13 @@ function secretReused(encodedKey: string, secret: string): boolean {
   return decoded.length === candidate.length && decoded.equals(candidate)
 }
 
-function validateWechatCallbackUrls(config: AppConfig): void {
-  const base = configuredUrl(config.publicBaseUrl, 'PUBLIC_BASE_URL')
-  invariant(base.protocol === 'https:' && !base.username && !base.password && !base.search && !base.hash && base.pathname === '/', 500, 'CONFIG_INVALID', 'PUBLIC_BASE_URL 必须是无凭据、查询或路径的 HTTPS origin')
-  const checks: Array<[string, string, string]> = [
-    ['WECHAT_PAY_NOTIFY_URL', config.wechatPayNotifyUrl, '/v1/webhooks/wechat-pay/transactions'],
-    ['WECHAT_REFUND_NOTIFY_URL', config.wechatRefundNotifyUrl, '/v1/webhooks/wechat-pay/refunds']
-  ]
-  for (const [label, raw, expectedPath] of checks) {
-    const endpoint = configuredUrl(raw, label)
-    invariant(endpoint.protocol === 'https:' && !endpoint.username && !endpoint.password && !endpoint.search && !endpoint.hash, 500, 'CONFIG_INVALID', `${label} 必须是无凭据或查询的 HTTPS URL`)
-    invariant(endpoint.origin === base.origin && endpoint.pathname === expectedPath, 500, 'CONFIG_INVALID', `${label} 必须位于 PUBLIC_BASE_URL 的固定回调路径`)
-  }
-}
-
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const nodeEnv = (env.NODE_ENV ?? 'development') as AppConfig['nodeEnv']
   invariant(['development', 'test', 'production'].includes(nodeEnv), 500, 'CONFIG_INVALID', 'NODE_ENV 无效')
   const paymentProvider = (env.PAYMENT_PROVIDER ?? 'mock') as AppConfig['paymentProvider']
+  const virtualPaymentEnvRaw = env.WECHAT_XPAY_ENV ?? (nodeEnv === 'production' ? '0' : '1')
+  invariant(virtualPaymentEnvRaw === '0' || virtualPaymentEnvRaw === '1', 500, 'CONFIG_INVALID', 'WECHAT_XPAY_ENV 只能是0（现网）或1（沙箱）')
+  invariant(!(nodeEnv === 'production' && virtualPaymentEnvRaw !== '0'), 500, 'CONFIG_INVALID', '生产环境的虚拟支付必须使用现网环境（WECHAT_XPAY_ENV=0）')
   invariant(['mock', 'wechat'].includes(paymentProvider), 500, 'CONFIG_INVALID', 'PAYMENT_PROVIDER 无效')
   const sessionSecret = env.SESSION_SECRET ?? (nodeEnv === 'production' ? '' : 'development-only-session-secret-32-bytes')
   invariant(sessionSecret.length >= 32, 500, 'CONFIG_INVALID', 'SESSION_SECRET 至少需要32个字符')
@@ -174,14 +165,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     paymentProvider,
     wechatAppId: env.WECHAT_APP_ID ?? '',
     wechatAppSecret: env.WECHAT_APP_SECRET ?? '',
-    wechatMchId: env.WECHAT_MCH_ID ?? '',
-    wechatMchCertSerialNo: env.WECHAT_MCH_CERT_SERIAL_NO ?? '',
-    wechatMchPrivateKeyPath: env.WECHAT_MCH_PRIVATE_KEY_PATH ?? '',
-    wechatPayApiV3Key: env.WECHATPAY_API_V3_KEY ?? '',
-    wechatPayPublicKeyId: env.WECHATPAY_PUBLIC_KEY_ID ?? '',
-    wechatPayPublicKeyPath: env.WECHATPAY_PUBLIC_KEY_PATH ?? '',
-    wechatPayNotifyUrl: env.WECHAT_PAY_NOTIFY_URL ?? '',
-    wechatRefundNotifyUrl: env.WECHAT_REFUND_NOTIFY_URL ?? '',
+    virtualPaymentOfferId: env.WECHAT_XPAY_OFFER_ID ?? '',
+    virtualPaymentEnv: virtualPaymentEnvRaw === '0' ? 0 : 1,
+    virtualPaymentAppKey: env.WECHAT_XPAY_APP_KEY ?? '',
+    virtualPaymentGrowthProductId: env.WECHAT_XPAY_GROWTH_PRODUCT_ID || 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1',
+    wechatMessageToken: env.WECHAT_MESSAGE_TOKEN ?? '',
+    wechatMessageAesKey: env.WECHAT_MESSAGE_AES_KEY ?? '',
     publicBaseUrl: env.PUBLIC_BASE_URL ?? '',
     paidCompassEnabled,
     growthDiscoveryPaymentEnabled,
@@ -222,11 +211,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     invariant(config.wechatAppId && config.wechatAppSecret, 500, 'CONFIG_INVALID', '微信 AppID/AppSecret 未配置')
   }
   if (paymentProvider === 'wechat') {
-    for (const key of [
-      'wechatMchId', 'wechatMchCertSerialNo', 'wechatMchPrivateKeyPath', 'wechatPayApiV3Key',
-      'wechatPayPublicKeyId', 'wechatPayPublicKeyPath', 'wechatPayNotifyUrl', 'wechatRefundNotifyUrl', 'publicBaseUrl'
-    ] as const) invariant(config[key], 500, 'CONFIG_INVALID', `${key} 未配置`)
-    validateWechatCallbackUrls(config)
+    invariant(/^\d{6,20}$/.test(config.virtualPaymentOfferId), 500, 'CONFIG_INVALID', 'WECHAT_XPAY_OFFER_ID 未配置或格式无效')
+    invariant(config.virtualPaymentAppKey.length >= 16, 500, 'CONFIG_INVALID', 'WECHAT_XPAY_APP_KEY 未配置')
+    invariant(config.virtualPaymentAppKey !== config.sessionSecret && config.virtualPaymentAppKey !== config.wechatAppSecret,
+      500, 'CONFIG_INVALID', 'WECHAT_XPAY_APP_KEY 不得复用其他密钥')
+    invariant(/^[A-Za-z0-9_-]{1,64}$/.test(config.virtualPaymentGrowthProductId), 500, 'CONFIG_INVALID', 'WECHAT_XPAY_GROWTH_PRODUCT_ID 格式无效')
+    invariant(/^[A-Za-z0-9]{3,32}$/.test(config.wechatMessageToken), 500, 'CONFIG_INVALID', 'WECHAT_MESSAGE_TOKEN 未配置或格式无效（3至32位字母或数字）')
+    invariant(/^[A-Za-z0-9]{43}$/.test(config.wechatMessageAesKey), 500, 'CONFIG_INVALID', 'WECHAT_MESSAGE_AES_KEY 未配置或格式无效（43位字母或数字）')
   }
   if (sourceCatalogMode === 'verified') invariant(config.sourceCatalogPath, 500, 'CONFIG_INVALID', 'verified 模式必须配置 SOURCE_CATALOG_PATH')
   if (feishuBitableEnabled) {

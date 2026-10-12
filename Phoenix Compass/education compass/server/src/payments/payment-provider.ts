@@ -1,58 +1,52 @@
 import { Order, Refund } from '../domain/model'
+import { VirtualPaymentRequest } from './wechat-virtual-payment'
 
-export type HeaderBag = Record<string, string | undefined>
-
-export interface MiniProgramPaymentParams {
-  timeStamp: string
-  nonceStr: string
-  package: string
-  signType: 'RSA'
-  paySign: string
+export interface PayerSession {
+  openid: string
+  sessionKey: string
 }
 
-export interface PrepayResult {
-  providerPrepayId: string
-  paymentParams: MiniProgramPaymentParams
-}
-
+/**
+ * One payment attempt as the platform reports it. outTradeNo names the attempt: a virtual
+ * payment order number can be used only once, so each attempt of an order gets its own.
+ */
 export interface TransactionResult {
   eventId: string
-  appId: string
-  mchId: string
   outTradeNo: string
+  /** Our order ID, echoed back as attach; absent when settled by query. */
+  orderId?: string
   transactionId: string
-  tradeType: string
-  tradeState: 'SUCCESS' | 'REFUND' | 'NOTPAY' | 'CLOSED' | 'REVOKED' | 'USERPAYING' | 'PAYERROR'
-  // WeChat may omit amount and payer while a queried transaction is not yet
-  // successful. SUCCESS results are still required to contain all three fields.
+  tradeState: 'SUCCESS' | 'NOTPAY' | 'CLOSED' | 'REFUND'
+  env: 0 | 1
   totalFen?: number
-  currency?: string
+  productId?: string
   payerOpenid?: string
   successTime?: string
 }
 
 export interface RefundResult {
   eventId: string
-  mchId: string
   outTradeNo: string
+  /** Empty when Apple refunded an iOS order on its own. */
   outRefundNo: string
   providerRefundId: string
   refundStatus: 'SUCCESS' | 'CLOSED' | 'PROCESSING' | 'ABNORMAL'
   refundFen: number
-  totalFen: number
-  currency: string
+  /** The refund push carries no environment; it is matched to an order of this database instead. */
+  env?: 0 | 1
   successTime?: string
 }
 
 export interface PaymentProvider {
   readonly name: 'mock' | 'wechat'
-  readonly appId: string
-  readonly mchId: string
-  createPrepay(order: Order, payerOpenid: string): Promise<PrepayResult>
-  queryOrder(outTradeNo: string): Promise<TransactionResult>
-  closeOrder(outTradeNo: string): Promise<void>
-  requestRefund(order: Order, refund: Refund): Promise<{ providerRefundId: string; status: RefundResult['refundStatus'] }>
-  queryRefund(outRefundNo: string): Promise<RefundResult>
-  parseTransactionNotification(headers: HeaderBag, rawBody: Buffer): Promise<TransactionResult>
-  parseRefundNotification(headers: HeaderBag, rawBody: Buffer): Promise<RefundResult>
+  /** 0 现网 or 1 沙箱: pushes and queries from the other environment are never applied. */
+  readonly env: 0 | 1
+  /** The item each product is sold as; throws for a product without one. */
+  productIdFor(productCode: string): string
+  createPayment(order: Order, payer: PayerSession): VirtualPaymentRequest
+  queryAttempt(outTradeNo: string, payerOpenid: string): Promise<TransactionResult>
+  /** Marks delivery done when a payment was settled by query instead of the delivery push. */
+  confirmDelivery(outTradeNo: string): Promise<void>
+  requestRefund(order: Order, refund: Refund, payerOpenid: string): Promise<{ providerRefundId: string; status: RefundResult['refundStatus'] }>
+  queryRefund(order: Order, refund: Refund, payerOpenid: string): Promise<RefundResult>
 }

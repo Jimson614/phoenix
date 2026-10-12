@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises'
 import { MockWechatAuthProvider, WechatApiAuthProvider } from './auth/wechat-auth-provider'
 import { loadConfig } from './config'
 import { loadSourceCatalog } from './domain/source-catalog'
@@ -12,10 +11,14 @@ import { FeishuBitableClient } from './integrations/feishu/bitable-client'
 import { FeishuSyncService } from './integrations/feishu/sync-service'
 import { MockPaymentProvider } from './payments/mock-payment-provider'
 import { PaymentProvider } from './payments/payment-provider'
-import { WechatPayProvider } from './payments/wechat-pay-provider'
+import { WechatMessageCodec } from './payments/wechat-message'
+import { WechatVirtualPayment } from './payments/wechat-virtual-payment'
+import { WechatVirtualPaymentProvider } from './payments/wechat-virtual-payment-provider'
+import { PaymentPushService } from './services/payment-push-service'
 import { AssessmentService } from './services/assessment-service'
 import { AuthService } from './services/auth-service'
 import { OrderService, seedProducts } from './services/order-service'
+import { GROWTH_DISCOVERY_PRODUCT_CODE } from './domain/products'
 import { ProfileService } from './services/profile-service'
 import { ReportService } from './services/report-service'
 import { AgentService } from './services/agent-service'
@@ -36,26 +39,16 @@ async function main(): Promise<void> {
     : new MockWechatAuthProvider()
   let paymentProvider: PaymentProvider
   if (config.paymentProvider === 'wechat') {
-    const [merchantPrivateKeyPem, wechatPayPublicKeyPem] = await Promise.all([
-      readFile(config.wechatMchPrivateKeyPath, 'utf8'),
-      readFile(config.wechatPayPublicKeyPath, 'utf8')
-    ])
-    paymentProvider = new WechatPayProvider({
+    paymentProvider = new WechatVirtualPaymentProvider(new WechatVirtualPayment({
       appId: config.wechatAppId,
-      mchId: config.wechatMchId,
-      merchantCertificateSerialNo: config.wechatMchCertSerialNo,
-      merchantPrivateKeyPem,
-      apiV3Key: config.wechatPayApiV3Key,
-      wechatPayPublicKeyId: config.wechatPayPublicKeyId,
-      wechatPayPublicKeyPem,
-      transactionNotifyUrl: config.wechatPayNotifyUrl,
-      refundNotifyUrl: config.wechatRefundNotifyUrl
-    })
+      appSecret: config.wechatAppSecret,
+      offerId: config.virtualPaymentOfferId,
+      appKey: config.virtualPaymentAppKey,
+      env: config.virtualPaymentEnv,
+      products: { [GROWTH_DISCOVERY_PRODUCT_CODE]: { productId: config.virtualPaymentGrowthProductId, priceFen: 3990 } }
+    }))
   } else {
-    paymentProvider = new MockPaymentProvider(config.sessionSecret, {
-      appId: config.wechatAppId || 'wx_mock_phoenix',
-      mchId: config.wechatMchId || 'mock_mch_3990'
-    })
+    paymentProvider = new MockPaymentProvider(config.sessionSecret, { env: config.virtualPaymentEnv })
   }
 
   await seedProducts(store, new Date().toISOString())
@@ -111,8 +104,15 @@ async function main(): Promise<void> {
   // Agent 持有 AI 正文的密钥环，所以导出时把它作为数据源传进去；
   // Agent 未启用时导出照常工作，只是如实标注这部分没有内容。
   const exports = new ExportService(store, undefined, agent)
+  // Virtual payment events arrive through 消息推送; configured together with the wechat provider.
+  const payments = config.paymentProvider === 'wechat'
+    ? new PaymentPushService(new WechatMessageCodec({
+      token: config.wechatMessageToken, encodingAesKey: config.wechatMessageAesKey, appId: config.wechatAppId
+    }), orders)
+    : undefined
   const server = createAppServer({
     auth, profiles, assessments, orders, reports, education, accounts, exports, feishu,
+    ...(payments ? { payments } : {}),
     // `/health` is a readiness check in the deployed API contract. Keep it
     // read-only, but verify that the authoritative store can still answer so a
     // disconnected PostgreSQL backend is not advertised as usable to clients.

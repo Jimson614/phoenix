@@ -12,6 +12,8 @@ const { validateSourceCatalog } = require(serverDist('domain', 'source-catalog.j
 const { GROWTH_DISCOVERY_PRODUCT_CODE } = require(serverDist('domain', 'products.js'))
 const { createAppServer } = require(serverDist('http', 'app.js'))
 const { MockPaymentProvider } = require(serverDist('payments', 'mock-payment-provider.js'))
+const { encryptMessage, messageSignature, WechatMessageCodec } = require(serverDist('payments', 'wechat-message.js'))
+const { PaymentPushService } = require(serverDist('services', 'payment-push-service.js'))
 const { AssessmentService } = require(serverDist('services', 'assessment-service.js'))
 const { AuthService } = require(serverDist('services', 'auth-service.js'))
 const { EducationCompassService } = require(serverDist('services', 'education-compass-service.js'))
@@ -21,6 +23,7 @@ const { ReportService } = require(serverDist('services', 'report-service.js'))
 const { InMemoryStore } = require(serverDist('store', 'memory-store.js'))
 
 const TEST_SECRET = 'education-compass-local-smoke-secret-only'
+const PUSH = { token: 'smoketoken01', encodingAesKey: 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG', appId: 'wx0123456789abcdef' }
 const FORBIDDEN_LOCKED_KEYS = [
   'student_snapshot',
   'strength_signals',
@@ -94,7 +97,8 @@ async function main() {
   const education = new EducationCompassService(store, true)
   const orders = new OrderService(store, payment, catalog, true, undefined, undefined, true)
   const reports = new ReportService(store)
-  const server = createAppServer({ auth, profiles, assessments, education, orders, reports })
+  const payments = new PaymentPushService(new WechatMessageCodec(PUSH), orders)
+  const server = createAppServer({ auth, profiles, assessments, education, orders, reports, payments })
 
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   const address = server.address()
@@ -229,19 +233,24 @@ async function main() {
       headers: { ...headers, 'Idempotency-Key': 'smoke-growth-order-001' },
       body: JSON.stringify({ productCode: GROWTH_DISCOVERY_PRODUCT_CODE })
     }, 201)
-    await expectJson(base, `/v1/orders/${order.orderId}/wechat-prepay`, {
-      method: 'POST', headers, body: '{}'
+    // Virtual payment: a fresh login code signs the attempt, and the delivery arrives as an encrypted push.
+    const attempt = await expectJson(base, `/v1/orders/${order.orderId}/virtual-payment`, {
+      method: 'POST', headers, body: JSON.stringify({ code: 'education-compass-local-smoke' })
     }, 200)
-    payment.setOrderState(order.outTradeNo, 'SUCCESS')
-    const transaction = await payment.queryOrder(order.outTradeNo)
-    const notification = payment.makeTransactionNotification(transaction)
-    const webhookHeaders = { 'Content-Type': 'application/json' }
-    for (const [name, value] of Object.entries(notification.headers)) {
-      if (value !== undefined) webhookHeaders[name] = value
-    }
-    await expectJson(base, '/v1/webhooks/wechat-pay/transactions', {
-      method: 'POST', headers: webhookHeaders, body: notification.rawBody.toString('utf8')
-    }, 204)
+    assert.equal(attempt.virtualPayment.mode, 'short_series_goods')
+    payment.setOrderState(attempt.outTradeNo, 'SUCCESS')
+    const encrypted = encryptMessage(PUSH.encodingAesKey, JSON.stringify(payment.deliveryEvent(attempt.outTradeNo)), PUSH.appId)
+    const timestamp = String(Math.floor(Date.now() / 1000))
+    const nonce = '1514711492'
+    const query = new URLSearchParams({
+      signature: messageSignature(PUSH.token, timestamp, nonce), timestamp, nonce, encrypt_type: 'aes',
+      msg_signature: messageSignature(PUSH.token, timestamp, nonce, encrypted)
+    })
+    const pushed = await fetch(`${base}/v1/webhooks/wechat-message?${query}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ToUserName: 'gh_smoke', Encrypt: encrypted })
+    })
+    assert.equal(pushed.status, 200)
+    assert.equal(await pushed.text(), 'success')
 
     const full = await expectJson(base, `/v1/assessments/${growthCreate.assessmentId}/result`, { headers }, 200)
     assert.equal(full.resultState, 'READY')

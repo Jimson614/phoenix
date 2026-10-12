@@ -59,6 +59,20 @@ export class AuthService {
     return { accessToken, expiresAt, user: { id: user.id, role: user.role } }
   }
 
+  /**
+   * A virtual payment is signed with the buyer's current session_key. The Mini Program sends a
+   * fresh wx.login code with each payment, which also rules out an expired session_key, and the
+   * code must belong to the WeChat identity of the signed-in user.
+   */
+  async payerSession(userId: string, code: string): Promise<{ openid: string; sessionKey: string }> {
+    const result = await this.provider.exchangeCode(code)
+    const identity = await this.store.read((tx) => tx.findOne('wechatIdentities', { userId }))
+    invariant(identity, 409, 'WECHAT_IDENTITY_REQUIRED', '当前用户未绑定微信身份')
+    invariant(identity.openid === result.openid, 403, 'PAYMENT_PAYER_MISMATCH', '请使用登录本小程序的微信账号支付')
+    invariant(result.sessionKey, 502, 'WECHAT_SESSION_KEY_MISSING', '微信登录服务未返回登录态，请重试')
+    return { openid: result.openid, sessionKey: result.sessionKey }
+  }
+
   async authenticate(accessToken: string): Promise<User> {
     invariant(accessToken.length >= 20, 401, 'AUTH_REQUIRED', '请先登录')
     const digest = tokenDigest(accessToken, this.sessionSecret)

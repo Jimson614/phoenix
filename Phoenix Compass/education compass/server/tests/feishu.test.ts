@@ -378,7 +378,7 @@ function populatedStore(): InMemoryStore {
       studentId: 'stu_private_1', assessmentId: 'asm_private_1', reportId: 'rpt_private_1',
       productCode: 'COMPASS_REPORT_SINGLE_39_9', amountFen: 3990, currency: 'CNY', status: 'PAID',
       idempotencyKey: 'PII_IDEMPOTENCY_KEY', provider: 'wechat', providerPrepayId: 'PII_PREPAY_ID',
-      paymentParams: { timeStamp: '1', nonceStr: 'PII_NONCE', package: 'PII_PACKAGE', signType: 'RSA', paySign: 'PII_PAY_SIGN' },
+      paymentParams: { attempts: ['PII_ATTEMPT_NO'] },
       providerTransactionId: 'PII_TRANSACTION_ID', lastProviderQueryAt: null,
       createdAt: '2026-08-20T09:00:00.000Z', updatedAt: '2026-08-20T10:00:00.000Z',
       expiresAt: '2026-08-20T10:30:00.000Z', paidAt: '2026-08-20T10:00:00.000Z', refundedAt: null

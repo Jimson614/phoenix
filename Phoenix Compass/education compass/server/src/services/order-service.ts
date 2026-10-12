@@ -10,13 +10,29 @@ import {
 import { COMPASS_PRODUCT_CODE, defaultProductDeliverables, defaultProducts, GROWTH_DISCOVERY_PRODUCT_CODE } from '../domain/products'
 import { Order, OrderStatus, Refund, RefundStatus } from '../domain/model'
 import { PLACEHOLDER_SOURCE_CATALOG, SourceCatalog } from '../domain/source-catalog'
-import { HeaderBag, MiniProgramPaymentParams, PaymentProvider, RefundResult, TransactionResult } from '../payments/payment-provider'
+import { PayerSession, PaymentProvider, RefundResult, TransactionResult } from '../payments/payment-provider'
+import { VirtualPaymentRequest } from '../payments/wechat-virtual-payment'
 import { Store, StoreTransaction } from '../store/store'
 import { addMilliseconds, Clock, IdFactory, iso, outTradeNo, randomId, systemClock } from '../utils/runtime'
 import { appendTimeline } from './profile-service'
 
 const PROVIDER_QUERY_MIN_INTERVAL_MS = 5_000
+// An attempt the platform has never heard of (the buyer never opened the payment sheet) cannot be
+// told apart from a failed query; this long after expiry neither can still turn into a payment.
+const UNKNOWN_ATTEMPT_GRACE_MS = 30 * 60_000
 const REFUND_RECONCILIATION_MIN_INTERVAL_MS = 60_000
+const MAX_PAYMENT_ATTEMPTS = 10
+
+/** Every order number this order has handed to the platform; the first attempt reuses outTradeNo. */
+function paymentAttempts(order: Order): string[] {
+  const attempts = order.paymentParams?.attempts
+  if (Array.isArray(attempts) && attempts.every((value) => typeof value === 'string')) return attempts
+  return order.status === 'CREATED' ? [] : [order.outTradeNo]
+}
+
+function digest(value: unknown): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex')
+}
 
 export interface OrderDto {
   orderId: string
@@ -153,6 +169,10 @@ export class OrderService {
       invariant(this.growthDiscoveryPaymentEnabled, 503, 'GROWTH_DISCOVERY_PAYMENT_DISABLED', '学生成长发现支付尚未启用')
     }
     invariant(/^[A-Za-z0-9_.:-]{8,128}$/.test(input.idempotencyKey), 400, 'IDEMPOTENCY_KEY_INVALID', '幂等键格式无效')
+    const stale = await this.store.read(async (tx) => (await tx.findMany('orders', { userId, assessmentId, productCode: productCode as Order['productCode'] }))
+      .find((order) => ['CREATED', 'PENDING'].includes(order.status) && new Date(order.expiresAt).getTime() <= this.clock().getTime()))
+    // An expired order that still holds the purchase slot is settled or cancelled first, so the buyer can start again.
+    if (stale) await this.getOrder(userId, stale.id)
     const nowDate = this.clock()
     const now = nowDate.toISOString()
     return this.store.transaction(async (tx) => {
@@ -252,12 +272,22 @@ export class OrderService {
     })
   }
 
-  async createWechatPrepay(userId: string, orderId: string): Promise<{
+  get providerEnv(): 0 | 1 { return this.provider.env }
+
+  /**
+   * Signs one virtual payment attempt for the buyer. The platform accepts an order number once, so
+   * a retry after a cancelled or failed attempt gets a new number; an earlier attempt that was paid
+   * in the meantime is settled first instead.
+   */
+  async createVirtualPayment(userId: string, orderId: string, payer: PayerSession): Promise<{
     orderId: string
     status: 'PENDING'
-    paymentParams: MiniProgramPaymentParams
+    outTradeNo: string
+    virtualPayment: VirtualPaymentRequest
   }> {
-    const snapshot = await this.store.transaction(async (tx) => {
+    const existing = await this.store.read((tx) => tx.findById('orders', orderId))
+    if (existing?.userId === userId && existing.status === 'PENDING') await this.reconcileAttempts(existing, true)
+    return this.store.transaction(async (tx) => {
       const order = await tx.findById('orders', orderId, { forUpdate: true })
       invariant(order, 404, 'ORDER_NOT_FOUND', '订单不存在')
       invariant(order.userId === userId, 403, 'ORDER_FORBIDDEN', '无权访问该订单')
@@ -272,37 +302,16 @@ export class OrderService {
       await this.validatePayableDependencies(tx, order)
       const identity = await tx.findOne('wechatIdentities', { userId })
       invariant(identity, 409, 'WECHAT_IDENTITY_REQUIRED', '当前用户未绑定微信身份')
-      return { order, payerOpenid: identity.openid }
+      invariant(identity.openid === payer.openid, 403, 'PAYMENT_PAYER_MISMATCH', '请使用登录本小程序的微信账号支付')
+      this.provider.productIdFor(order.productCode)
+      const attempts = paymentAttempts(order)
+      invariant(attempts.length < MAX_PAYMENT_ATTEMPTS, 409, 'PAYMENT_ATTEMPTS_EXHAUSTED', '支付尝试次数过多，请返回重新下单')
+      const attemptNo = attempts.length === 0 ? order.outTradeNo : outTradeNo('PX')
+      const updated = await tx.update('orders', order.id, {
+        status: 'PENDING', outTradeNo: attemptNo, paymentParams: { attempts: [...attempts, attemptNo] }, updatedAt: iso(this.clock)
+      })
+      return { orderId, status: 'PENDING', outTradeNo: attemptNo, virtualPayment: this.provider.createPayment(updated, payer) }
     })
-    if (snapshot.order.status === 'PENDING' && snapshot.order.paymentParams) {
-      return { orderId, status: 'PENDING', paymentParams: snapshot.order.paymentParams }
-    }
-    const prepay = await this.provider.createPrepay(snapshot.order, snapshot.payerOpenid)
-    try {
-      await this.store.transaction(async (tx) => {
-        const current = await tx.findById('orders', orderId, { forUpdate: true })
-        invariant(current?.userId === userId, 409, 'ORDER_STATE_CHANGED', '订单状态已变化')
-        invariant(current.status === 'CREATED' || current.status === 'PENDING', 409, 'ORDER_STATE_CHANGED', '订单状态已变化')
-        invariant(new Date(current.expiresAt).getTime() > this.clock().getTime(), 409, 'ORDER_EXPIRED', '订单已过期，请重新创建')
-        await this.validatePayableDependencies(tx, current)
-        await tx.update('orders', orderId, {
-          status: 'PENDING', providerPrepayId: prepay.providerPrepayId,
-          paymentParams: prepay.paymentParams, updatedAt: iso(this.clock)
-        })
-      })
-    } catch (error) {
-      // A consent/product/report change during the provider call must not leave
-      // an untracked payable transaction. Only cancel locally after close succeeds.
-      await this.provider.closeOrder(snapshot.order.outTradeNo)
-      await this.store.transaction(async (tx) => {
-        const current = await tx.findById('orders', orderId, { forUpdate: true })
-        if (current && ['CREATED', 'PENDING'].includes(current.status)) {
-          await tx.update('orders', orderId, { status: 'CANCELLED', paymentParams: null, updatedAt: iso(this.clock) })
-        }
-      })
-      throw error
-    }
-    return { orderId, status: 'PENDING', paymentParams: prepay.paymentParams }
   }
 
   async getOrder(userId: string, orderId: string, reconcile = true): Promise<OrderDto> {
@@ -316,37 +325,114 @@ export class OrderService {
     if (order.status === 'CREATED' && expired) {
       order = await this.store.transaction(async (tx) => tx.update('orders', order.id, { status: 'CANCELLED', updatedAt: iso(this.clock) }))
     } else if (reconcile && order.status === 'PENDING') {
-      const queryAt = iso(this.clock)
-      const claimed = await this.store.transaction(async (tx) => {
-        const current = await tx.findById('orders', order.id, { forUpdate: true })
-        if (!current || current.status !== 'PENDING') return false
-        const lastQuery = current.lastProviderQueryAt ? Date.parse(current.lastProviderQueryAt) : 0
-        if (Number.isFinite(lastQuery) && this.clock().getTime() - lastQuery < PROVIDER_QUERY_MIN_INTERVAL_MS) return false
-        await tx.update('orders', current.id, { lastProviderQueryAt: queryAt, updatedAt: queryAt })
-        return true
-      })
-      if (claimed) {
-        const result = await this.provider.queryOrder(order.outTradeNo)
-        const queryResult = { ...result, eventId: `query:${order.outTradeNo}:${result.tradeState}:${result.transactionId}` }
-        await this.applyTransaction(queryResult, 'QUERY_RECONCILIATION', createHash('sha256').update(JSON.stringify(queryResult)).digest('hex'))
-        if (expired && result.tradeState === 'NOTPAY') {
-          await this.provider.closeOrder(order.outTradeNo)
-          const closedResult: TransactionResult = {
-            ...result,
-            eventId: `close:${order.outTradeNo}:${result.transactionId}`,
-            tradeState: 'CLOSED'
-          }
-          await this.applyTransaction(closedResult, 'QUERY_RECONCILIATION', createHash('sha256').update(JSON.stringify(closedResult)).digest('hex'))
-        }
-      }
+      await this.reconcileAttempts(order, false)
       order = await this.store.read(async (tx) => (await tx.findById('orders', order.id))!)
     }
     return dto(order)
   }
 
-  async handleTransactionNotification(headers: HeaderBag, rawBody: Buffer): Promise<{ duplicate: boolean; orderId: string }> {
-    const result = await this.provider.parseTransactionNotification(headers, rawBody)
-    return this.applyTransaction(result, 'TRANSACTION', createHash('sha256').update(rawBody).digest('hex'))
+  /**
+   * Asks the platform about every attempt of a pending order. A paid attempt settles the order and
+   * is marked delivered, because no delivery push may ever come for it. An expired order whose
+   * attempts are all unpaid is cancelled locally: virtual payment has no close call.
+   */
+  private async reconcileAttempts(order: Order, force: boolean): Promise<void> {
+    const queryAt = iso(this.clock)
+    const claimed = await this.store.transaction(async (tx) => {
+      const current = await tx.findById('orders', order.id, { forUpdate: true })
+      if (!current || current.status !== 'PENDING') return null
+      const lastQuery = current.lastProviderQueryAt ? Date.parse(current.lastProviderQueryAt) : 0
+      if (!force && Number.isFinite(lastQuery) && this.clock().getTime() - lastQuery < PROVIDER_QUERY_MIN_INTERVAL_MS) return null
+      const identity = await tx.findOne('wechatIdentities', { userId: current.userId })
+      if (!identity) return null
+      await tx.update('orders', current.id, { lastProviderQueryAt: queryAt, updatedAt: queryAt })
+      return { attempts: paymentAttempts(current), openid: identity.openid }
+    })
+    if (!claimed) return
+    let allUnpaid = true
+    let unknownSeen = false
+    for (const attemptNo of [...claimed.attempts].reverse()) {
+      let result: TransactionResult
+      try {
+        result = await this.provider.queryAttempt(attemptNo, claimed.openid)
+      } catch {
+        unknownSeen = true
+        continue
+      }
+      if (result.tradeState !== 'NOTPAY' && result.tradeState !== 'CLOSED') allUnpaid = false
+      await this.applyTransaction({ ...result, orderId: order.id }, 'QUERY_RECONCILIATION', digest(result))
+      if (result.tradeState === 'SUCCESS') {
+        await this.provider.confirmDelivery(attemptNo).catch(() => undefined)
+        return
+      }
+    }
+    const expiresAt = new Date(order.expiresAt).getTime()
+    const now = this.clock().getTime()
+    if (allUnpaid && expiresAt <= now && (!unknownSeen || expiresAt + UNKNOWN_ATTEMPT_GRACE_MS <= now)) {
+      await this.store.transaction(async (tx) => {
+        const current = await tx.findById('orders', order.id, { forUpdate: true })
+        if (current?.status === 'PENDING') await tx.update('orders', current.id, { status: 'CANCELLED', updatedAt: iso(this.clock) })
+      })
+    }
+  }
+
+  /** xpay_goods_deliver_notify for this environment. */
+  async handleDelivery(result: TransactionResult): Promise<{ duplicate: boolean; orderId: string }> {
+    return this.applyTransaction(result, 'TRANSACTION', digest(result))
+  }
+
+  /**
+   * xpay_refund_notify. A push for an order this database does not know belongs to the other
+   * environment (the platform sends both to the one push URL) and is acknowledged untouched.
+   */
+  async handleRefundPush(result: RefundResult): Promise<{ ignored: boolean; orderId: string }> {
+    const known = await this.store.read((tx) => tx.findOne('orders', { outTradeNo: result.outTradeNo }))
+    if (!known) return { ignored: true, orderId: '' }
+    const applied = await this.applyRefund(result, digest(result))
+    return { ignored: false, orderId: applied.orderId }
+  }
+
+  /**
+   * Apple asks whether to grant an iOS refund and decides on its own; we answer within the same
+   * policy as our own refunds (OD-07): within the window and before the PDF was downloaded we do
+   * not object, otherwise we object with the reason as evidence.
+   */
+  async iosRefundQueryDecision(payOrderId: string): Promise<{ result_code: 0 | 1; result_info: string; evidence: string }> {
+    const now = iso(this.clock)
+    return this.store.transaction(async (tx) => {
+      const order = payOrderId ? await tx.findOne('orders', { outTradeNo: payOrderId }) : null
+      let decision: { result_code: 0 | 1; result_info: string; evidence: string }
+      if (!order || !order.paidAt) {
+        decision = { result_code: 0, result_info: '未找到已支付订单，不拦截', evidence: 'NO_PAID_ORDER' }
+      } else {
+        const elapsedDays = (Date.parse(now) - Date.parse(order.paidAt)) / 86_400_000
+        const report = order.reportId ? await tx.findById('reports', order.reportId) : null
+        if (report?.pdfFirstDownloadedAt) {
+          decision = { result_code: 1, result_info: '报告已下载，视为已交付', evidence: `REPORT_DOWNLOADED_AT ${report.pdfFirstDownloadedAt}` }
+        } else if (elapsedDays > REFUND_WINDOW_DAYS) {
+          decision = { result_code: 1, result_info: `超过支付后 ${REFUND_WINDOW_DAYS} 天的退款窗口`, evidence: `PAID_AT ${order.paidAt}` }
+        } else {
+          decision = { result_code: 0, result_info: `支付后 ${REFUND_WINDOW_DAYS} 天内且报告未下载`, evidence: `PAID_AT ${order.paidAt}; NOT_DOWNLOADED` }
+        }
+      }
+      await tx.insert('auditLogs', {
+        id: this.ids('aud'), actorUserId: null, action: 'IOS_REFUND_QUERY_ANSWERED',
+        entityType: 'order', entityId: order?.id ?? `out_trade_no:${payOrderId.slice(0, 64)}`,
+        metadata: { resultCode: decision.result_code, evidence: decision.evidence }, createdAt: now
+      })
+      return decision
+    })
+  }
+
+  /** Complaints, risk events and pushes for the other environment are kept for operations. */
+  async recordPaymentNotice(action: string, entityId: string, metadata: Record<string, unknown>): Promise<void> {
+    const now = iso(this.clock)
+    await this.store.transaction(async (tx) => {
+      await tx.insert('auditLogs', {
+        id: this.ids('aud'), actorUserId: null, action, entityType: 'virtual_payment',
+        entityId: entityId.slice(0, 128) || 'unknown', metadata, createdAt: now
+      })
+    })
   }
 
   async requestRefund(
@@ -362,18 +448,26 @@ export class OrderService {
       const admin = await tx.findById('users', adminUserId)
       invariant(admin?.role === 'admin', 403, 'ADMIN_REQUIRED', '只有管理员可以发起退款')
       const byKey = await tx.findOne('refunds', { requestedBy: adminUserId, idempotencyKey: input.idempotencyKey }, { forUpdate: true })
+      // Virtual payment refunds name the buyer by openid. After account deletion the identity is gone
+      // and the refund has to be made by hand in the 虚拟支付 merchant console.
+      const payerOpenid = async (userId: string): Promise<string> => {
+        const identity = await tx.findOne('wechatIdentities', { userId })
+        invariant(identity, 409, 'REFUND_PAYER_UNKNOWN', '该订单的微信账号已注销，请在虚拟支付后台人工退款')
+        return identity.openid
+      }
       if (byKey) {
         invariant(byKey.orderId === orderId, 409, 'IDEMPOTENCY_KEY_REUSED', '退款幂等键已用于其他订单')
         const priorOrder = await tx.findById('orders', orderId)
         invariant(priorOrder, 404, 'ORDER_NOT_FOUND', '订单不存在')
-        return { order: priorOrder, refund: byKey }
+        return { order: priorOrder, refund: byKey, openid: await payerOpenid(priorOrder.userId) }
       }
       const order = await tx.findById('orders', orderId, { forUpdate: true })
       invariant(order, 404, 'ORDER_NOT_FOUND', '订单不存在')
       invariant(order.status === 'PAID' || order.status === 'REFUNDING', 409, 'ORDER_NOT_REFUNDABLE', '订单当前不可退款')
+      const openid = await payerOpenid(order.userId)
       const existing = await tx.findOne('refunds', { orderId }, { forUpdate: true })
       // 放在这之后：已在途的退款重试永远不该被政策挡住，否则会把它卡死在中间状态。
-      if (existing) return { order, refund: existing }
+      if (existing) return { order, refund: existing, openid }
 
       const merchantFault = input.policyException === MERCHANT_FAULT_EXCEPTION
       if (!merchantFault) {
@@ -407,19 +501,19 @@ export class OrderService {
         },
         createdAt: now
       })
-      return { order, refund }
+      return { order, refund, openid }
     })
     if (prepared.refund.providerRefundId) {
-      return this.reconcileRefund(await this.provider.queryRefund(prepared.refund.outRefundNo))
+      return this.reconcileRefund(await this.provider.queryRefund(prepared.order, prepared.refund, prepared.openid))
     }
     let providerResult: { providerRefundId: string; status: RefundStatus }
     let queriedResult: RefundResult | null = null
     try {
-      providerResult = await this.provider.requestRefund(prepared.order, prepared.refund)
-      if (providerResult.status !== 'PROCESSING') queriedResult = await this.provider.queryRefund(prepared.refund.outRefundNo)
+      providerResult = await this.provider.requestRefund(prepared.order, prepared.refund, prepared.openid)
+      if (providerResult.status !== 'PROCESSING') queriedResult = await this.provider.queryRefund(prepared.order, prepared.refund, prepared.openid)
     } catch (originalError) {
       try {
-        queriedResult = await this.provider.queryRefund(prepared.refund.outRefundNo)
+        queriedResult = await this.provider.queryRefund(prepared.order, prepared.refund, prepared.openid)
         providerResult = { providerRefundId: queriedResult.providerRefundId, status: queriedResult.refundStatus }
       } catch {
         throw originalError
@@ -436,11 +530,6 @@ export class OrderService {
         updatedAt: iso(this.clock)
       })
     })
-  }
-
-  async handleRefundNotification(headers: HeaderBag, rawBody: Buffer): Promise<{ duplicate: boolean; orderId: string }> {
-    const result = await this.provider.parseRefundNotification(headers, rawBody)
-    return this.applyRefund(result, createHash('sha256').update(rawBody).digest('hex'))
   }
 
   async reconcilePendingRefunds(
@@ -467,11 +556,16 @@ export class OrderService {
       if (!claimed) continue
       checked += 1
       try {
+        const { order, openid } = await this.store.read(async (tx) => {
+          const found = await tx.findById('orders', candidate.orderId)
+          invariant(found, 404, 'ORDER_NOT_FOUND', '退款对应订单不存在')
+          const identity = await tx.findOne('wechatIdentities', { userId: found.userId })
+          invariant(identity, 409, 'REFUND_PAYER_UNKNOWN', '该订单的微信账号已注销，请在虚拟支付后台人工退款')
+          return { order: found, openid: identity.openid }
+        })
         if (!candidate.providerRefundId) {
-          const order = await this.store.read(async (tx) => tx.findById('orders', candidate.orderId))
-          invariant(order, 404, 'ORDER_NOT_FOUND', '退款对应订单不存在')
           try {
-            const requested = await this.provider.requestRefund(order, candidate)
+            const requested = await this.provider.requestRefund(order, candidate, openid)
             await this.store.transaction(async (tx) => {
               const current = await tx.findById('refunds', candidate.id, { forUpdate: true })
               if (current?.status === 'PROCESSING' && !current.providerRefundId) {
@@ -483,7 +577,7 @@ export class OrderService {
             // request is resolved by the signed query immediately below.
           }
         }
-        const refund = await this.reconcileRefund(await this.provider.queryRefund(candidate.outRefundNo))
+        const refund = await this.reconcileRefund(await this.provider.queryRefund(order, candidate, openid))
         if (refund.status === 'SUCCESS') succeeded += 1
       } catch {
         // The claim timestamp provides durable backoff. The scheduler reports the
@@ -527,10 +621,12 @@ export class OrderService {
       const duplicate = await tx.findOne('paymentEvents', { providerEventId: result.eventId }, { forUpdate: true })
       if (duplicate) {
         invariant(duplicate.bodyDigest === bodyDigest && duplicate.outTradeNo === result.outTradeNo, 409, 'PAYMENT_EVENT_CONFLICT', '相同支付事件ID对应了不同内容')
-        const priorOrder = await tx.findOne('orders', { outTradeNo: duplicate.outTradeNo })
-        return { duplicate: true, orderId: priorOrder?.id ?? '' }
+        return { duplicate: true, orderId: result.orderId ?? '' }
       }
-      const order = await tx.findOne('orders', { outTradeNo: result.outTradeNo }, { forUpdate: true })
+      // A push names the order through attach; an earlier attempt's number is no longer outTradeNo.
+      const order = result.orderId
+        ? await tx.findById('orders', result.orderId, { forUpdate: true })
+        : await tx.findOne('orders', { outTradeNo: result.outTradeNo }, { forUpdate: true })
       invariant(order, 404, 'PAYMENT_ORDER_NOT_FOUND', '支付通知对应订单不存在')
       await this.validateTransaction(tx, order, result)
       await tx.insert('paymentEvents', {
@@ -542,6 +638,32 @@ export class OrderService {
       // Once signed payment parameters have been issued, a later verified SUCCESS
       // is honored against that immutable QA-passed report snapshot; otherwise a
       // configuration rollback could leave a charged family without delivery.
+      if (result.tradeState === 'SUCCESS' && ['PAID', 'REFUNDING', 'REFUNDED'].includes(order.status) &&
+        order.providerTransactionId && order.providerTransactionId !== result.transactionId) {
+        // Two attempts of one order were both paid. The order keeps the first; the second needs a
+        // refund by hand because the refund ledger holds one refund per order.
+        await tx.insert('auditLogs', {
+          id: this.ids('aud'), actorUserId: null, action: 'DUPLICATE_PAYMENT_MANUAL_REFUND_REQUIRED',
+          entityType: 'order', entityId: order.id,
+          metadata: { outTradeNo: result.outTradeNo, transactionId: result.transactionId, amountFen: result.totalFen ?? null }, createdAt: now
+        })
+        return { duplicate: false, orderId: order.id }
+      }
+      if (result.tradeState === 'SUCCESS' && order.status === 'CANCELLED') {
+        // A payment for an order we had given up on. A newer unpaid order for the same purchase
+        // yields to it; a newer paid one means the buyer paid twice and one payment needs a refund.
+        const rivals = (await tx.findMany('orders', { userId: order.userId, assessmentId: order.assessmentId, productCode: order.productCode }))
+          .filter((other) => other.id !== order.id && ['CREATED', 'PENDING', 'PAID', 'REFUNDING'].includes(other.status))
+        if (rivals.some((other) => other.status === 'PAID' || other.status === 'REFUNDING')) {
+          await tx.insert('auditLogs', {
+            id: this.ids('aud'), actorUserId: null, action: 'DUPLICATE_PAYMENT_MANUAL_REFUND_REQUIRED',
+            entityType: 'order', entityId: order.id,
+            metadata: { outTradeNo: result.outTradeNo, transactionId: result.transactionId, amountFen: result.totalFen ?? null }, createdAt: now
+          })
+          return { duplicate: false, orderId: order.id }
+        }
+        for (const other of rivals) await tx.update('orders', other.id, { status: 'CANCELLED', updatedAt: now })
+      }
       if (result.tradeState === 'SUCCESS' && !['REFUNDED', 'REFUNDING'].includes(order.status)) {
         if (order.status !== 'PAID') {
           const settling = linkedOrder(order)
@@ -560,8 +682,8 @@ export class OrderService {
           const paidAt = result.successTime ?? now
           if (order.productCode === GROWTH_DISCOVERY_PRODUCT_CODE && !await this.hasActiveGrowthConsents(tx, order)) {
             await tx.update('orders', order.id, {
-              status: 'REFUNDING', providerTransactionId: result.transactionId,
-              paidAt, updatedAt: now, paymentParams: null
+              status: 'REFUNDING', outTradeNo: result.outTradeNo, providerTransactionId: result.transactionId,
+              paidAt, updatedAt: now
             })
             if (!await tx.findOne('refunds', { orderId: order.id }, { forUpdate: true })) {
               const refund = await tx.insert('refunds', {
@@ -586,9 +708,10 @@ export class OrderService {
             }
             return { duplicate: false, orderId: order.id }
           }
+          // outTradeNo becomes the attempt that was paid: refunds and the delivery confirmation name it.
           await tx.update('orders', order.id, {
-            status: 'PAID', providerTransactionId: result.transactionId,
-            paidAt, updatedAt: now, paymentParams: null
+            status: 'PAID', outTradeNo: result.outTradeNo, providerTransactionId: result.transactionId,
+            paidAt, updatedAt: now
           })
           if (!await tx.findOne('entitlements', { orderId: order.id })) {
             await tx.insert('entitlements', {
@@ -605,29 +728,25 @@ export class OrderService {
           })
         }
       } else if (result.tradeState !== 'SUCCESS' && !['PAID', 'REFUNDING', 'REFUNDED'].includes(order.status)) {
+        // Only the latest attempt decides: an earlier one closing says nothing about a retry.
         const next = this.orderStatusForTradeState(result.tradeState)
-        if (next) await tx.update('orders', order.id, { status: next, updatedAt: now })
+        if (next && result.outTradeNo === order.outTradeNo) await tx.update('orders', order.id, { status: next, updatedAt: now })
       }
       return { duplicate: false, orderId: order.id }
     })
   }
 
   private async validateTransaction(tx: StoreTransaction, order: Order, result: TransactionResult): Promise<void> {
-    invariant(result.appId === this.provider.appId, 400, 'PAYMENT_APPID_MISMATCH', '支付通知 AppID 不匹配')
-    invariant(result.mchId === this.provider.mchId, 400, 'PAYMENT_MCHID_MISMATCH', '支付通知商户号不匹配')
-    invariant(result.tradeType === 'JSAPI', 400, 'PAYMENT_TRADE_TYPE_INVALID', '支付交易类型无效')
-    const success = result.tradeState === 'SUCCESS'
-    if (success || result.totalFen !== undefined) {
-      invariant(result.totalFen === order.amountFen && result.totalFen === 3990, 400, 'PAYMENT_AMOUNT_MISMATCH', '支付金额不匹配')
+    invariant(result.env === this.provider.env, 400, 'PAYMENT_ENV_MISMATCH', '支付结果不属于当前支付环境')
+    invariant(paymentAttempts(order).includes(result.outTradeNo), 400, 'PAYMENT_ATTEMPT_UNKNOWN', '支付单号不属于该订单')
+    if (result.tradeState !== 'SUCCESS') return
+    invariant(result.totalFen === order.amountFen && result.totalFen === 3990, 400, 'PAYMENT_AMOUNT_MISMATCH', '支付金额不匹配')
+    if (result.productId !== undefined) {
+      invariant(result.productId === this.provider.productIdFor(order.productCode), 400, 'PAYMENT_PRODUCT_MISMATCH', '支付道具与订单商品不匹配')
     }
-    if (success || result.currency !== undefined) {
-      invariant(result.currency === order.currency && result.currency === 'CNY', 400, 'PAYMENT_CURRENCY_MISMATCH', '支付币种不匹配')
-    }
-    if (success || result.payerOpenid !== undefined) {
-      const identity = await tx.findOne('wechatIdentities', { userId: order.userId })
-      invariant(identity?.openid === result.payerOpenid, 400, 'PAYMENT_PAYER_MISMATCH', '支付人身份不匹配')
-    }
-    if (success) invariant(result.transactionId.length > 0, 400, 'PAYMENT_TRANSACTION_ID_MISSING', '微信支付交易号缺失')
+    const identity = await tx.findOne('wechatIdentities', { userId: order.userId })
+    invariant(identity?.openid === result.payerOpenid, 400, 'PAYMENT_PAYER_MISMATCH', '支付人身份不匹配')
+    invariant(result.transactionId.length > 0, 400, 'PAYMENT_TRANSACTION_ID_MISSING', '支付交易号缺失')
   }
 
   private async hasActiveGrowthConsents(tx: StoreTransaction, rawOrder: Order): Promise<boolean> {
@@ -657,9 +776,7 @@ export class OrderService {
   }
 
   private orderStatusForTradeState(state: TransactionResult['tradeState']): OrderStatus | null {
-    if (state === 'CLOSED' || state === 'REVOKED') return 'CANCELLED'
-    if (state === 'PAYERROR') return 'FAILED'
-    return null
+    return state === 'CLOSED' ? 'CANCELLED' : null
   }
 
   private async applyRefund(result: RefundResult, bodyDigest: string): Promise<{ duplicate: boolean; orderId: string }> {
@@ -673,11 +790,24 @@ export class OrderService {
       }
       const order = await tx.findOne('orders', { outTradeNo: result.outTradeNo }, { forUpdate: true })
       invariant(order, 404, 'REFUND_ORDER_NOT_FOUND', '退款通知对应订单不存在')
-      const refund = await tx.findOne('refunds', { outRefundNo: result.outRefundNo }, { forUpdate: true })
+      let refund = result.outRefundNo ? await tx.findOne('refunds', { outRefundNo: result.outRefundNo }, { forUpdate: true }) : null
+      if (!refund && result.refundStatus === 'SUCCESS' && ['PAID', 'REFUNDING'].includes(order.status)) {
+        // Apple refunding an iOS order, or a refund made by hand in the merchant console, reaches us
+        // only as this push. Record it so access is withdrawn like any other refund.
+        refund = await tx.findOne('refunds', { orderId: order.id }, { forUpdate: true }) ?? await tx.insert('refunds', {
+          id: this.ids('rfd'),
+          outRefundNo: /^[A-Za-z0-9_-]{6,32}$/.test(result.outRefundNo) ? result.outRefundNo : outTradeNo('PR'),
+          orderId: order.id, requestedBy: order.userId, idempotencyKey: `platform-refund-${order.id}`.slice(0, 128),
+          reason: 'PLATFORM_REFUND', amountFen: result.refundFen, currency: order.currency, status: 'PROCESSING',
+          providerRefundId: null, createdAt: now, updatedAt: now, succeededAt: null
+        })
+        await tx.insert('auditLogs', {
+          id: this.ids('aud'), actorUserId: null, action: 'platform_refund_recorded', entityType: 'order', entityId: order.id,
+          metadata: { outRefundNo: refund.outRefundNo, providerRefundId: result.providerRefundId, amountFen: result.refundFen }, createdAt: now
+        })
+      }
       invariant(refund?.orderId === order.id, 404, 'REFUND_NOT_FOUND', '退款记录不存在')
-      invariant(result.mchId === this.provider.mchId, 400, 'REFUND_MCHID_MISMATCH', '退款商户号不匹配')
-      invariant(result.refundFen === refund.amountFen && result.totalFen === order.amountFen, 400, 'REFUND_AMOUNT_MISMATCH', '退款金额不匹配')
-      invariant(result.currency === 'CNY' && result.currency === order.currency, 400, 'REFUND_CURRENCY_MISMATCH', '退款币种不匹配')
+      invariant(result.refundFen === refund.amountFen, 400, 'REFUND_AMOUNT_MISMATCH', '退款金额不匹配')
       await tx.insert('paymentEvents', {
         id: this.ids('pev'), providerEventId: result.eventId, eventKind: 'REFUND',
         outTradeNo: order.outTradeNo, bodyDigest, verified: true, processedAt: now

@@ -4,6 +4,7 @@ import { AppError, errorEnvelope, invariant } from '../domain/errors'
 import { AuthService } from '../services/auth-service'
 import { AssessmentService, CreateAssessmentInput } from '../services/assessment-service'
 import { OrderService } from '../services/order-service'
+import { PaymentPushService } from '../services/payment-push-service'
 import { FamilyInput, ProfileService, StudentInput } from '../services/profile-service'
 import { ReportService } from '../services/report-service'
 import { AccountService } from '../services/account-service'
@@ -19,6 +20,8 @@ export interface AppDependencies {
   profiles: ProfileService
   assessments: AssessmentService
   orders: OrderService
+  /** 消息推送 receiver for virtual payment events; absent while payments run on the mock. */
+  payments?: PaymentPushService
   reports: ReportService
   education?: EducationCompassService
   accounts?: AccountService
@@ -158,32 +161,20 @@ function clientAddress(request: IncomingMessage): string {
   return typeof candidate === 'string' && isIP(candidate) > 0 ? candidate : peer
 }
 
-function headerBag(request: IncomingMessage): Record<string, string | undefined> {
-  return Object.fromEntries(Object.entries(request.headers).map(([key, value]) => [
-    key,
-    Array.isArray(value) ? value.join(',') : value
-  ]))
+function text(response: ServerResponse, status: number, body: string): void {
+  securityHeaders(response)
+  response.statusCode = status
+  const raw = Buffer.from(body, 'utf8')
+  response.setHeader('Content-Type', 'text/plain; charset=utf-8')
+  response.setHeader('Content-Length', raw.length)
+  response.end(raw)
 }
 
-function validateWebhookIngress(request: IncomingMessage): Record<string, string | undefined> {
-  const headers = headerBag(request)
-  const required: Array<[string, number]> = [
-    ['wechatpay-timestamp', 32], ['wechatpay-nonce', 256],
-    ['wechatpay-serial', 256], ['wechatpay-signature', 1024]
-  ]
-  for (const [name, maxLength] of required) {
-    const value = headers[name] ?? ''
-    invariant(value.length > 0 && value.length <= maxLength, 401, 'WECHATPAY_HEADER_INVALID', `微信支付回调头 ${name} 无效`)
-  }
-  const timestamp = Number(headers['wechatpay-timestamp'])
-  const skewSeconds = Math.abs(Math.floor(Date.now() / 1000) - timestamp)
-  invariant(Number.isInteger(timestamp) && skewSeconds <= 300, 401, 'WECHATPAY_TIMESTAMP_INVALID', '微信支付回调时间戳无效')
-  const contentLengthRaw = headers['content-length']
-  if (contentLengthRaw !== undefined) {
-    const contentLength = Number(contentLengthRaw)
-    invariant(Number.isInteger(contentLength) && contentLength >= 0 && contentLength <= MAX_WEBHOOK_BODY_BYTES, 413, 'BODY_TOO_LARGE', '微信支付回调内容过大')
-  }
-  return headers
+function checkWebhookLength(request: IncomingMessage): void {
+  const raw = request.headers['content-length']
+  if (raw === undefined) return
+  const contentLength = Number(raw)
+  invariant(Number.isInteger(contentLength) && contentLength >= 0 && contentLength <= MAX_WEBHOOK_BODY_BYTES, 413, 'BODY_TOO_LARGE', '消息推送内容过大')
 }
 
 export function createHttpHandler(deps: AppDependencies): (request: IncomingMessage, response: ServerResponse) => Promise<void> {
@@ -220,23 +211,26 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
         return json(response, 204)
       }
 
-      if (method === 'POST' && url.pathname === '/v1/webhooks/wechat-pay/transactions') {
-        exactQuery(url)
-        const headers = validateWebhookIngress(request)
+      // 消息推送: WeChat checks the URL with a signed GET when it is saved, then POSTs encrypted events.
+      if (url.pathname === '/v1/webhooks/wechat-message' && (method === 'GET' || method === 'POST')) {
+        invariant(deps.payments, 404, 'ROUTE_NOT_FOUND', '接口不存在')
         invariant(await rateLimiter.consume(`webhook:${clientAddress(request)}`, 300, 60_000), 429, 'RATE_LIMITED', '回调请求过于频繁')
+        if (method === 'GET') {
+          exactQuery(url, ['signature', 'timestamp', 'nonce', 'echostr'])
+          return text(response, 200, deps.payments.verifyServerUrl(url.searchParams))
+        }
+        exactQuery(url, ['signature', 'timestamp', 'nonce', 'openid', 'encrypt_type', 'msg_signature'])
+        checkWebhookLength(request)
         invariant(activeWebhooks < 50, 429, 'WEBHOOK_BUSY', '回调处理繁忙')
         activeWebhooks += 1
-        try { await deps.orders.handleTransactionNotification(headers, await readRawBody(request, MAX_WEBHOOK_BODY_BYTES, WEBHOOK_BODY_TIMEOUT_MS)) } finally { activeWebhooks -= 1 }
-        return json(response, 204)
-      }
-      if (method === 'POST' && url.pathname === '/v1/webhooks/wechat-pay/refunds') {
-        exactQuery(url)
-        const headers = validateWebhookIngress(request)
-        invariant(await rateLimiter.consume(`webhook:${clientAddress(request)}`, 300, 60_000), 429, 'RATE_LIMITED', '回调请求过于频繁')
-        invariant(activeWebhooks < 50, 429, 'WEBHOOK_BUSY', '回调处理繁忙')
-        activeWebhooks += 1
-        try { await deps.orders.handleRefundNotification(headers, await readRawBody(request, MAX_WEBHOOK_BODY_BYTES, WEBHOOK_BODY_TIMEOUT_MS)) } finally { activeWebhooks -= 1 }
-        return json(response, 204)
+        try {
+          const reply = await deps.payments.handle(url.searchParams, await readRawBody(request, MAX_WEBHOOK_BODY_BYTES, WEBHOOK_BODY_TIMEOUT_MS))
+          if (reply.contentType === 'text/plain') return text(response, 200, reply.body)
+          securityHeaders(response)
+          response.statusCode = 200
+          response.setHeader('Content-Type', 'application/json; charset=utf-8')
+          return void response.end(reply.body)
+        } finally { activeWebhooks -= 1 }
       }
 
       const token = authToken(request)
@@ -537,11 +531,16 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
         }
       }
 
-      const prepay = url.pathname.match(/^\/v1\/orders\/([^/]+)\/wechat-prepay$/)
-      if (method === 'POST' && prepay?.[1]) {
+      // One virtual payment attempt. The body carries a fresh wx.login code: the payment is signed with
+      // the session_key it yields, which is used here and not stored.
+      const virtualPayment = url.pathname.match(/^\/v1\/orders\/([^/]+)\/virtual-payment$/)
+      if (method === 'POST' && virtualPayment?.[1]) {
         exactQuery(url)
-        exactBody(parseJson(await readRawBody(request)), [])
-        return json(response, 200, await deps.orders.createWechatPrepay(user.id, pathSegment(prepay[1], '订单 ID')))
+        invariant(await rateLimiter.consume(`virtual-payment:${user.id}`, 20, 60_000), 429, 'RATE_LIMITED', '请求过于频繁，请稍后重试')
+        const body = exactBody(parseJson(await readRawBody(request)), ['code'])
+        invariant(typeof body.code === 'string', 400, 'INVALID_WECHAT_CODE', '微信登录 code 无效')
+        const payer = await deps.auth.payerSession(user.id, body.code)
+        return json(response, 200, await deps.orders.createVirtualPayment(user.id, pathSegment(virtualPayment[1], '订单 ID'), payer))
       }
       const order = url.pathname.match(/^\/v1\/orders\/([^/]+)$/)
       if (method === 'GET' && order?.[1]) {

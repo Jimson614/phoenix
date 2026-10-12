@@ -4,6 +4,8 @@ import { AppError, invariant } from '../domain/errors'
 export interface WechatCodeSession {
   openid: string
   unionid?: string
+  /** Used once, in memory, to sign a virtual payment; never stored. */
+  sessionKey?: string
 }
 
 export interface WechatAuthProvider {
@@ -14,7 +16,10 @@ export class MockWechatAuthProvider implements WechatAuthProvider {
   async exchangeCode(code: string): Promise<WechatCodeSession> {
     const normalized = code.trim()
     invariant(normalized.length >= 3 && normalized.length <= 512, 400, 'INVALID_WECHAT_CODE', '微信登录 code 无效')
-    return { openid: `mock_${createHash('sha256').update(normalized).digest('hex').slice(0, 24)}` }
+    return {
+      openid: `mock_${createHash('sha256').update(normalized).digest('hex').slice(0, 24)}`,
+      sessionKey: createHash('sha256').update(`session:${normalized}`).digest().subarray(0, 16).toString('base64')
+    }
   }
 }
 
@@ -46,7 +51,7 @@ export class WechatApiAuthProvider implements WechatAuthProvider {
     } catch {
       throw new AppError(503, 'WECHAT_LOGIN_UNAVAILABLE', '微信登录服务暂时不可用')
     }
-    let payload: { openid?: string; unionid?: string; errcode?: number; errmsg?: string }
+    let payload: { openid?: string; unionid?: string; session_key?: string; errcode?: number; errmsg?: string }
     try {
       payload = await response.json() as typeof payload
     } catch {
@@ -59,6 +64,10 @@ export class WechatApiAuthProvider implements WechatAuthProvider {
     }
     invariant(payload.openid.length <= 128 && (!payload.unionid || payload.unionid.length <= 128),
       502, 'WECHAT_LOGIN_RESPONSE_INVALID', '微信登录服务返回无效身份')
-    return { openid: payload.openid, ...(payload.unionid ? { unionid: payload.unionid } : {}) }
+    return {
+      openid: payload.openid,
+      ...(payload.unionid ? { unionid: payload.unionid } : {}),
+      ...(typeof payload.session_key === 'string' && payload.session_key ? { sessionKey: payload.session_key } : {})
+    }
   }
 }

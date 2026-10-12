@@ -10,6 +10,8 @@ import { QUESTIONNAIRE_FIELDS, QUESTIONNAIRE_TOTAL_WEIGHT, calculateCompleteness
 import { assertReportQa, generateSixModuleReport } from '../src/domain/report-builder'
 import { SourceCatalog, validateSourceCatalog, PLACEHOLDER_SOURCE_CATALOG } from '../src/domain/source-catalog'
 import { MockPaymentProvider } from '../src/payments/mock-payment-provider'
+import { TransactionResult } from '../src/payments/payment-provider'
+import { parseXpayPush } from '../src/payments/xpay-events'
 import { AccountService, dependencyOrder } from '../src/services/account-service'
 import { ExportService } from '../src/services/export-service'
 import { AssessmentService } from '../src/services/assessment-service'
@@ -115,18 +117,35 @@ async function createSubmitted(context: Awaited<ReturnType<typeof setup>>, answe
   return { assessment, submitted }
 }
 
+// The buyer pays with a fresh wx.login code of the signed-in WeChat account.
+function payer(context: Awaited<ReturnType<typeof setup>>) {
+  return context.auth.payerSession(context.session.user.id, 'alice-login-code')
+}
+
+/** The xpay_goods_deliver_notify WeChat would push for an attempt, as the push service parses it. */
+function deliveryFor(context: Awaited<ReturnType<typeof setup>>, outTradeNo: string, overrides: Record<string, unknown> = {}): TransactionResult {
+  const push = parseXpayPush(context.mockPay.deliveryEvent(outTradeNo, overrides))
+  assert.ok(push.kind === 'DELIVER')
+  return push.transaction
+}
+
+function refundPushFor(context: Awaited<ReturnType<typeof setup>>, outRefundNo: string, overrides: Record<string, unknown> = {}) {
+  const push = parseXpayPush(context.mockPay.refundEvent(outRefundNo, overrides))
+  assert.ok(push.kind === 'REFUND')
+  return push.refund
+}
+
 async function createPaid(context: Awaited<ReturnType<typeof setup>>) {
   const { submitted } = await createSubmitted(context)
   const order = await context.orders.createOrder(context.session.user.id, submitted.assessmentId, {
     productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: `purchase-${submitted.assessmentId}`
   })
-  const prepay = await context.orders.createWechatPrepay(context.session.user.id, order.orderId)
-  assert.equal(prepay.status, 'PENDING')
-  context.mockPay.setOrderState(order.outTradeNo, 'SUCCESS')
-  const transaction = await context.mockPay.queryOrder(order.outTradeNo)
-  const notification = context.mockPay.makeTransactionNotification({ ...transaction, eventId: `event-${order.orderId}` })
-  await context.orders.handleTransactionNotification(notification.headers, notification.rawBody)
-  return { order, submitted, notification }
+  const payment = await context.orders.createVirtualPayment(context.session.user.id, order.orderId, await payer(context))
+  assert.equal(payment.status, 'PENDING')
+  context.mockPay.setOrderState(payment.outTradeNo, 'SUCCESS')
+  const delivery = deliveryFor(context, payment.outTradeNo)
+  await context.orders.handleDelivery(delivery)
+  return { order, submitted, delivery }
 }
 
 test('student profile age accepts numbers and strings, normalizes blanks, and rejects invalid values', async () => {
@@ -208,24 +227,29 @@ test('paid Compass kill switch defaults off and rejects invalid configuration', 
   assert.throws(() => loadConfig({ ...base, PAID_COMPASS_ENABLED: 'yes' }), (error: unknown) => error instanceof AppError && error.code === 'CONFIG_INVALID')
 })
 
-test('production config pins verified TLS database and exact public WeChat callback origins', () => {
+test('production config pins verified TLS database and the live virtual payment environment', () => {
   const production = {
     NODE_ENV: 'production', SESSION_SECRET: sessionSecret, PAYMENT_PROVIDER: 'wechat',
     DATABASE_URL: 'postgresql://phoenix:secret@db.example.com/phoenix?sslmode=verify-full',
-    WECHAT_APP_ID: 'wx1234567890abcdef', WECHAT_APP_SECRET: 'app-secret', WECHAT_MCH_ID: '1900000001',
-    WECHAT_MCH_CERT_SERIAL_NO: 'CERT_SERIAL', WECHAT_MCH_PRIVATE_KEY_PATH: '/run/secrets/merchant.pem',
-    WECHATPAY_API_V3_KEY: '12345678901234567890123456789012', WECHATPAY_PUBLIC_KEY_ID: 'PUB_KEY_ID',
-    WECHATPAY_PUBLIC_KEY_PATH: '/run/secrets/wechat.pem', PUBLIC_BASE_URL: 'https://api.example.com',
-    WECHAT_PAY_NOTIFY_URL: 'https://api.example.com/v1/webhooks/wechat-pay/transactions',
-    WECHAT_REFUND_NOTIFY_URL: 'https://api.example.com/v1/webhooks/wechat-pay/refunds',
+    WECHAT_APP_ID: 'wx1234567890abcdef', WECHAT_APP_SECRET: 'app-secret', PUBLIC_BASE_URL: 'https://api.example.com',
+    WECHAT_XPAY_OFFER_ID: '1450664905', WECHAT_XPAY_APP_KEY: 'synthetic-live-app-key-0001',
+    WECHAT_MESSAGE_TOKEN: 'synthetictoken01', WECHAT_MESSAGE_AES_KEY: 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG',
     SOURCE_CATALOG_MODE: 'verified', SOURCE_CATALOG_PATH: '/run/config/source-catalog.json'
   }
-  assert.equal(loadConfig(production).publicBaseUrl, production.PUBLIC_BASE_URL)
-  assert.equal(loadConfig(production).listenHost, '127.0.0.1')
-  assert.throws(() => loadConfig({ ...production, LISTEN_HOST: '0.0.0.0' }), (error: unknown) => error instanceof AppError && error.code === 'CONFIG_INVALID')
-  assert.throws(() => loadConfig({ ...production, DATABASE_URL: 'postgresql://db.example.com/phoenix?sslmode=require' }), (error: unknown) => error instanceof AppError && error.code === 'CONFIG_INVALID')
-  assert.throws(() => loadConfig({ ...production, WECHAT_PAY_NOTIFY_URL: 'https://evil.example/v1/webhooks/wechat-pay/transactions' }), (error: unknown) => error instanceof AppError && error.code === 'CONFIG_INVALID')
-  assert.throws(() => loadConfig({ ...production, PUBLIC_BASE_URL: 'https://user@api.example.com' }), (error: unknown) => error instanceof AppError && error.code === 'CONFIG_INVALID')
+  const invalid = (error: unknown) => error instanceof AppError && error.code === 'CONFIG_INVALID'
+  const loaded = loadConfig(production)
+  assert.equal(loaded.listenHost, '127.0.0.1')
+  assert.equal(loaded.virtualPaymentEnv, 0, 'production defaults to the live environment')
+  assert.equal(loaded.virtualPaymentGrowthProductId, 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1')
+  assert.throws(() => loadConfig({ ...production, LISTEN_HOST: '0.0.0.0' }), invalid)
+  assert.throws(() => loadConfig({ ...production, DATABASE_URL: 'postgresql://db.example.com/phoenix?sslmode=require' }), invalid)
+  assert.throws(() => loadConfig({ ...production, WECHAT_XPAY_ENV: '1' }), invalid, 'production never pays in the sandbox')
+  assert.throws(() => loadConfig({ ...production, WECHAT_XPAY_APP_KEY: '' }), invalid)
+  assert.throws(() => loadConfig({ ...production, WECHAT_XPAY_APP_KEY: sessionSecret }), invalid, 'the AppKey is not shared with other secrets')
+  assert.throws(() => loadConfig({ ...production, WECHAT_XPAY_OFFER_ID: 'offer' }), invalid)
+  assert.throws(() => loadConfig({ ...production, WECHAT_MESSAGE_TOKEN: 'a!' }), invalid)
+  assert.throws(() => loadConfig({ ...production, WECHAT_MESSAGE_AES_KEY: 'too-short' }), invalid)
+  assert.equal(loadConfig({ ...production, NODE_ENV: 'test', WECHAT_XPAY_ENV: '1', DATABASE_URL: '' }).virtualPaymentEnv, 1)
 })
 
 test('draft round-trip, 69 gate, and pre-charge six-module QA lock', async () => {
@@ -378,7 +402,7 @@ test('prepay independently rechecks launch switch, source catalog, report QA, co
   )
   const disabledPrepay = new OrderService(switchedOff.store, switchedOff.mockPay, catalog, false, clock)
   await expectCode(
-    disabledPrepay.createWechatPrepay(switchedOff.session.user.id, switchedOffOrder.orderId),
+    disabledPrepay.createVirtualPayment(switchedOff.session.user.id, switchedOffOrder.orderId, await payer(switchedOff)),
     'PAID_COMPASS_DISABLED'
   )
 
@@ -397,7 +421,7 @@ test('prepay independently rechecks launch switch, source catalog, report QA, co
     clock
   )
   await expectCode(
-    unverifiedPrepay.createWechatPrepay(catalogChanged.session.user.id, catalogChangedOrder.orderId),
+    unverifiedPrepay.createVirtualPayment(catalogChanged.session.user.id, catalogChangedOrder.orderId, await payer(catalogChanged)),
     'SOURCE_CATALOG_NOT_VERIFIED'
   )
 
@@ -412,7 +436,7 @@ test('prepay independently rechecks launch switch, source catalog, report QA, co
     await tx.update('reports', qaChangedSubmitted.submitted.reportId, { qaPassed: false })
   })
   await expectCode(
-    qaChanged.orders.createWechatPrepay(qaChanged.session.user.id, qaChangedOrder.orderId),
+    qaChanged.orders.createVirtualPayment(qaChanged.session.user.id, qaChangedOrder.orderId, await payer(qaChanged)),
     'REPORT_QA_REQUIRED'
   )
 
@@ -429,7 +453,7 @@ test('prepay independently rechecks launch switch, source catalog, report QA, co
   await expectCode(revoked.orders.createOrder(revoked.session.user.id, revokedSubmitted.submitted.assessmentId, {
     productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: 'order-after-consent-revoked'
   }), 'GUARDIAN_CONSENT_REQUIRED')
-  await expectCode(revoked.orders.createWechatPrepay(revoked.session.user.id, revokedOrder.orderId), 'GUARDIAN_CONSENT_REQUIRED')
+  await expectCode(revoked.orders.createVirtualPayment(revoked.session.user.id, revokedOrder.orderId, await payer(revoked)), 'GUARDIAN_CONSENT_REQUIRED')
 
   const disabled = await setup()
   const disabledSubmitted = await createSubmitted(disabled)
@@ -437,7 +461,7 @@ test('prepay independently rechecks launch switch, source catalog, report QA, co
     productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: 'prepay-disabled-product'
   })
   await disabled.store.transaction(async (tx) => { await tx.update('products', 'COMPASS_REPORT_SINGLE_39_9', { active: false }) })
-  await expectCode(disabled.orders.createWechatPrepay(disabled.session.user.id, disabledOrder.orderId), 'PRODUCT_UNAVAILABLE')
+  await expectCode(disabled.orders.createVirtualPayment(disabled.session.user.id, disabledOrder.orderId, await payer(disabled)), 'PRODUCT_UNAVAILABLE')
 })
 
 test('concurrent duplicate order creation is idempotent and membership SKU cannot unlock a report', async () => {
@@ -460,16 +484,16 @@ test('concurrent duplicate order creation is idempotent and membership SKU canno
   }), 'PRODUCT_NOT_SUPPORTED')
 })
 
-test('server query reconciliation is throttled, recovers a missing callback, and closes expired NOTPAY orders', async () => {
+test('server query reconciliation is throttled, recovers a missing callback, and cancels expired NOTPAY orders', async () => {
   const context = await setup()
   const { submitted } = await createSubmitted(context)
   const order = await context.orders.createOrder(context.session.user.id, submitted.assessmentId, {
     productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: 'query-recovery-order'
   })
-  await context.orders.createWechatPrepay(context.session.user.id, order.orderId)
-  const originalQuery = context.mockPay.queryOrder.bind(context.mockPay)
+  await context.orders.createVirtualPayment(context.session.user.id, order.orderId, await payer(context))
+  const originalQuery = context.mockPay.queryAttempt.bind(context.mockPay)
   let queryCount = 0
-  context.mockPay.queryOrder = async (outTradeNo: string) => { queryCount += 1; return originalQuery(outTradeNo) }
+  context.mockPay.queryAttempt = async (outTradeNo: string) => { queryCount += 1; return originalQuery(outTradeNo) }
   assert.equal((await context.orders.getOrder(context.session.user.id, order.orderId)).status, 'PENDING')
   assert.equal((await context.orders.getOrder(context.session.user.id, order.orderId)).status, 'PENDING')
   assert.equal(queryCount, 1, 'repeated client polling must not repeatedly query WeChat')
@@ -478,31 +502,33 @@ test('server query reconciliation is throttled, recovers a missing callback, and
   assert.equal((await context.orders.getOrder(context.session.user.id, order.orderId)).status, 'PAID')
   assert.equal(queryCount, 2)
   assert.equal((await context.reports.get(context.session.user.id, submitted.reportId)).access, 'full')
+  assert.equal(context.mockPay.isDelivered(order.outTradeNo), true, 'a payment settled by query is reported as delivered')
 
   const second = await setup()
   const secondSubmitted = await createSubmitted(second)
   const expiring = await second.orders.createOrder(second.session.user.id, secondSubmitted.submitted.assessmentId, {
     productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: 'expired-notpay-order'
   })
-  await second.orders.createWechatPrepay(second.session.user.id, expiring.orderId)
-  const queryWithoutOptionalPendingFields = second.mockPay.queryOrder.bind(second.mockPay)
-  second.mockPay.queryOrder = async (outTradeNo: string) => {
+  await second.orders.createVirtualPayment(second.session.user.id, expiring.orderId, await payer(second))
+  const queryWithoutOptionalPendingFields = second.mockPay.queryAttempt.bind(second.mockPay)
+  second.mockPay.queryAttempt = async (outTradeNo: string) => {
     const result = await queryWithoutOptionalPendingFields(outTradeNo)
     if (result.tradeState !== 'NOTPAY') return result
-    const { totalFen: _totalFen, currency: _currency, payerOpenid: _payerOpenid, ...officialOptionalShape } = result
+    const { totalFen: _totalFen, payerOpenid: _payerOpenid, ...officialOptionalShape } = result
     return officialOptionalShape
   }
   await second.store.transaction(async (tx) => {
     await tx.update('orders', expiring.orderId, { expiresAt: '2026-08-20T09:00:00.000Z', lastProviderQueryAt: null })
   })
   assert.equal((await second.orders.getOrder(second.session.user.id, expiring.orderId)).status, 'CANCELLED')
-  assert.equal((await second.mockPay.queryOrder(expiring.outTradeNo)).tradeState, 'CLOSED')
+  // Virtual payment has no close call: the expired, unpaid order is cancelled on our side only.
+  assert.equal((await second.mockPay.queryAttempt(expiring.outTradeNo)).tradeState, 'NOTPAY')
 })
 
 test('3990 payment callback is idempotent and only delivers the already-QA-passed report', async () => {
   const context = await setup()
-  const { order, submitted, notification } = await createPaid(context)
-  await Promise.all(Array.from({ length: 20 }, () => context.orders.handleTransactionNotification(notification.headers, notification.rawBody)))
+  const { order, submitted, delivery } = await createPaid(context)
+  await Promise.all(Array.from({ length: 20 }, () => context.orders.handleDelivery(delivery)))
   const current = await context.orders.getOrder(context.session.user.id, order.orderId, false)
   assert.equal(current.status, 'PAID')
   assert.equal(current.amountFen, 3990)
@@ -524,9 +550,7 @@ test('3990 payment callback is idempotent and only delivers the already-QA-passe
   }))
   assert.deepEqual(counts, { entitlements: 1, jobs: 1, deliveries: 1 })
 
-  const transaction = await context.mockPay.queryOrder(order.outTradeNo)
-  const conflict = context.mockPay.makeTransactionNotification({ ...transaction, eventId: `event-${order.orderId}`, totalFen: 1 })
-  await expectCode(context.orders.handleTransactionNotification(conflict.headers, conflict.rawBody), 'PAYMENT_EVENT_CONFLICT')
+  await expectCode(context.orders.handleDelivery({ ...delivery, totalFen: 1 }), 'PAYMENT_EVENT_CONFLICT')
 })
 
 test('forged transaction fields and cross-user resource access never grant paid content', async () => {
@@ -535,20 +559,19 @@ test('forged transaction fields and cross-user resource access never grant paid 
   const order = await context.orders.createOrder(context.session.user.id, submitted.assessmentId, {
     productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: 'negative-callback-order'
   })
-  await context.orders.createWechatPrepay(context.session.user.id, order.orderId)
+  await context.orders.createVirtualPayment(context.session.user.id, order.orderId, await payer(context))
   context.mockPay.setOrderState(order.outTradeNo, 'SUCCESS')
-  const valid = await context.mockPay.queryOrder(order.outTradeNo)
-  const cases: Array<[string, Partial<typeof valid>, string]> = [
-    ['bad-app', { appId: 'wx_wrong' }, 'PAYMENT_APPID_MISMATCH'],
-    ['bad-mch', { mchId: 'wrong_mch' }, 'PAYMENT_MCHID_MISMATCH'],
+  const valid = deliveryFor(context, order.outTradeNo)
+  const cases: Array<[string, Partial<TransactionResult>, string]> = [
+    ['bad-env', { env: 0 }, 'PAYMENT_ENV_MISMATCH'],
+    ['bad-attempt', { outTradeNo: `PX${'0'.repeat(30)}` }, 'PAYMENT_ATTEMPT_UNKNOWN'],
     ['bad-amount', { totalFen: 1 }, 'PAYMENT_AMOUNT_MISMATCH'],
-    ['bad-currency', { currency: 'USD' }, 'PAYMENT_CURRENCY_MISMATCH'],
+    ['bad-product', { productId: 'SOME_OTHER_ITEM' }, 'PAYMENT_PRODUCT_MISMATCH'],
     ['bad-payer', { payerOpenid: 'openid_wrong' }, 'PAYMENT_PAYER_MISMATCH'],
     ['missing-tx', { transactionId: '' }, 'PAYMENT_TRANSACTION_ID_MISSING']
   ]
   for (const [suffix, changes, code] of cases) {
-    const notification = context.mockPay.makeTransactionNotification({ ...valid, ...changes, eventId: `negative-${suffix}` })
-    await expectCode(context.orders.handleTransactionNotification(notification.headers, notification.rawBody), code)
+    await expectCode(context.orders.handleDelivery({ ...valid, ...changes, eventId: `negative-${suffix}` }), code)
   }
   assert.equal((await context.orders.getOrder(context.session.user.id, order.orderId, false)).status, 'PENDING')
   assert.equal((await context.store.read((tx) => tx.findMany('entitlements', { orderId: order.orderId }))).length, 0)
@@ -584,11 +607,11 @@ test('admin refund is RBAC-protected, idempotent, and revokes report entitlement
   }), 'IDEMPOTENCY_KEY_REUSED')
 
   context.mockPay.setRefundState(refund.outRefundNo, 'SUCCESS')
-  const result = await context.mockPay.queryRefund(refund.outRefundNo)
-  const notification = context.mockPay.makeRefundNotification({ ...result, eventId: `refund-event-${refund.id}` })
-  await context.orders.handleRefundNotification(notification.headers, notification.rawBody)
-  const repeated = await context.orders.handleRefundNotification(notification.headers, notification.rawBody)
-  assert.equal(repeated.duplicate, true)
+  const refundPush = refundPushFor(context, refund.outRefundNo)
+  await context.orders.handleRefundPush(refundPush)
+  const repeated = await context.orders.handleRefundPush(refundPush)
+  assert.equal(repeated.ignored, false)
+  assert.equal((await context.store.read((tx) => tx.findMany('paymentEvents', { eventKind: 'REFUND' }))).length, 1, 'a repeated refund push is applied once')
   assert.equal((await context.orders.getOrder(context.session.user.id, order.orderId, false)).status, 'REFUNDED')
   const report = await context.reports.get(context.session.user.id, submitted.reportId)
   assert.equal(report.access, 'preview')
@@ -616,14 +639,9 @@ test('synchronous refund success revokes access even when the webhook is lost', 
   assert.equal((await context.orders.getOrder(context.session.user.id, order.orderId, false)).status, 'REFUNDED')
   assert.equal((await context.reports.get(context.session.user.id, submitted.reportId)).access, 'preview')
   await expectCode(context.reports.pdf(context.session.user.id, submitted.reportId), 'REPORT_PAYMENT_REQUIRED')
-  const successful = await context.mockPay.queryRefund(refund.outRefundNo)
+  const successful = refundPushFor(context, refund.outRefundNo)
   for (const refundStatus of ['PROCESSING', 'CLOSED', 'ABNORMAL'] as const) {
-    const stale = context.mockPay.makeRefundNotification({
-      ...successful,
-      eventId: `stale-after-success-${refundStatus}`,
-      refundStatus
-    })
-    await context.orders.handleRefundNotification(stale.headers, stale.rawBody)
+    await context.orders.handleRefundPush({ ...successful, eventId: `stale-after-success-${refundStatus}`, refundStatus })
   }
   assert.equal((await context.orders.getOrder(context.session.user.id, order.orderId, false)).status, 'REFUNDED')
   const persistedRefund = await context.store.read((tx) => tx.findById('refunds', refund.id))
@@ -639,9 +657,7 @@ test('a success webhook racing the provider response cannot be downgraded to PRO
   context.mockPay.requestRefund = async (paidOrder, refund) => {
     const processing = await originalRequest(paidOrder, refund)
     context.mockPay.setRefundState(refund.outRefundNo, 'SUCCESS')
-    const success = await context.mockPay.queryRefund(refund.outRefundNo)
-    const notification = context.mockPay.makeRefundNotification({ ...success, eventId: `refund-race-${refund.id}` })
-    await context.orders.handleRefundNotification(notification.headers, notification.rawBody)
+    await context.orders.handleRefundPush(refundPushFor(context, refund.outRefundNo))
     return processing
   }
   const refund = await context.orders.requestRefund(adminId, order.orderId, {
@@ -845,8 +861,9 @@ test('an order detached by account deletion cannot re-enter a business flow', as
   assert.equal(detached?.assessmentId, null, 'but it must no longer point at personal data')
 
   // 需要个人数据的流程必须明确拒绝，而不是拿着 null 去查库、报出难以追查的错。
+  // The identity is gone with the account, so the payer is synthetic: the order guard answers first.
   await expectCode(
-    context.orders.createWechatPrepay(context.session.user.id, order.orderId),
+    context.orders.createVirtualPayment(context.session.user.id, order.orderId, { openid: 'deleted', sessionKey: 'deleted' }),
     'ORDER_DETACHED'
   )
 })
@@ -1066,4 +1083,165 @@ test('account deletion never UPDATEs an assessment, because the v005 trigger re-
   assert.ok(!updatedTables.includes('assessments'), `assessments must not be updated during deletion, got: ${updatedTables.join(',')}`)
   assert.ok(deletedAssessments.indexOf(childId) >= 0 && deletedAssessments.indexOf(childId) < deletedAssessments.indexOf(submitted.assessmentId),
     `the referencing level 2 must be deleted before its level 1 source, got: ${deletedAssessments.join(',')}`)
+})
+
+test('a retried virtual payment gets a new order number, and a late delivery for the earlier attempt still settles the order once', async () => {
+  const context = await setup()
+  const { submitted } = await createSubmitted(context)
+  const order = await context.orders.createOrder(context.session.user.id, submitted.assessmentId, {
+    productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: 'retry-attempt-order'
+  })
+  const first = await context.orders.createVirtualPayment(context.session.user.id, order.orderId, await payer(context))
+  assert.equal(first.outTradeNo, order.outTradeNo, 'the first attempt uses the order number')
+  // The buyer cancels; the platform accepts an order number once, so the retry needs another.
+  const second = await context.orders.createVirtualPayment(context.session.user.id, order.orderId, await payer(context))
+  assert.notEqual(second.outTradeNo, first.outTradeNo)
+  assert.equal(JSON.parse(second.virtualPayment.signData).outTradeNo, second.outTradeNo)
+  const pending = await context.store.read((tx) => tx.findById('orders', order.orderId))
+  assert.deepEqual(pending?.paymentParams, { attempts: [first.outTradeNo, second.outTradeNo] })
+
+  // The first attempt was paid after all, and its delivery push arrives late.
+  context.mockPay.setOrderState(first.outTradeNo, 'SUCCESS')
+  await context.orders.handleDelivery(deliveryFor(context, first.outTradeNo))
+  const paid = await context.store.read((tx) => tx.findById('orders', order.orderId))
+  assert.equal(paid?.status, 'PAID')
+  assert.equal(paid?.outTradeNo, first.outTradeNo, 'refunds name the attempt that was paid')
+  assert.equal((await context.reports.get(context.session.user.id, submitted.reportId)).access, 'full')
+
+  // If the second attempt was paid too, the order keeps one payment and flags the other for a manual refund.
+  context.mockPay.setOrderState(second.outTradeNo, 'SUCCESS')
+  await context.orders.handleDelivery(deliveryFor(context, second.outTradeNo))
+  const after = await context.store.read(async (tx) => ({
+    order: await tx.findById('orders', order.orderId),
+    entitlements: await tx.findMany('entitlements', { orderId: order.orderId }),
+    audit: await tx.findMany('auditLogs', { action: 'DUPLICATE_PAYMENT_MANUAL_REFUND_REQUIRED' })
+  }))
+  assert.equal(after.order?.status, 'PAID')
+  assert.equal(after.order?.providerTransactionId, `mock_tx_${first.outTradeNo}`)
+  assert.equal(after.entitlements.length, 1)
+  assert.equal(after.audit.length, 1)
+  assert.equal(after.audit[0]?.metadata.outTradeNo, second.outTradeNo)
+  await expectCode(context.orders.createVirtualPayment(context.session.user.id, order.orderId, await payer(context)), 'ORDER_ALREADY_PAID')
+})
+
+test('a retry first settles an earlier attempt that was paid without a push instead of charging again', async () => {
+  const context = await setup()
+  const { submitted } = await createSubmitted(context)
+  const order = await context.orders.createOrder(context.session.user.id, submitted.assessmentId, {
+    productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: 'retry-after-lost-push'
+  })
+  const first = await context.orders.createVirtualPayment(context.session.user.id, order.orderId, await payer(context))
+  context.mockPay.setOrderState(first.outTradeNo, 'SUCCESS')
+  await expectCode(context.orders.createVirtualPayment(context.session.user.id, order.orderId, await payer(context)), 'ORDER_ALREADY_PAID')
+  assert.equal((await context.orders.getOrder(context.session.user.id, order.orderId, false)).status, 'PAID')
+  assert.equal(context.mockPay.isDelivered(first.outTradeNo), true, 'a payment settled by query is reported as delivered')
+})
+
+test('a virtual payment is signed only for the signed-in WeChat account and only for products sold as an item', async () => {
+  const context = await setup()
+  const { submitted } = await createSubmitted(context)
+  const order = await context.orders.createOrder(context.session.user.id, submitted.assessmentId, {
+    productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: 'payer-and-item-order'
+  })
+  await expectCode(context.auth.payerSession(context.session.user.id, 'bob-login-code'), 'PAYMENT_PAYER_MISMATCH')
+  const alice = await payer(context)
+  await expectCode(context.orders.createVirtualPayment(context.session.user.id, order.orderId, { ...alice, openid: 'someone-else' }), 'PAYMENT_PAYER_MISMATCH')
+  const withoutItems = new OrderService(context.store, new MockPaymentProvider(sessionSecret, { clock, products: {} }), catalog, true, clock)
+  await expectCode(withoutItems.createVirtualPayment(context.session.user.id, order.orderId, alice), 'VIRTUAL_PAYMENT_PRODUCT_NOT_CONFIGURED')
+  assert.equal((await context.orders.getOrder(context.session.user.id, order.orderId, false)).status, 'CREATED', 'a refused attempt leaves the order untouched')
+})
+
+test('refund pushes for unknown orders are ignored, and a refund made by Apple or in the console withdraws access', async () => {
+  const context = await setup()
+  const { order, submitted } = await createPaid(context)
+  const unknown = await context.orders.handleRefundPush({
+    eventId: 'refund-other-env', outTradeNo: `PX${'9'.repeat(30)}`, outRefundNo: '', providerRefundId: 'wx-refund-x',
+    refundStatus: 'SUCCESS', refundFen: 3990
+  })
+  assert.equal(unknown.ignored, true, 'the push belongs to the other environment')
+  const applied = await context.orders.handleRefundPush({
+    eventId: 'apple-refund-1', outTradeNo: order.outTradeNo, outRefundNo: '', providerRefundId: 'apple-refund-1',
+    refundStatus: 'SUCCESS', refundFen: 3990
+  })
+  assert.equal(applied.ignored, false)
+  const state = await context.store.read(async (tx) => ({
+    order: await tx.findById('orders', order.orderId),
+    refunds: await tx.findMany('refunds', { orderId: order.orderId }),
+    entitlement: await tx.findOne('entitlements', { orderId: order.orderId })
+  }))
+  assert.equal(state.order?.status, 'REFUNDED')
+  assert.equal(state.refunds.length, 1)
+  assert.equal(state.refunds[0]?.reason, 'PLATFORM_REFUND')
+  assert.equal(state.refunds[0]?.status, 'SUCCESS')
+  assert.equal(state.entitlement?.status, 'REVOKED')
+  assert.equal((await context.reports.get(context.session.user.id, submitted.reportId)).access, 'preview')
+})
+
+test('an iOS refund query is answered by the refund window and the download state', async () => {
+  const context = await setup()
+  const { order, submitted } = await createPaid(context)
+  assert.equal((await context.orders.iosRefundQueryDecision(order.outTradeNo)).result_code, 0)
+  await context.store.transaction(async (tx) => { await tx.update('reports', submitted.reportId, { pdfFirstDownloadedAt: '2026-08-20T10:30:00.000Z' }) })
+  const downloaded = await context.orders.iosRefundQueryDecision(order.outTradeNo)
+  assert.equal(downloaded.result_code, 1)
+  assert.match(downloaded.evidence, /REPORT_DOWNLOADED_AT/)
+  assert.deepEqual(await context.orders.iosRefundQueryDecision('PXunknown000000'), { result_code: 0, result_info: '未找到已支付订单，不拦截', evidence: 'NO_PAID_ORDER' })
+  const answers = await context.store.read((tx) => tx.findMany('auditLogs', { action: 'IOS_REFUND_QUERY_ANSWERED' }))
+  assert.equal(answers.length, 3)
+})
+
+test('an expired attempt the platform never saw is cancelled after a grace period so the purchase can start again', async () => {
+  const context = await setup()
+  const { submitted } = await createSubmitted(context)
+  const order = await context.orders.createOrder(context.session.user.id, submitted.assessmentId, {
+    productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: 'never-opened-order'
+  })
+  await context.orders.createVirtualPayment(context.session.user.id, order.orderId, await payer(context))
+  // The buyer never opened the payment sheet, so the platform does not know the order number.
+  context.mockPay.queryAttempt = async () => { throw new AppError(502, 'VIRTUAL_PAYMENT_API_ERROR', 'order not found') }
+  const expireAt = async (minutesAgo: number) => context.store.transaction(async (tx) => {
+    await tx.update('orders', order.orderId, { expiresAt: new Date(clock().getTime() - minutesAgo * 60_000).toISOString(), lastProviderQueryAt: null })
+  })
+  await expireAt(10)
+  assert.equal((await context.orders.getOrder(context.session.user.id, order.orderId)).status, 'PENDING', 'an unknown attempt is not given up right at expiry')
+  await expireAt(31)
+  const again = await context.orders.createOrder(context.session.user.id, submitted.assessmentId, {
+    productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: 'never-opened-retry'
+  })
+  assert.notEqual(again.orderId, order.orderId)
+  assert.equal(again.status, 'CREATED')
+  assert.equal((await context.orders.getOrder(context.session.user.id, order.orderId, false)).status, 'CANCELLED')
+})
+
+test('a late payment for a cancelled order takes over from a newer unpaid order, and is flagged when the newer one was paid', async () => {
+  const context = await setup()
+  const { submitted } = await createSubmitted(context)
+  const purchase = (key: string) => context.orders.createOrder(context.session.user.id, submitted.assessmentId, { productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: key })
+  const cancel = (orderId: string) => context.store.transaction(async (tx) => { await tx.update('orders', orderId, { status: 'CANCELLED' }) })
+
+  const old = await purchase('late-payment-old')
+  const oldAttempt = await context.orders.createVirtualPayment(context.session.user.id, old.orderId, await payer(context))
+  await cancel(old.orderId)
+  const newer = await purchase('late-payment-newer')
+  await context.orders.createVirtualPayment(context.session.user.id, newer.orderId, await payer(context))
+  context.mockPay.setOrderState(oldAttempt.outTradeNo, 'SUCCESS')
+  await context.orders.handleDelivery(deliveryFor(context, oldAttempt.outTradeNo))
+  assert.equal((await context.orders.getOrder(context.session.user.id, old.orderId, false)).status, 'PAID')
+  assert.equal((await context.orders.getOrder(context.session.user.id, newer.orderId, false)).status, 'CANCELLED')
+
+  const second = await setup()
+  const secondSubmitted = await createSubmitted(second)
+  const first = await second.orders.createOrder(second.session.user.id, secondSubmitted.submitted.assessmentId, { productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: 'paid-twice-old' })
+  const firstAttempt = await second.orders.createVirtualPayment(second.session.user.id, first.orderId, await payer(second))
+  await second.store.transaction(async (tx) => { await tx.update('orders', first.orderId, { status: 'CANCELLED' }) })
+  const replacement = await second.orders.createOrder(second.session.user.id, secondSubmitted.submitted.assessmentId, { productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: 'paid-twice-new' })
+  const replacementAttempt = await second.orders.createVirtualPayment(second.session.user.id, replacement.orderId, await payer(second))
+  second.mockPay.setOrderState(replacementAttempt.outTradeNo, 'SUCCESS')
+  await second.orders.handleDelivery(deliveryFor(second, replacementAttempt.outTradeNo))
+  second.mockPay.setOrderState(firstAttempt.outTradeNo, 'SUCCESS')
+  await second.orders.handleDelivery(deliveryFor(second, firstAttempt.outTradeNo))
+  assert.equal((await second.orders.getOrder(second.session.user.id, first.orderId, false)).status, 'CANCELLED')
+  assert.equal((await second.orders.getOrder(second.session.user.id, replacement.orderId, false)).status, 'PAID')
+  const flagged = await second.store.read((tx) => tx.findMany('auditLogs', { action: 'DUPLICATE_PAYMENT_MANUAL_REFUND_REQUIRED' }))
+  assert.deepEqual(flagged.map((row) => row.entityId), [first.orderId])
 })

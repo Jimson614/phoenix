@@ -7,6 +7,8 @@ import { validateSourceCatalog } from '../src/domain/source-catalog'
 import { createAppServer } from '../src/http/app'
 import { InMemoryRateLimiter, RateLimiter } from '../src/http/rate-limiter'
 import { MockPaymentProvider } from '../src/payments/mock-payment-provider'
+import { decryptMessage, encryptMessage, messageSignature, WechatMessageCodec } from '../src/payments/wechat-message'
+import { PaymentPushService } from '../src/services/payment-push-service'
 import { AssessmentService } from '../src/services/assessment-service'
 import { AuthService } from '../src/services/auth-service'
 import { OrderService, seedProducts } from '../src/services/order-service'
@@ -15,6 +17,8 @@ import { ReportService } from '../src/services/report-service'
 import { InMemoryStore } from '../src/store/memory-store'
 
 const secret = 'http-test-session-secret-with-more-than-32-characters'
+const PUSH_TOKEN = 'synthetictoken01'
+const PUSH_AES_KEY = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG'
 const catalog = validateSourceCatalog({
   version: 'TEST-VERIFIED-1', dataAsOf: '2026-08-15', reviewedAt: '2026-08-19T00:00:00Z', reviewedBy: 'Test reviewer',
   entries: [{ sourceId: 'OFFICIAL-TEST-1', title: 'Official reviewed test source', applicableYear: '2026', verifiedAt: '2026-08-19T00:00:00Z' }]
@@ -29,8 +33,9 @@ async function listen(rateLimiter?: RateLimiter, readiness?: () => Promise<void>
   const mockPay = new MockPaymentProvider(secret)
   const orders = new OrderService(store, mockPay, catalog, true)
   const reports = new ReportService(store)
+  const payments = new PaymentPushService(new WechatMessageCodec({ token: PUSH_TOKEN, encodingAesKey: PUSH_AES_KEY, appId: 'wx0123456789abcdef' }), orders)
   const server = createAppServer({
-    auth, profiles, assessments, orders, reports,
+    auth, profiles, assessments, orders, reports, payments,
     ...(rateLimiter ? { rateLimiter } : {}),
     ...(readiness ? { readiness } : {})
   })
@@ -253,16 +258,32 @@ test('Wechat auth provider maps network and malformed provider responses without
     (error as { code?: string }).code === 'WECHAT_LOGIN_FAILED')
 })
 
-test('webhook ingress rejects unsigned bodies before consuming a processing slot and sets short server deadlines', async () => {
+test('message push ingress echoes only a signed URL check, refuses unsigned and plaintext pushes, and sets short server deadlines', async () => {
   const app = await listen()
   try {
     assert.equal(app.server.requestTimeout, 10_000)
     assert.equal(app.server.headersTimeout, 5_000)
-    const result = await jsonRequest(app.base, '/v1/webhooks/wechat-pay/transactions', {
-      method: 'POST', body: JSON.stringify({ unsigned: true })
+    const timestamp = String(Math.floor(Date.now() / 1000))
+    const nonce = '1514711492'
+    const signature = messageSignature(PUSH_TOKEN, timestamp, nonce)
+    const verified = await fetch(`${app.base}/v1/webhooks/wechat-message?${new URLSearchParams({ signature, timestamp, nonce, echostr: 'echo-4375120948' })}`)
+    assert.equal(verified.status, 200)
+    assert.equal(await verified.text(), 'echo-4375120948')
+    const forged = await fetch(`${app.base}/v1/webhooks/wechat-message?${new URLSearchParams({ signature: '0'.repeat(40), timestamp, nonce, echostr: 'echo' })}`)
+    assert.equal(forged.status, 401)
+
+    const unsigned = await jsonRequest(app.base, `/v1/webhooks/wechat-message?${new URLSearchParams({ signature, timestamp, nonce, encrypt_type: 'aes' })}`, {
+      method: 'POST', body: JSON.stringify({ ToUserName: 'gh_synthetic', Encrypt: 'AAAA' })
     })
-    assert.equal(result.response.status, 401)
-    assert.equal(result.body.error.code, 'WECHATPAY_HEADER_INVALID')
+    assert.equal(unsigned.response.status, 401)
+    assert.equal(unsigned.body.error.code, 'WECHAT_MESSAGE_SIGNATURE_INVALID')
+    const plaintext = await jsonRequest(app.base, `/v1/webhooks/wechat-message?${new URLSearchParams({ signature, timestamp, nonce })}`, {
+      method: 'POST', body: JSON.stringify({ Event: 'xpay_goods_deliver_notify', OutTradeNo: 'PX0000000000' })
+    })
+    assert.equal(plaintext.response.status, 401)
+    assert.equal(plaintext.body.error.code, 'WECHAT_MESSAGE_PLAINTEXT_REFUSED')
+    const unexpectedQuery = await jsonRequest(app.base, `/v1/webhooks/wechat-message?${new URLSearchParams({ signature, timestamp, nonce, echostr: 'x', extra: '1' })}`)
+    assert.equal(unexpectedQuery.response.status, 400)
   } finally {
     await app.close()
   }
@@ -345,6 +366,54 @@ test('logout revokes full-report and PDF HTTP access for the presented bearer se
       assert.equal(after.response.status, 401, path)
       assert.equal(after.body.error.code, 'SESSION_INVALID', path)
     }
+  } finally {
+    await app.close()
+  }
+})
+
+test('virtual payment pushes: the other environment is acknowledged without effect, an unknown order is retried, and an iOS refund query gets a sealed answer', async () => {
+  const app = await listen()
+  const appId = 'wx0123456789abcdef'
+  const post = async (event: Record<string, unknown>) => {
+    const encrypted = encryptMessage(PUSH_AES_KEY, JSON.stringify(event), appId)
+    const timestamp = String(Math.floor(Date.now() / 1000))
+    const nonce = '415670741'
+    const query = new URLSearchParams({
+      signature: messageSignature(PUSH_TOKEN, timestamp, nonce), timestamp, nonce, openid: 'synthetic-openid',
+      encrypt_type: 'aes', msg_signature: messageSignature(PUSH_TOKEN, timestamp, nonce, encrypted)
+    })
+    return fetch(`${app.base}/v1/webhooks/wechat-message?${query}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ToUserName: 'gh_synthetic', Encrypt: encrypted })
+    })
+  }
+  const base = { ToUserName: 'gh_synthetic', FromUserName: 'official', CreateTime: Math.floor(Date.now() / 1000), MsgType: 'event' }
+  const delivery = (env: number) => ({
+    ...base, Event: 'xpay_goods_deliver_notify', OpenId: 'synthetic-openid', OutTradeNo: `PX${'7'.repeat(30)}`, Env: env,
+    WeChatPayInfo: { MchOrderNo: 'mch-1', TransactionId: 'wx-tx-1', PaidTime: Math.floor(Date.now() / 1000) },
+    GoodsInfo: { ProductId: 'COMPASS_REPORT_SINGLE_39_9', Quantity: 1, OrigPrice: 3990, ActualPrice: 3990, Attach: 'ord_not_here' }
+  })
+  try {
+    // The mock provider is the sandbox (Env 1): a live delivery is not ours to apply.
+    const otherEnv = await post(delivery(0))
+    assert.equal(otherEnv.status, 200)
+    assert.equal(await otherEnv.text(), 'success')
+    // A delivery for our environment whose order is unknown is refused so WeChat keeps retrying.
+    assert.equal((await post(delivery(1))).status, 404)
+
+    const answer = await post({ ...base, Event: 'xpay_subscribe_ios_refund_query_notify', pay_order_id: `PX${'8'.repeat(30)}`, product_id: 'item', provide_status: '1' })
+    assert.equal(answer.status, 200)
+    const sealed = await answer.json() as { Encrypt: string; MsgSignature: string; TimeStamp: number; Nonce: string }
+    assert.equal(sealed.Nonce, '415670741')
+    assert.equal(sealed.MsgSignature, messageSignature(PUSH_TOKEN, String(sealed.TimeStamp), sealed.Nonce, sealed.Encrypt))
+    assert.deepEqual(JSON.parse(decryptMessage(PUSH_AES_KEY, sealed.Encrypt, appId)), { result_code: 0, result_info: '未找到已支付订单，不拦截', evidence: 'NO_PAID_ORDER' })
+
+    const complaint = await post({ ...base, Event: 'xpay_complaint_notify', OpenId: 'synthetic-openid', MchOrderId: 'PXcomplaint01', ComplaintId: 'cmp-1', ComplaintDetail: '投诉正文不应被保存' })
+    assert.equal(await complaint.text(), 'success')
+    assert.equal(await (await post({ ...base, Event: 'debug_demo', debug_str: 'hello world' })).text(), 'success')
+
+    const audit = await app.store.read((tx) => tx.findMany('auditLogs'))
+    assert.deepEqual(audit.map((row) => row.action).sort(), ['IOS_REFUND_QUERY_ANSWERED', 'PAYMENT_COMPLAINT_RECEIVED', 'PAYMENT_PUSH_OTHER_ENV_IGNORED'])
+    assert.ok(!JSON.stringify(audit).includes('投诉正文'), 'complaint text is not kept')
   } finally {
     await app.close()
   }

@@ -211,10 +211,7 @@ function v05FeishuStore(): InMemoryStore {
       idempotencyKey: 'PRIVATE_ORDER_KEY_9001',
       provider: 'wechat',
       providerPrepayId: 'PRIVATE_PREPAY_9001',
-      paymentParams: {
-        timeStamp: '1', nonceStr: 'PRIVATE_NONCE_9001', package: 'prepay_id=PRIVATE_9001',
-        signType: 'RSA', paySign: 'PRIVATE_PAY_SIGN_9001'
-      },
+      paymentParams: { attempts: ['PRIVATE_ATTEMPT_9001'] },
       providerTransactionId: 'PRIVATE_TRANSACTION_9001',
       lastProviderQueryAt: NOW,
       createdAt: NOW,

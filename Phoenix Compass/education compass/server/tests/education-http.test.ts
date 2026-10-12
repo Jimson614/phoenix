@@ -14,6 +14,8 @@ import { GROWTH_DISCOVERY_PRODUCT_CODE } from '../src/domain/products'
 import { validateSourceCatalog } from '../src/domain/source-catalog'
 import { createAppServer } from '../src/http/app'
 import { MockPaymentProvider } from '../src/payments/mock-payment-provider'
+import { encryptMessage, messageSignature, WechatMessageCodec } from '../src/payments/wechat-message'
+import { PaymentPushService } from '../src/services/payment-push-service'
 import { AssessmentService } from '../src/services/assessment-service'
 import { AuthService } from '../src/services/auth-service'
 import { EducationCompassService } from '../src/services/education-compass-service'
@@ -46,7 +48,8 @@ async function listen() {
   const education = new EducationCompassService(store, true)
   const orders = new OrderService(store, mockPay, catalog, true, undefined, undefined, true)
   const reports = new ReportService(store)
-  const server = createAppServer({ auth, profiles, assessments, education, orders, reports })
+  const payments = new PaymentPushService(new WechatMessageCodec({ token: PUSH_TOKEN, encodingAesKey: PUSH_AES_KEY, appId: PUSH_APP_ID }), orders)
+  const server = createAppServer({ auth, profiles, assessments, education, orders, reports, payments })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   const address = server.address() as AddressInfo
   return {
@@ -73,33 +76,23 @@ async function jsonRequest(
   return { response, body }
 }
 
-async function postMockWebhook(
-  base: string,
-  notification: ReturnType<MockPaymentProvider['makeTransactionNotification']>
-): Promise<Response> {
-  const headers = new Headers({ 'Content-Type': 'application/json' })
-  for (const [name, value] of Object.entries(notification.headers)) {
-    if (value !== undefined) headers.set(name, value)
-  }
-  return fetch(`${base}/v1/webhooks/wechat-pay/transactions`, {
-    method: 'POST',
-    headers,
-    body: notification.rawBody.toString('utf8')
-  })
-}
+// Virtual payment events arrive as encrypted 消息推送, exactly as WeChat sends them in safe mode.
+const PUSH_TOKEN = 'synthetictoken01'
+const PUSH_AES_KEY = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG'
+const PUSH_APP_ID = 'wx0123456789abcdef'
 
-async function postMockRefundWebhook(
-  base: string,
-  notification: ReturnType<MockPaymentProvider['makeRefundNotification']>
-): Promise<Response> {
-  const headers = new Headers({ 'Content-Type': 'application/json' })
-  for (const [name, value] of Object.entries(notification.headers)) {
-    if (value !== undefined) headers.set(name, value)
-  }
-  return fetch(`${base}/v1/webhooks/wechat-pay/refunds`, {
+async function postPush(base: string, event: Record<string, unknown>): Promise<Response> {
+  const encrypted = encryptMessage(PUSH_AES_KEY, JSON.stringify(event), PUSH_APP_ID)
+  const timestamp = String(Math.floor(Date.now() / 1000))
+  const nonce = '1514711492'
+  const query = new URLSearchParams({
+    signature: messageSignature(PUSH_TOKEN, timestamp, nonce), timestamp, nonce, openid: String(event.OpenId ?? ''),
+    encrypt_type: 'aes', msg_signature: messageSignature(PUSH_TOKEN, timestamp, nonce, encrypted)
+  })
+  return fetch(`${base}/v1/webhooks/wechat-message?${query.toString()}`, {
     method: 'POST',
-    headers,
-    body: notification.rawBody.toString('utf8')
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ToUserName: 'gh_synthetic', Encrypt: encrypted })
   })
 }
 
@@ -135,6 +128,8 @@ async function createProfile(app: Awaited<ReturnType<typeof listen>>, code: stri
   assert.equal(student.response.status, 201)
   return {
     headers,
+    // The mock WeChat login maps a code to one openid, so the same code signs a payment.
+    loginCode: code,
     userId: login.body.user.id as string,
     familyId: family.body.family.id as string,
     studentId: student.body.student.id as string
@@ -720,16 +715,18 @@ test('V0.5 real HTTP flow preserves revisions, payment authority, owner isolatio
     assert.equal(orderReplay.response.status, 201)
     assert.equal(orderReplay.body.orderId, order.body.orderId)
 
-    const prepay = await jsonRequest(app.base, `/v1/orders/${order.body.orderId}/wechat-prepay`, {
+    const prepay = await jsonRequest(app.base, `/v1/orders/${order.body.orderId}/virtual-payment`, {
       method: 'POST',
       headers: owner.headers,
-      body: JSON.stringify({})
+      body: JSON.stringify({ code: owner.loginCode })
     })
     assert.equal(prepay.response.status, 200)
     assert.equal(prepay.body.status, 'PENDING')
-    assert.equal(typeof prepay.body.paymentParams.paySign, 'string')
+    assert.equal(prepay.body.virtualPayment.mode, 'short_series_goods')
+    assert.equal(typeof prepay.body.virtualPayment.paySig, 'string')
+    assert.equal(JSON.parse(prepay.body.virtualPayment.signData).outTradeNo, prepay.body.outTradeNo)
 
-    // A client-side requestPayment success signal is not trusted. Without a
+    // A client-side requestVirtualPayment success signal is not trusted. Without a
     // verified provider notification there is no entitlement and no report.
     const stillLocked = await jsonRequest(app.base, `/v1/assessments/${growthCreate.body.assessmentId}/result`, {
       headers: owner.headers
@@ -749,12 +746,12 @@ test('V0.5 real HTTP flow preserves revisions, payment authority, owner isolatio
     }
 
     app.mockPay.setOrderState(order.body.outTradeNo, 'SUCCESS')
-    const transaction = await app.mockPay.queryOrder(order.body.outTradeNo)
-    const notification = app.mockPay.makeTransactionNotification(transaction)
-    const firstNotification = await postMockWebhook(app.base, notification)
-    assert.equal(firstNotification.status, 204)
-    const repeatedNotification = await postMockWebhook(app.base, notification)
-    assert.equal(repeatedNotification.status, 204)
+    const delivery = app.mockPay.deliveryEvent(order.body.outTradeNo)
+    const firstNotification = await postPush(app.base, delivery)
+    assert.equal(firstNotification.status, 200)
+    assert.equal(await firstNotification.text(), 'success')
+    const repeatedNotification = await postPush(app.base, delivery)
+    assert.equal(repeatedNotification.status, 200)
 
     const paymentCounts = await app.store.read(async (tx) => ({
       entitlements: (await tx.findMany('entitlements', { userId: owner.userId })).length,
@@ -849,13 +846,12 @@ test('next-support capabilities and advisor intent remain server-authoritative',
       body: JSON.stringify({ productCode: GROWTH_DISCOVERY_PRODUCT_CODE })
     })
     assert.equal(order.response.status, 201, JSON.stringify(order.body))
-    const prepay = await jsonRequest(app.base, `/v1/orders/${order.body.orderId}/wechat-prepay`, {
-      method: 'POST', headers: owner.headers, body: JSON.stringify({})
+    const prepay = await jsonRequest(app.base, `/v1/orders/${order.body.orderId}/virtual-payment`, {
+      method: 'POST', headers: owner.headers, body: JSON.stringify({ code: owner.loginCode })
     })
     assert.equal(prepay.response.status, 200, JSON.stringify(prepay.body))
     app.mockPay.setOrderState(order.body.outTradeNo, 'SUCCESS')
-    const transaction = await app.mockPay.queryOrder(order.body.outTradeNo)
-    assert.equal((await postMockWebhook(app.base, app.mockPay.makeTransactionNotification(transaction))).status, 204)
+    assert.equal((await postPush(app.base, app.mockPay.deliveryEvent(order.body.outTradeNo))).status, 200)
 
     const report = await jsonRequest(app.base, `/v1/reports/${growth.reportId}`, { headers: owner.headers })
     assert.equal(report.response.status, 200)
@@ -1167,8 +1163,8 @@ test('verified payment after Level 2 consent withdrawal stays locked and enters 
       body: JSON.stringify({ productCode: GROWTH_DISCOVERY_PRODUCT_CODE })
     })
     assert.equal(order.response.status, 201, JSON.stringify(order.body))
-    const prepay = await jsonRequest(app.base, `/v1/orders/${order.body.orderId}/wechat-prepay`, {
-      method: 'POST', headers: owner.headers, body: JSON.stringify({})
+    const prepay = await jsonRequest(app.base, `/v1/orders/${order.body.orderId}/virtual-payment`, {
+      method: 'POST', headers: owner.headers, body: JSON.stringify({ code: owner.loginCode })
     })
     assert.equal(prepay.response.status, 200, JSON.stringify(prepay.body))
     assert.equal(prepay.body.status, 'PENDING')
@@ -1182,9 +1178,7 @@ test('verified payment after Level 2 consent withdrawal stays locked and enters 
     assert.equal(withdrawn.body.enabled, false)
 
     app.mockPay.setOrderState(order.body.outTradeNo, 'SUCCESS')
-    const transaction = await app.mockPay.queryOrder(order.body.outTradeNo)
-    const paymentNotification = app.mockPay.makeTransactionNotification(transaction)
-    assert.equal((await postMockWebhook(app.base, paymentNotification)).status, 204)
+    assert.equal((await postPush(app.base, app.mockPay.deliveryEvent(order.body.outTradeNo))).status, 200)
 
     const afterCharge = await jsonRequest(app.base, `/v1/orders/${order.body.orderId}`, {
       headers: owner.headers
@@ -1205,18 +1199,12 @@ test('verified payment after Level 2 consent withdrawal stays locked and enters 
     assert.equal(autoRefund.status, 'PROCESSING')
     assert.equal(autoRefund.reason, 'CONSENT_WITHDRAWN_BEFORE_DELIVERY')
 
-    const refundNotification = app.mockPay.makeRefundNotification({
-      eventId: `mock_refund_abnormal_${autoRefund.id}`,
-      mchId: app.mockPay.mchId,
-      outTradeNo: order.body.outTradeNo,
-      outRefundNo: autoRefund.outRefundNo,
-      providerRefundId: `mock_refund_${autoRefund.outRefundNo}`,
-      refundStatus: 'ABNORMAL',
-      refundFen: 3990,
-      totalFen: 3990,
-      currency: 'CNY'
-    })
-    assert.equal((await postMockRefundWebhook(app.base, refundNotification)).status, 204)
+    // The automatic refund failed on the platform (RetCode != 0).
+    assert.equal((await postPush(app.base, {
+      ToUserName: 'gh_synthetic', FromUserName: 'official', CreateTime: Math.floor(Date.now() / 1000), MsgType: 'event',
+      Event: 'xpay_refund_notify', OpenId: '', WxRefundId: `mock_refund_${autoRefund.outRefundNo}`, MchRefundId: autoRefund.outRefundNo,
+      WxOrderId: 'mock_wx_order', MchOrderId: order.body.outTradeNo, RefundFee: 3990, RetCode: 1, RetMsg: 'synthetic failure'
+    })).status, 200)
 
     const terminal = await app.store.read(async (tx) => ({
       order: await tx.findById('orders', order.body.orderId),
@@ -1255,13 +1243,12 @@ test('assessment and paid report access reject every altered frozen-consent iden
       body: JSON.stringify({ productCode: GROWTH_DISCOVERY_PRODUCT_CODE })
     })
     assert.equal(order.response.status, 201, JSON.stringify(order.body))
-    const prepay = await jsonRequest(app.base, `/v1/orders/${order.body.orderId}/wechat-prepay`, {
-      method: 'POST', headers: owner.headers, body: JSON.stringify({})
+    const prepay = await jsonRequest(app.base, `/v1/orders/${order.body.orderId}/virtual-payment`, {
+      method: 'POST', headers: owner.headers, body: JSON.stringify({ code: owner.loginCode })
     })
     assert.equal(prepay.response.status, 200, JSON.stringify(prepay.body))
     app.mockPay.setOrderState(order.body.outTradeNo, 'SUCCESS')
-    const transaction = await app.mockPay.queryOrder(order.body.outTradeNo)
-    assert.equal((await postMockWebhook(app.base, app.mockPay.makeTransactionNotification(transaction))).status, 204)
+    assert.equal((await postPush(app.base, app.mockPay.deliveryEvent(order.body.outTradeNo))).status, 200)
 
     const full = await jsonRequest(app.base, `/v1/reports/${growth.reportId}`, { headers: owner.headers })
     assert.equal(full.response.status, 200, JSON.stringify(full.body))
