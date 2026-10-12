@@ -24,6 +24,7 @@ const { MockPaymentProvider } = require('../server/dist/src/payments/mock-paymen
 const { validateSourceCatalog } = require('../server/dist/src/domain/source-catalog')
 const { MastersService } = require('../server/dist/src/services/masters-service')
 const { MastersHttp } = require('../server/dist/src/masters/http')
+const { MastersWorkbenchAuth } = require('../server/dist/src/masters/workbench-auth')
 const { MastersWorker } = require('../server/dist/src/masters/worker')
 const { PrivateFiles } = require('../server/dist/src/masters/private-files')
 const { createAppServer } = require('../server/dist/src/http/app')
@@ -38,21 +39,30 @@ async function main() {
     const store = await FileStore.open(join(directory, 'state.json'))
     const secret = 'synthetic-workbench-test-session-secret-only'
     const auth = new AuthService(store, new MockWechatAuthProvider(), secret)
+    // Nobody is staff up front: the founder comes from the server-side bootstrap and the advisor
+    // from a grant in the workbench, both with the person's own enrolment code.
     const sessions = {}
-    for (const role of ['student', 'founder', 'advisor']) {
-      sessions[role] = await auth.createWechatSession(`synthetic-browser-${role}`)
-      if (role !== 'student') await store.transaction(tx => tx.insert('mastersStaff', {
-        id: `browser-staff-${role}`, userId: sessions[role].user.id, role, status: 'ACTIVE', grantedBy: null,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
-      }))
-    }
+    for (const role of ['student', 'founder', 'advisor']) sessions[role] = await auth.createWechatSession(`synthetic-browser-${role}`)
     const files = new PrivateFiles(join(directory, 'private'))
     await files.initialize()
     const service = new MastersService(store)
+    const workbench = new MastersWorkbenchAuth(store, secret)
     const catalog = validateSourceCatalog({ version: 'SYNTHETIC-BROWSER', dataAsOf: '2026-09-05', reviewedAt: '2026-09-05T00:00:00.000Z', reviewedBy: 'Synthetic fixture', entries: [{ sourceId: 'SYNTHETIC', title: 'Synthetic', applicableYear: '2026', verifiedAt: '2026-09-05T00:00:00.000Z' }] })
-    server = createAppServer({ auth, profiles: new ProfileService(store), assessments: new AssessmentService(store, catalog), orders: new OrderService(store, new MockPaymentProvider(secret), catalog, false), reports: new ReportService(store), masters: new MastersHttp(service, files, store) })
+    server = createAppServer({ auth, profiles: new ProfileService(store), assessments: new AssessmentService(store, catalog), orders: new OrderService(store, new MockPaymentProvider(secret), catalog, false), reports: new ReportService(store), masters: new MastersHttp(service, files, store, '', workbench) })
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
     const base = `http://127.0.0.1:${server.address().port}`
+    // What the Mini Program's 工作人员入口 does for a signed-in person.
+    async function issueCode(role, kind) {
+      const response = await fetch(`${base}/v1/masters/workbench/${kind}-code`, { method: 'POST', headers: { Authorization: `Bearer ${sessions[role].accessToken}`, 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID() }, body: '{}' })
+      const result = await response.json()
+      return { status: response.status, code: result.code }
+    }
+    async function codeFor(role, kind) {
+      const issued = await issueCode(role, kind)
+      assert.equal(issued.status, 201, `${role} ${kind} code`)
+      return issued.code
+    }
+    await workbench.bootstrapFounder(await codeFor('founder', 'enroll'))
     async function call(path, body, method = 'POST') {
       const response = await fetch(base + path, { method, headers: { Authorization: `Bearer ${sessions.student.accessToken}`, 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID() }, body: JSON.stringify(body) })
       const result = await response.json()
@@ -79,12 +89,19 @@ async function main() {
     const page = await browser.newPage({ acceptDownloads: true })
     const errors = []
     page.on('pageerror', error => errors.push(error.message))
+    // Staff sign in the way a person does: a one-time login code typed into the workbench.
     async function connect(role) {
+      const code = await codeFor(role, 'login')
       await page.goto(base + '/internal/masters')
-      await page.locator('#token').fill(sessions[role].accessToken)
-      await page.locator('#connect').click()
+      const exchanged = page.waitForResponse(r => r.url().endsWith('/v1/internal/masters/workbench-session'))
+      await page.locator('#login-code').fill(code)
+      await page.locator('#code-connect').click()
+      const response = await exchanged
+      assert.equal(response.status(), 200)
       await page.locator('#message').filter({ hasText: '操作完成' }).waitFor()
+      return { code, accessToken: (await response.json()).accessToken }
     }
+    const staffRow = label => page.locator('#staff-list p').filter({ hasText: label })
     async function openCase() {
       await page.locator('#list button').filter({ hasText: '合成浏览器申请人' }).click()
       await page.locator('#case').waitFor({ state: 'visible' })
@@ -97,12 +114,35 @@ async function main() {
       await page.locator(id).waitFor({ state: 'visible' })
       await page.waitForFunction(selector => !document.querySelector(selector).disabled, id)
     }
+    // The ops fallback still refuses a session without a staff grant, and so does the code route.
     await page.goto(base + '/internal/masters')
     await page.locator('#token').fill(sessions.student.accessToken)
     await page.locator('#connect').click()
     await page.locator('#message').filter({ hasText: '未获工作台授权' }).waitFor()
     assert.equal(await page.locator('#list button').count(), 0)
+    assert.equal((await issueCode('advisor', 'login')).status, 403, 'no login code before a grant')
+
+    // The founder grants the advisor role with the advisor's own enrolment code.
+    const firstVisit = await connect('founder')
+    await page.locator('#staff-panel').waitFor({ state: 'visible' })
+    await staffRow('Founder · 有效').waitFor()
+    await page.locator('#enroll-code').fill(await codeFor('advisor', 'enroll'))
+    await page.locator('#staff-role').selectOption('advisor')
+    await page.locator('#grant-staff').click()
+    await staffRow('顾问 · 有效').waitFor()
+    assert.equal(await page.locator('#enroll-code').inputValue(), '')
+
+    // Logging out revokes the session on the server, and a used code does not sign in again.
+    const revoked = page.waitForResponse(r => r.url().endsWith('/v1/auth/session') && r.request().method() === 'DELETE')
+    await page.locator('#logout').click()
+    assert.equal((await revoked).status(), 204)
+    await page.locator('#staff-panel').waitFor({ state: 'hidden' })
+    assert.equal((await fetch(`${base}/v1/internal/masters/me`, { headers: { Authorization: `Bearer ${firstVisit.accessToken}` } })).status, 401)
+    await page.locator('#login-code').fill(firstVisit.code)
+    await page.locator('#code-connect').click()
+    await page.locator('#message').filter({ hasText: '登录码无效、已使用或已过期' }).waitFor()
     await connect('advisor')
+    await page.locator('#staff-panel').waitFor({ state: 'hidden' })
     assert.equal(await page.locator('#list button').count(), 0)
     await connect('founder')
     await openCase()
@@ -135,11 +175,16 @@ async function main() {
     assert.equal(workbook.subarray(0, 2).toString(), 'PK')
     const sheet = Buffer.from(unzipSync(workbook)['xl/worksheets/sheet1.xml']).toString('utf8')
     assert.ok(sheet.includes(sourcedProgram.officialUrl) && sheet.includes(sourcedProgram.program))
+    // A suspension in the panel takes the advisor's sign-in away.
+    await staffRow('顾问 · 有效').getByRole('button', { name: '暂停' }).click()
+    await staffRow('顾问 · 已暂停').waitFor()
+    assert.equal(await staffRow('Founder').getByRole('button').count(), 0, 'a founder cannot suspend themselves from the panel')
+    assert.equal((await issueCode('advisor', 'login')).status, 403, 'a suspended advisor gets no login code')
     await page.reload()
     assert.equal(await page.locator('#list button').count(), 0)
     assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0)
     assert.deepEqual(errors, [])
-    process.stdout.write(JSON.stringify({ status: 'PASS', suite: 'masters-workbench-browser', browser: 'headless Chromium', realHttp: true, fileStore: true, syntheticOnly: true, cases: ['student-denied', 'unassigned-advisor-empty', 'seven-categories', 'distinct-graduation-degree', 'assignment', 'authorized-download-byte-equality', 'sourced-program-edit', 'advisor-review', 'assisted-plan-classification', 'founder-approval-release', 'xlsx-download', 'no-token-in-browser-storage'], wechatDevice: 'NOT_TESTED' }) + '\n')
+    process.stdout.write(JSON.stringify({ status: 'PASS', suite: 'masters-workbench-browser', browser: 'headless Chromium', realHttp: true, fileStore: true, syntheticOnly: true, cases: ['student-denied', 'founder-bootstrap', 'login-code-sign-in', 'founder-grants-role-by-enrolment-code', 'logout-revokes-session', 'used-login-code-refused', 'unassigned-advisor-empty', 'seven-categories', 'distinct-graduation-degree', 'assignment', 'authorized-download-byte-equality', 'sourced-program-edit', 'advisor-review', 'assisted-plan-classification', 'founder-approval-release', 'xlsx-download', 'founder-suspends-role', 'no-token-in-browser-storage'], wechatDevice: 'NOT_TESTED' }) + '\n')
   } finally {
     if (browser) await browser.close()
     if (server) await new Promise(resolve => server.close(resolve))
