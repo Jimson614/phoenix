@@ -34,6 +34,10 @@ if ! git rev-parse -q --verify "$REF" >/dev/null; then
   exit 1
 fi
 
+# Taken before any switch: switching to the branch already moves HEAD, and the rebuild decision
+# below compares against what was running.
+OLD="$(git rev-parse --short HEAD)"
+
 if [ "$BRANCH" != "$CURRENT" ]; then
   if git merge-base --is-ancestor "$REF" HEAD; then
     echo "当前分支 $CURRENT 已包含 $BRANCH 的全部提交，无需切换。"
@@ -46,11 +50,11 @@ if [ "$BRANCH" != "$CURRENT" ]; then
     git status --porcelain | head -10 | sed 's/^/  /'
     exit 1
   fi
-  git switch -q "$BRANCH" 2>/dev/null || git switch -q -c "$BRANCH" --track "$REF"
+  # relay/ is not a configured remote, so the new branch starts from the ref without tracking it.
+  git switch -q "$BRANCH" 2>/dev/null || git switch -q -c "$BRANCH" "$REF"
   echo "已切换到分支：$CURRENT -> $BRANCH"
 fi
 
-OLD="$(git rev-parse --short HEAD)"
 git merge --ff-only -q "$REF"
 NEW="$(git rev-parse --short HEAD)"
 if [ "$OLD" = "$NEW" ]; then
