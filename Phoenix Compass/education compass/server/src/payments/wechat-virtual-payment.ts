@@ -10,6 +10,10 @@ export const XPAY_MODE = 'short_series_goods' as const
 const API_ORIGIN = 'https://api.weixin.qq.com'
 const TOKEN_REFRESH_MARGIN_MS = 5 * 60_000
 const ACCESS_TOKEN_INVALID = new Set([40001, 42001])
+// query_order answers an order number it has never seen with 268490002 数据不存在 (probed in the
+// sandbox). 268490002 also means a malformed request, so the message is what tells them apart.
+const ORDER_ABSENT_CODE = 268490002
+const ORDER_ABSENT_MESSAGE = '数据不存在'
 const ORDER_NO = /^(?!_)[0-9A-Za-z_\-|*@]{8,32}$/
 const REFUND_ORDER_NO = /^[0-9A-Za-z_-]{8,32}$/
 
@@ -19,6 +23,13 @@ export function xpayPaySig(appKey: string, uri: string, body: string): string {
 
 export function xpayUserSignature(sessionKey: string, body: string): string {
   return createHmac('sha256', sessionKey).update(body, 'utf8').digest('hex')
+}
+
+/** True when query_order said the platform holds no order with that number. */
+export function isXpayOrderAbsent(error: unknown): boolean {
+  if (!(error instanceof AppError) || error.code !== 'VIRTUAL_PAYMENT_API_ERROR') return false
+  const details = error.details as { providerCode?: number; providerMessage?: string } | undefined
+  return details?.providerCode === ORDER_ABSENT_CODE && (details.providerMessage ?? '').includes(ORDER_ABSENT_MESSAGE)
 }
 
 export interface VirtualPaymentProduct {
@@ -180,7 +191,9 @@ export class WechatVirtualPayment {
       return this.call<T>(uri, payload, true)
     }
     if (errcode !== 0) {
-      throw new AppError(502, 'VIRTUAL_PAYMENT_API_ERROR', '微信虚拟支付接口返回错误', { providerCode: errcode })
+      throw new AppError(502, 'VIRTUAL_PAYMENT_API_ERROR', '微信虚拟支付接口返回错误', {
+        providerCode: errcode, providerMessage: String(result.errmsg ?? '').slice(0, 200)
+      })
     }
     return result as T
   }

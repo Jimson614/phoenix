@@ -12,6 +12,7 @@ import {
   xpayPaySig,
   xpayUserSignature
 } from '../src/payments/wechat-virtual-payment'
+import { WechatVirtualPaymentProvider } from '../src/payments/wechat-virtual-payment-provider'
 
 // Every expected value in the first two tests is copied from the official documentation:
 // 消息推送 https://developers.weixin.qq.com/miniprogram/dev/framework/server-ability/message-push.html
@@ -163,4 +164,27 @@ test('server calls use a cached stable access token and sign the exact request b
     biz_meta: 'rfd_1', refund_reason: '5', req_from: '1', env: 1
   })
   assert.deepEqual(JSON.parse(wechat.calls.find((call) => call.url.pathname === '/xpay/notify_provide_goods')!.body), { order_id: 'PXorder', env: 1 })
+})
+
+test('an attempt the platform has no record of is unpaid, while other query errors stay unknown', async () => {
+  const wechat = fakeWechat({
+    '/cgi-bin/stable_token': [{ access_token: 'token-1', expires_in: 7200 }],
+    // Probed in the sandbox on 2026-10-13: an order number never paid comes back as 268490002 数据不存在.
+    // The same code also means a malformed request, so only that message counts as "no such order".
+    '/xpay/query_order': [
+      { errcode: 268490002, errmsg: '数据不存在' },
+      { errcode: 268490002, errmsg: 'param error' },
+      { errcode: 268490003, errmsg: '支付签名(pay_sig)校验失败' }
+    ]
+  })
+  const provider = new WechatVirtualPaymentProvider(new WechatVirtualPayment(config, wechat.fetch, () => new Date('2026-10-13T03:00:00.000Z')))
+
+  assert.deepEqual(await provider.queryAttempt('PXneverpaid', 'openid-1'), {
+    eventId: 'xpay_query:PXneverpaid:absent', outTradeNo: 'PXneverpaid', transactionId: '', tradeState: 'NOTPAY', env: 1
+  })
+  await assert.rejects(() => provider.queryAttempt('PXneverpaid', 'openid-1'), (error: unknown) =>
+    error instanceof AppError && error.code === 'VIRTUAL_PAYMENT_API_ERROR' &&
+    (error.details as { providerCode?: number; providerMessage?: string }).providerMessage === 'param error')
+  await assert.rejects(() => provider.queryAttempt('PXneverpaid', 'openid-1'), (error: unknown) =>
+    error instanceof AppError && (error.details as { providerCode?: number }).providerCode === 268490003)
 })

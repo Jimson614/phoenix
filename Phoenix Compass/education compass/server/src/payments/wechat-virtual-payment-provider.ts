@@ -1,7 +1,7 @@
 import { invariant } from '../domain/errors'
 import { Order, Refund } from '../domain/model'
 import { PayerSession, PaymentProvider, RefundResult, TransactionResult } from './payment-provider'
-import { VirtualPaymentRequest, WechatVirtualPayment, XpayOrder } from './wechat-virtual-payment'
+import { isXpayOrderAbsent, VirtualPaymentRequest, WechatVirtualPayment, XpayOrder } from './wechat-virtual-payment'
 
 // query_order status: 0 初始化 1 已创建 2 已支付待发货 3 发货中 4 已发货 5 退款(商户侧扣款完成)
 // 6 已关闭 7 退款失败 8 退款(用户侧收款完成) 9 回收广告金 10 分账回退
@@ -31,7 +31,14 @@ export class WechatVirtualPaymentProvider implements PaymentProvider {
   }
 
   async queryAttempt(outTradeNo: string, payerOpenid: string): Promise<TransactionResult> {
-    const order = await this.xpay.queryOrder(payerOpenid, outTradeNo)
+    let order: XpayOrder
+    try {
+      order = await this.xpay.queryOrder(payerOpenid, outTradeNo)
+    } catch (error) {
+      // The buyer closed the payment sheet before the platform created the order: nothing was paid.
+      if (!isXpayOrderAbsent(error)) throw error
+      return { eventId: `xpay_query:${outTradeNo}:absent`, outTradeNo, transactionId: '', tradeState: 'NOTPAY', env: this.env }
+    }
     const tradeState = tradeStateFor(order.status)
     return {
       eventId: `xpay_query:${outTradeNo}:${order.status}`,
