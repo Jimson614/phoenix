@@ -241,7 +241,7 @@ placeholder、Source版本不一致、生成/QA失败或未锁定报告返回错
   "status": "PENDING",
   "outTradeNo": "PX...",
   "virtualPayment": {
-    "signData": "{\"offerId\":\"...\",\"buyQuantity\":1,\"env\":0,\"currencyType\":\"CNY\",\"productId\":\"EDUCATION_GROWTH_DISCOVERY_SINGLE_V1\",\"goodsPrice\":3990,\"outTradeNo\":\"PX...\",\"attach\":\"ord_xxx\"}",
+    "signData": "{\"offerId\":\"...\",\"buyQuantity\":1,\"env\":0,\"currencyType\":\"CNY\",\"productId\":\"EC_GROWTH_REPORT_V1\",\"goodsPrice\":3990,\"outTradeNo\":\"PX...\",\"attach\":\"ord_xxx\"}",
     "paySig": "...",
     "signature": "...",
     "mode": "short_series_goods"

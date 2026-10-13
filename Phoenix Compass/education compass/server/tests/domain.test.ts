@@ -240,7 +240,9 @@ test('production config pins verified TLS database and the live virtual payment 
   const loaded = loadConfig(production)
   assert.equal(loaded.listenHost, '127.0.0.1')
   assert.equal(loaded.virtualPaymentEnv, 0, 'production defaults to the live environment')
-  assert.equal(loaded.virtualPaymentGrowthProductId, 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1')
+  // 道具管理 accepts item IDs of at most 20 characters.
+  assert.equal(loaded.virtualPaymentGrowthProductId, 'EC_GROWTH_REPORT_V1')
+  assert.throws(() => loadConfig({ ...production, WECHAT_XPAY_GROWTH_PRODUCT_ID: 'A'.repeat(21) }), invalid)
   assert.throws(() => loadConfig({ ...production, LISTEN_HOST: '0.0.0.0' }), invalid)
   assert.throws(() => loadConfig({ ...production, DATABASE_URL: 'postgresql://db.example.com/phoenix?sslmode=require' }), invalid)
   assert.throws(() => loadConfig({ ...production, WECHAT_XPAY_ENV: '1' }), invalid, 'production never pays in the sandbox')

@@ -69,7 +69,7 @@ check_config() {
   fi
   if [[ "${#app_key}" -ge 16 ]]; then pass "AppKey 已配置（${#app_key} 个字符）"; else fail "WECHAT_XPAY_APP_KEY 缺失或过短"; fi
   if [[ -n "$app_key" && ( "$app_key" == "$session" || "$app_key" == "$app_secret" ) ]]; then fail "WECHAT_XPAY_APP_KEY 和其他密钥重复了"; fi
-  if [[ -z "$product" || "$product" =~ ^[A-Za-z0-9_-]{1,64}$ ]]; then pass "道具 ID：${product:-EDUCATION_GROWTH_DISCOVERY_SINGLE_V1（默认）}"; else fail "WECHAT_XPAY_GROWTH_PRODUCT_ID 格式不对"; fi
+  if [[ -z "$product" || "$product" =~ ^[A-Za-z0-9_-]{1,20}$ ]]; then pass "道具 ID：${product:-EC_GROWTH_REPORT_V1（默认）}"; else fail "WECHAT_XPAY_GROWTH_PRODUCT_ID 格式不对（最多 20 个字符）"; fi
   if [[ "$token" =~ ^[A-Za-z0-9]{3,32}$ ]]; then pass "消息推送 Token 格式正确"; else fail "WECHAT_MESSAGE_TOKEN 缺失或不是 3-32 位字母数字"; fi
   if [[ "$aes" =~ ^[A-Za-z0-9]{43}$ ]]; then pass "EncodingAESKey 格式正确（43 位）"; else fail "WECHAT_MESSAGE_AES_KEY 缺失或不是 43 位字母数字"; fi
   if [[ "$switch" == "true" ]]; then warn "GROWTH_DISCOVERY_PAYMENT_ENABLED=true：收款已开放"; else pass "GROWTH_DISCOVERY_PAYMENT_ENABLED=${switch:-false}（收款仍关闭）"; fi
@@ -95,9 +95,9 @@ if [[ "$ONLY" != "message" ]]; then
   if [[ "$(read_env NODE_ENV)" == "production" && "$XPAY_ENV" != "0" ]]; then echo "生产环境只能用 --env 0。没有做任何修改。"; exit 1; fi
   read -rp "offerId（虚拟支付 → 基础配置，纯数字）: " OFFER_ID
   if [[ ! "$OFFER_ID" =~ ^[0-9]{6,20}$ ]]; then echo "offerId 应该是数字。没有做任何修改。"; exit 1; fi
-  read -rp "道具 ID（直接回车用 EDUCATION_GROWTH_DISCOVERY_SINGLE_V1）: " PRODUCT_ID
-  PRODUCT_ID="${PRODUCT_ID:-EDUCATION_GROWTH_DISCOVERY_SINGLE_V1}"
-  if [[ ! "$PRODUCT_ID" =~ ^[A-Za-z0-9_-]{1,64}$ ]]; then echo "道具 ID 只能是字母、数字、下划线或短横线。没有做任何修改。"; exit 1; fi
+  read -rp "道具 ID（直接回车用 EC_GROWTH_REPORT_V1）: " PRODUCT_ID
+  PRODUCT_ID="${PRODUCT_ID:-EC_GROWTH_REPORT_V1}"
+  if [[ ! "$PRODUCT_ID" =~ ^[A-Za-z0-9_-]{1,20}$ ]]; then echo "道具 ID 最多 20 个字符，只能是字母、数字、下划线或短横线。没有做任何修改。"; exit 1; fi
   LABEL="$([[ "$XPAY_ENV" == "0" ]] && echo 现网 || echo 沙箱)"
   read -rsp "${LABEL} AppKey（输入不会显示），然后按 Enter: " APP_KEY
   echo

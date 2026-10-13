@@ -96,7 +96,7 @@ function fakeWechat(responses: Record<string, unknown[]>): { fetch: typeof fetch
 
 const config = {
   appId: 'wx1234567890abcdef', appSecret: 'synthetic-app-secret', offerId: '1450664905', appKey: 'synthetic-sandbox-app-key',
-  env: 1 as const, products: { EDUCATION_GROWTH_DISCOVERY_SINGLE_V1: { productId: 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1', priceFen: 3990 } }
+  env: 1 as const, products: { EDUCATION_GROWTH_DISCOVERY_SINGLE_V1: { productId: 'EC_GROWTH_REPORT_V1', priceFen: 3990 } }
 }
 
 test('the payment request carries the configured offer, item and price and is signed with the app key and session key', () => {
@@ -106,7 +106,7 @@ test('the payment request carries the configured offer, item and price and is si
   assert.equal(request.mode, 'short_series_goods')
   assert.deepEqual(JSON.parse(request.signData), {
     offerId: '1450664905', buyQuantity: 1, env: 1, currencyType: 'CNY',
-    productId: 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1', goodsPrice: 3990, outTradeNo: order.outTradeNo, attach: 'ord_1'
+    productId: 'EC_GROWTH_REPORT_V1', goodsPrice: 3990, outTradeNo: order.outTradeNo, attach: 'ord_1'
   })
   assert.equal(request.paySig, xpayPaySig('synthetic-sandbox-app-key', 'requestVirtualPayment', request.signData))
   assert.equal(request.signature, xpayUserSignature('c2Vzc2lvbi1rZXktMTIzNA==', request.signData))
@@ -117,6 +117,9 @@ test('the payment request carries the configured offer, item and price and is si
     error instanceof AppError && error.code === 'VIRTUAL_PAYMENT_PRODUCT_NOT_CONFIGURED')
   assert.throws(() => xpay.buildPaymentRequest({ ...order, amountFen: 100 }, 'k'), (error: unknown) =>
     error instanceof AppError && error.code === 'VIRTUAL_PAYMENT_PRICE_MISMATCH')
+  // 道具管理 refuses item IDs longer than 20 characters, so such a configuration cannot start.
+  assert.throws(() => new WechatVirtualPayment({ ...config, products: { X: { productId: 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1', priceFen: 3990 } } }),
+    (error: unknown) => error instanceof AppError && error.code === 'VIRTUAL_PAYMENT_CONFIG_INVALID')
   for (const outTradeNo of ['short', `_${'a'.repeat(20)}`, `PX${'a'.repeat(31)}`, 'PX#aaaaaaaa']) {
     assert.throws(() => xpay.buildPaymentRequest({ ...order, outTradeNo }, 'k'), (error: unknown) =>
       error instanceof AppError && error.code === 'VIRTUAL_PAYMENT_ORDER_NO_INVALID', outTradeNo)

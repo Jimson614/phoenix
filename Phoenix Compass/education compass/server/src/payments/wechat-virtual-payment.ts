@@ -22,7 +22,7 @@ export function xpayUserSignature(sessionKey: string, body: string): string {
 }
 
 export interface VirtualPaymentProduct {
-  /** 道具ID in 虚拟支付 → 道具管理. */
+  /** 道具ID in 虚拟支付 → 道具管理, at most 20 characters. */
   productId: string
   priceFen: number
 }
@@ -86,7 +86,7 @@ export class WechatVirtualPayment {
     invariant(config.env === 0 || config.env === 1, 500, 'VIRTUAL_PAYMENT_CONFIG_INVALID', '虚拟支付环境只能是0（现网）或1（沙箱）')
     invariant(Object.keys(config.products).length > 0, 500, 'VIRTUAL_PAYMENT_CONFIG_INVALID', '虚拟支付没有配置任何道具')
     for (const product of Object.values(config.products)) {
-      invariant(product.productId.length > 0 && Number.isInteger(product.priceFen) && product.priceFen > 0,
+      invariant(product.productId.length > 0 && product.productId.length <= 20 && Number.isInteger(product.priceFen) && product.priceFen > 0,
         500, 'VIRTUAL_PAYMENT_CONFIG_INVALID', '虚拟支付道具配置无效')
     }
   }

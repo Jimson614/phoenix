@@ -168,7 +168,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     virtualPaymentOfferId: env.WECHAT_XPAY_OFFER_ID ?? '',
     virtualPaymentEnv: virtualPaymentEnvRaw === '0' ? 0 : 1,
     virtualPaymentAppKey: env.WECHAT_XPAY_APP_KEY ?? '',
-    virtualPaymentGrowthProductId: env.WECHAT_XPAY_GROWTH_PRODUCT_ID || 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1',
+    virtualPaymentGrowthProductId: env.WECHAT_XPAY_GROWTH_PRODUCT_ID || 'EC_GROWTH_REPORT_V1',
     wechatMessageToken: env.WECHAT_MESSAGE_TOKEN ?? '',
     wechatMessageAesKey: env.WECHAT_MESSAGE_AES_KEY ?? '',
     publicBaseUrl: env.PUBLIC_BASE_URL ?? '',
@@ -215,7 +215,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     invariant(config.virtualPaymentAppKey.length >= 16, 500, 'CONFIG_INVALID', 'WECHAT_XPAY_APP_KEY 未配置')
     invariant(config.virtualPaymentAppKey !== config.sessionSecret && config.virtualPaymentAppKey !== config.wechatAppSecret,
       500, 'CONFIG_INVALID', 'WECHAT_XPAY_APP_KEY 不得复用其他密钥')
-    invariant(/^[A-Za-z0-9_-]{1,64}$/.test(config.virtualPaymentGrowthProductId), 500, 'CONFIG_INVALID', 'WECHAT_XPAY_GROWTH_PRODUCT_ID 格式无效')
+    invariant(/^[A-Za-z0-9_-]{1,20}$/.test(config.virtualPaymentGrowthProductId), 500, 'CONFIG_INVALID', 'WECHAT_XPAY_GROWTH_PRODUCT_ID 格式无效（道具 ID 最多 20 个字符）')
     invariant(/^[A-Za-z0-9]{3,32}$/.test(config.wechatMessageToken), 500, 'CONFIG_INVALID', 'WECHAT_MESSAGE_TOKEN 未配置或格式无效（3至32位字母或数字）')
     invariant(/^[A-Za-z0-9]{43}$/.test(config.wechatMessageAesKey), 500, 'CONFIG_INVALID', 'WECHAT_MESSAGE_AES_KEY 未配置或格式无效（43位字母或数字）')
   }
