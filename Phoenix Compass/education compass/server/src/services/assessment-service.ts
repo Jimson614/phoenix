@@ -35,7 +35,7 @@ export class AssessmentService {
     const now = iso(this.clock)
     return this.store.transaction(async (tx) => {
       const student = await tx.findById('students', studentId, { forUpdate: true })
-      invariant(student, 404, 'STUDENT_NOT_FOUND', '孩子档案不存在')
+      invariant(student && !student.deletedAt, 404, 'STUDENT_NOT_FOUND', '孩子档案不存在')
       const family = await tx.findById('families', student.familyId)
       invariant(family?.userId === userId && family.id === input.familyId, 403, 'ASSESSMENT_FORBIDDEN', '家庭或孩子归属校验失败')
       invariant(student.studentVersion === input.studentVersion, 409, 'STUDENT_VERSION_STALE', '孩子档案已更新，请刷新后重试')

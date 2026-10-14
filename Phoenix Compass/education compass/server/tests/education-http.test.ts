@@ -17,6 +17,7 @@ import { MockPaymentProvider } from '../src/payments/mock-payment-provider'
 import { encryptMessage, messageSignature, WechatMessageCodec } from '../src/payments/wechat-message'
 import { PaymentPushService } from '../src/services/payment-push-service'
 import { AssessmentService } from '../src/services/assessment-service'
+import { AccountService } from '../src/services/account-service'
 import { AuthService } from '../src/services/auth-service'
 import { EducationCompassService } from '../src/services/education-compass-service'
 import { OrderService, seedProducts } from '../src/services/order-service'
@@ -49,7 +50,8 @@ async function listen() {
   const orders = new OrderService(store, mockPay, catalog, true, undefined, undefined, true)
   const reports = new ReportService(store)
   const payments = new PaymentPushService(new WechatMessageCodec({ token: PUSH_TOKEN, encodingAesKey: PUSH_AES_KEY, appId: PUSH_APP_ID }), orders)
-  const server = createAppServer({ auth, profiles, assessments, education, orders, reports, payments })
+  const accounts = new AccountService(store)
+  const server = createAppServer({ auth, profiles, assessments, education, orders, reports, payments, accounts })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   const address = server.address() as AddressInfo
   return {
@@ -1534,6 +1536,173 @@ test('a refunded report can be bought again once, and not after a second refund'
       entitlements: (await tx.findMany('entitlements', { userId: owner.userId })).map((entitlement) => entitlement.status)
     }))
     assert.deepEqual(ledger, { orders: ['REFUNDED', 'REFUNDED'], entitlements: ['REVOKED', 'REVOKED'] })
+  } finally {
+    await app.close()
+  }
+})
+
+async function payForGrowth(app: Awaited<ReturnType<typeof listen>>, owner: Awaited<ReturnType<typeof createProfile>>, assessmentId: string, key: string) {
+  const order = await jsonRequest(app.base, `/v1/assessments/${assessmentId}/orders`, {
+    method: 'POST', headers: { ...owner.headers, 'Idempotency-Key': key }, body: JSON.stringify({ productCode: GROWTH_DISCOVERY_PRODUCT_CODE })
+  })
+  assert.equal(order.response.status, 201, JSON.stringify(order.body))
+  const prepay = await jsonRequest(app.base, `/v1/orders/${order.body.orderId}/virtual-payment`, {
+    method: 'POST', headers: owner.headers, body: JSON.stringify({ code: owner.loginCode })
+  })
+  assert.equal(prepay.response.status, 200, JSON.stringify(prepay.body))
+  return { orderId: order.body.orderId as string, outTradeNo: prepay.body.outTradeNo as string }
+}
+
+test('a child keeps a record of every questionnaire; drafts and unpaid student questionnaires can be deleted, the rest taken again', async () => {
+  const app = await listen()
+  try {
+    const owner = await createProfile(app, 'education-http-records', '7')
+    const free = await completeLevelOne(app, owner, 'GAOKAO', 'records-free')
+    const growth = await completeLevelTwo(app, owner, free.assessmentId, 'GAOKAO', 'records-growth')
+    const records = async () => {
+      const listed = await jsonRequest(app.base, `/v1/students/${owner.studentId}/education-assessments`, { headers: owner.headers })
+      assert.equal(listed.response.status, 200, JSON.stringify(listed.body))
+      return listed.body.assessments as Array<Record<string, any>>
+    }
+    const remove = (assessmentId: string) => jsonRequest(app.base, `/v1/assessments/${assessmentId}`, { method: 'DELETE', headers: owner.headers })
+
+    let listed = await records()
+    assert.deepEqual(listed.map((item) => [item.assessmentId, item.level, item.status, item.resultState, item.canDelete, item.canRedo]), [
+      [growth.assessmentId, 2, 'SUBMITTED', 'LOCKED', true, true],
+      [free.assessmentId, 1, 'SUBMITTED', 'READY', false, true]
+    ])
+    assert.equal(listed[1]!.deleteBlockedReason, 'ASSESSMENT_RESULT_READY')
+
+    // The family questionnaire has its free result: it cannot be deleted, only taken again.
+    const refused = await remove(free.assessmentId)
+    assert.equal(refused.response.status, 409)
+    assert.equal(refused.body.error.code, 'ASSESSMENT_RESULT_READY')
+    const again = await jsonRequest(app.base, '/v1/education-compass/free-parent-assessments', {
+      method: 'POST', headers: { ...owner.headers, 'Idempotency-Key': 'records-free-again' }, body: JSON.stringify(freeCreateBody(owner.studentId))
+    })
+    assert.equal(again.response.status, 201, JSON.stringify(again.body))
+    // Resetting a draft saves it with no answers.
+    const partial = await jsonRequest(app.base, `/v1/assessments/${again.body.assessmentId}/draft`, {
+      method: 'PUT', headers: owner.headers,
+      body: JSON.stringify({ revision: again.body.revision, answers: { FP01: 'UPPER_SECONDARY' }, clientSaveToken: 'records-partial' })
+    })
+    assert.equal(partial.response.status, 200, JSON.stringify(partial.body))
+    const cleared = await jsonRequest(app.base, `/v1/assessments/${again.body.assessmentId}/draft`, {
+      method: 'PUT', headers: owner.headers, body: JSON.stringify({ revision: partial.body.revision, answers: {}, clientSaveToken: 'records-reset' })
+    })
+    assert.equal(cleared.response.status, 200, JSON.stringify(cleared.body))
+    assert.equal(cleared.body.completenessCoverage, 0)
+    listed = await records()
+    assert.equal(listed.length, 3)
+    assert.deepEqual([listed[0]!.assessmentId, listed[0]!.status, listed[0]!.canDelete, listed[0]!.canReset],
+      [again.body.assessmentId, 'DRAFT', true, true])
+    assert.equal((await remove(again.body.assessmentId)).response.status, 200)
+    assert.deepEqual((await records()).map((item) => item.assessmentId), [growth.assessmentId, free.assessmentId])
+
+    // An unpaid student questionnaire goes with its locked report; its open order is closed and kept.
+    const order = await jsonRequest(app.base, `/v1/assessments/${growth.assessmentId}/orders`, {
+      method: 'POST', headers: { ...owner.headers, 'Idempotency-Key': 'records-order' }, body: JSON.stringify({ productCode: GROWTH_DISCOVERY_PRODUCT_CODE })
+    })
+    assert.equal(order.response.status, 201, JSON.stringify(order.body))
+    assert.equal((await remove(growth.assessmentId)).response.status, 200)
+    const after = await app.store.read(async (tx) => ({
+      report: await tx.findById('reports', growth.reportId),
+      order: await tx.findById('orders', order.body.orderId)
+    }))
+    assert.ok(!after.report, 'the locked report is deleted with its questionnaire')
+    assert.deepEqual([after.order?.status, after.order?.assessmentId, after.order?.reportId], ['CANCELLED', null, null])
+
+    // A student questionnaire whose report was bought cannot be deleted.
+    const paid = await completeLevelTwo(app, owner, free.assessmentId, 'GAOKAO', 'records-paid')
+    const payment = await payForGrowth(app, owner, paid.assessmentId, 'records-paid-order')
+    app.mockPay.setOrderState(payment.outTradeNo, 'SUCCESS')
+    assert.equal((await postPush(app.base, app.mockPay.deliveryEvent(payment.outTradeNo))).status, 200)
+    const purchased = await remove(paid.assessmentId)
+    assert.equal(purchased.response.status, 409)
+    assert.equal(purchased.body.error.code, 'ASSESSMENT_PURCHASED')
+    assert.deepEqual((await records()).map((item) => [item.level, item.resultState, item.canDelete]), [[2, 'UNLOCKED', false], [1, 'READY', false]])
+  } finally {
+    await app.close()
+  }
+})
+
+test('deleting a child removes its questionnaires but keeps purchased reports and their orders in the order history', async () => {
+  const app = await listen()
+  try {
+    const owner = await createProfile(app, 'education-http-child-delete', '8')
+    const addChild = async (name: string) => {
+      const created = await jsonRequest(app.base, '/v1/me/students', {
+        method: 'POST', headers: owner.headers, body: JSON.stringify({ name, age: 12, educationSystem: 'GAOKAO', grade: 'UPPER_SECONDARY' })
+      })
+      assert.equal(created.response.status, 201, JSON.stringify(created.body))
+      return { ...owner, studentId: created.body.student.id as string }
+    }
+    const removeChild = (studentId: string, confirm?: string) => jsonRequest(app.base, `/v1/me/students/${studentId}`, {
+      method: 'DELETE', headers: owner.headers, body: JSON.stringify(confirm ? { confirm } : {})
+    })
+
+    // Child A bought a report and has a draft started afterwards.
+    const free = await completeLevelOne(app, owner, 'GAOKAO', 'child-a-free')
+    const growth = await completeLevelTwo(app, owner, free.assessmentId, 'GAOKAO', 'child-a-growth')
+    const payment = await payForGrowth(app, owner, growth.assessmentId, 'child-a-order')
+    app.mockPay.setOrderState(payment.outTradeNo, 'SUCCESS')
+    assert.equal((await postPush(app.base, app.mockPay.deliveryEvent(payment.outTradeNo))).status, 200)
+    const draft = await jsonRequest(app.base, '/v1/education-compass/free-parent-assessments', {
+      method: 'POST', headers: { ...owner.headers, 'Idempotency-Key': 'child-a-draft' }, body: JSON.stringify(freeCreateBody(owner.studentId))
+    })
+    assert.equal(draft.response.status, 201, JSON.stringify(draft.body))
+    // Child B only has a free result; child C is in the middle of paying.
+    const childB = await addChild('合成学生8B')
+    await completeLevelOne(app, childB, 'GAOKAO', 'child-b-free')
+    const childC = await addChild('合成学生8C')
+    const freeC = await completeLevelOne(app, childC, 'GAOKAO', 'child-c-free')
+    const growthC = await completeLevelTwo(app, childC, freeC.assessmentId, 'GAOKAO', 'child-c-growth')
+    await payForGrowth(app, childC, growthC.assessmentId, 'child-c-order')
+
+    const unconfirmed = await removeChild(childB.studentId)
+    assert.equal(unconfirmed.response.status, 400)
+    assert.equal(unconfirmed.body.error.code, 'STUDENT_DELETION_NOT_CONFIRMED')
+    const inFlight = await removeChild(childC.studentId, 'DELETE_STUDENT')
+    assert.equal(inFlight.response.status, 409)
+    assert.equal(inFlight.body.error.code, 'STUDENT_PAYMENT_IN_PROGRESS')
+
+    const hard = await removeChild(childB.studentId, 'DELETE_STUDENT')
+    assert.equal(hard.response.status, 200, JSON.stringify(hard.body))
+    assert.equal(hard.body.deletion.mode, 'HARD')
+    const goneB = await app.store.read(async (tx) => ({
+      student: Boolean(await tx.findById('students', childB.studentId)),
+      assessments: (await tx.findMany('assessments', { studentId: childB.studentId })).length,
+      reports: (await tx.findMany('reports', { studentId: childB.studentId })).length,
+      grants: (await tx.findMany('consentGrants', { studentId: childB.studentId })).length
+    }))
+    assert.deepEqual(goneB, { student: false, assessments: 0, reports: 0, grants: 0 })
+
+    const retained = await removeChild(owner.studentId, 'DELETE_STUDENT')
+    assert.equal(retained.response.status, 200, JSON.stringify(retained.body))
+    assert.deepEqual([retained.body.deletion.mode, retained.body.deletion.retainedReports], ['RETAINED_PURCHASES', 1])
+    // The child is gone from every list and cannot start anything new.
+    const students = await jsonRequest(app.base, '/v1/me/students', { headers: owner.headers })
+    assert.deepEqual(students.body.students.map((student: any) => student.id), [childC.studentId])
+    const state = await jsonRequest(app.base, '/v1/me/education-compass/state', { headers: owner.headers })
+    assert.deepEqual(state.body.students.map((item: any) => item.studentId), [childC.studentId])
+    assert.equal((await jsonRequest(app.base, `/v1/students/${owner.studentId}/education-assessments`, { headers: owner.headers })).response.status, 404)
+    const restart = await jsonRequest(app.base, '/v1/education-compass/free-parent-assessments', {
+      method: 'POST', headers: { ...owner.headers, 'Idempotency-Key': 'child-a-restart' }, body: JSON.stringify(freeCreateBody(owner.studentId))
+    })
+    assert.equal(restart.response.status, 404)
+    assert.equal((await removeChild(owner.studentId, 'DELETE_STUDENT')).response.status, 404)
+    // The purchased report and its order stay in the order history and still open.
+    const history = await jsonRequest(app.base, '/v1/me/orders', { headers: owner.headers })
+    assert.equal(history.response.status, 200, JSON.stringify(history.body))
+    const bought = history.body.orders.find((item: any) => item.orderId === payment.orderId)
+    assert.deepEqual([bought.status, bought.canViewReport, bought.studentDeleted, bought.studentName, bought.reportId],
+      ['PAID', true, true, '合成学生8', growth.reportId])
+    const result = await jsonRequest(app.base, `/v1/assessments/${growth.assessmentId}/result`, { headers: owner.headers })
+    assert.equal(result.response.status, 200, JSON.stringify(result.body))
+    assert.equal(result.body.resultState, 'READY')
+    // Only the purchase and the free result it was based on are kept; the later draft is deleted.
+    const keptA = await app.store.read(async (tx) => (await tx.findMany('assessments', { studentId: owner.studentId })).map((item) => item.id).sort())
+    assert.deepEqual(keptA, [free.assessmentId, growth.assessmentId].sort())
   } finally {
     await app.close()
   }

@@ -8,7 +8,7 @@ import {
   STUDENT_ASSESSMENT_ASSENT_VERSION
 } from '../domain/education-compass/consent-policy'
 import { COMPASS_PRODUCT_CODE, defaultProductDeliverables, defaultProducts, GROWTH_DISCOVERY_PRODUCT_CODE } from '../domain/products'
-import { Order, OrderStatus, Refund, RefundStatus } from '../domain/model'
+import { Order, OrderStatus, Refund, RefundStatus, Student } from '../domain/model'
 import { PLACEHOLDER_SOURCE_CATALOG, SourceCatalog } from '../domain/source-catalog'
 import { PayerSession, PaymentProvider, RefundResult, TransactionResult } from '../payments/payment-provider'
 import { VirtualPaymentRequest } from '../payments/wechat-virtual-payment'
@@ -320,6 +320,38 @@ export class OrderService {
         status: 'PENDING', outTradeNo: attemptNo, paymentParams: { attempts: [...attempts, attemptNo] }, updatedAt: iso(this.clock)
       })
       return { orderId, status: 'PENDING', outTradeNo: attemptNo, virtualPayment: this.provider.createPayment(updated, payer) }
+    })
+  }
+
+  /**
+   * 历史订单：本账号的全部订单，新的在前。已删除孩子的已购报告也在这里，仍可打开（2026-10-14 定）。
+   * 只读，不触发查单；单笔订单的状态刷新仍走 getOrder。
+   */
+  async listOrders(userId: string): Promise<Array<OrderDto & {
+    createdAt: string; assessmentId: string | null; studentId: string | null
+    studentName: string | null; studentDeleted: boolean; canViewReport: boolean
+  }>> {
+    return this.store.read(async (tx) => {
+      const orders = (await tx.findMany('orders', { userId }))
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id))
+      const students = new Map<string, Student | null>()
+      const result = []
+      for (const order of orders) {
+        if (order.studentId && !students.has(order.studentId)) {
+          students.set(order.studentId, await tx.findById('students', order.studentId))
+        }
+        const student = order.studentId ? students.get(order.studentId) ?? null : null
+        result.push({
+          ...dto(order),
+          createdAt: order.createdAt,
+          assessmentId: order.assessmentId,
+          studentId: order.studentId,
+          studentName: student?.name ?? null,
+          studentDeleted: Boolean(student?.deletedAt),
+          canViewReport: order.status === 'PAID' && Boolean(order.reportId)
+        })
+      }
+      return result
     })
   }
 

@@ -1,7 +1,8 @@
 import { AppError, invariant } from '../domain/errors'
-import { TableName } from '../domain/model'
+import { Assessment, TableName } from '../domain/model'
 import { Store, StoreTransaction } from '../store/store'
 import { Clock, IdFactory, iso, randomId, systemClock } from '../utils/runtime'
+import { dependencyOrder, PersonalDataRemoval } from './personal-data-removal'
 
 /**
  * 账号注销。
@@ -28,22 +29,16 @@ export interface AccountDeletionReceipt {
   retainedOrders: number
 }
 
-/**
- * 把测评排成可以逐条删除的顺序：被别的测评引用的排在后面。
- * 引用链可能不止两级，所以一轮一轮剥：每轮取出当前没有被剩余测评引用的。
- */
-export function dependencyOrder<T extends { id: string; sourceAssessmentId?: string | null }>(items: T[]): T[] {
-  const remaining = [...items]
-  const ordered: T[] = []
-  while (remaining.length) {
-    const referenced = new Set(remaining.map((item) => item.sourceAssessmentId).filter(Boolean))
-    const leaves = remaining.filter((item) => !referenced.has(item.id))
-    // 有环（数据本身不该出现）时不死循环：剩下的原样追加，让数据库的约束报出真实错误。
-    if (!leaves.length) return ordered.concat(remaining)
-    ordered.push(...leaves)
-    for (const leaf of leaves) remaining.splice(remaining.indexOf(leaf), 1)
-  }
-  return ordered
+export { dependencyOrder }
+
+/** 删除一个孩子档案的回执，只含数量。 */
+export interface StudentDeletionReceipt {
+  studentId: string
+  deletedAt: string
+  /** HARD：孩子和他的资料全部删除；RETAINED_PURCHASES：买过报告，孩子行标记删除，已购报告和订单保留。 */
+  mode: 'HARD' | 'RETAINED_PURCHASES'
+  retainedReports: number
+  deletedRows: Readonly<Record<string, number>>
 }
 
 export class AccountService {
@@ -149,6 +144,85 @@ export class AccountService {
       })
 
       return { deletedAt: now, deletedRows: counts, retainedOrders: orders.length }
+    })
+  }
+
+  /**
+   * 删除一个孩子档案（家庭档案本身不能删，只能整号注销）。
+   *
+   * 规则（2026-10-14 定）：已经买过的报告和订单保留在历史订单里。所以买过报告的孩子只把档案标记
+   * 为已删除：已购报告、它所依据的问卷和同意记录原样保留，仍可从订单打开；其余问卷、结果和未购买
+   * 的报告删除。没买过报告的孩子连同全部资料直接删除。有支付或退款正在进行时拒绝，等结果出来。
+   */
+  async deleteStudent(userId: string, studentId: string): Promise<StudentDeletionReceipt> {
+    return this.store.transaction(async (tx) => {
+      const student = await tx.findById('students', studentId, { forUpdate: true })
+      invariant(student && !student.deletedAt, 404, 'STUDENT_NOT_FOUND', '孩子档案不存在')
+      const family = await tx.findById('families', student.familyId)
+      invariant(family?.userId === userId, 403, 'STUDENT_FORBIDDEN', '无权删除该孩子档案')
+
+      const now = iso(this.clock)
+      const orders = await tx.findMany('orders', { userId, studentId })
+      invariant(!orders.some((order) => order.status === 'PENDING' || order.status === 'REFUNDING'), 409,
+        'STUDENT_PAYMENT_IN_PROGRESS', '这个孩子有正在进行的支付或退款，处理完成后再删除')
+
+      const assessments = await tx.findMany('assessments', { userId, studentId })
+      const byId = new Map(assessments.map((item) => [item.id, item]))
+      const paidReportIds = new Set(orders.filter((order) => order.status === 'PAID' && order.reportId).map((order) => order.reportId))
+      // 已购报告依据的问卷，以及它的来源问卷（第二级通过 sourceAssessmentId RESTRICT 指向第一级）。
+      const retained = new Set<string>()
+      for (const assessment of assessments) {
+        if (!assessment.reportId || !paidReportIds.has(assessment.reportId)) continue
+        let current: Assessment | undefined = assessment
+        while (current && !retained.has(current.id)) {
+          retained.add(current.id)
+          current = current.sourceAssessmentId ? byId.get(current.sourceAssessmentId) : undefined
+        }
+      }
+      const doomedAssessments = assessments.filter((item) => !retained.has(item.id))
+      const doomedIds = new Set(doomedAssessments.map((item) => item.id))
+      const reports = (await tx.findMany('reports', { userId, studentId }))
+        .filter((report) => doomedIds.has(report.assessmentId))
+      // 只要还有已付款的订单就不整行删除：哪怕找不到它对应的问卷，也不能连带删掉已购报告。
+      const hard = retained.size === 0 && !orders.some((order) => order.status === 'PAID')
+
+      const removal = new PersonalDataRemoval(tx, now)
+      await removal.detachOrders(
+        orders.filter((order) => order.status !== 'PAID' && (!order.assessmentId || doomedIds.has(order.assessmentId))),
+        { student: hard }
+      )
+      await removal.removeReports(reports)
+      await removal.removeAssessments(doomedAssessments)
+      if (hard) {
+        const conversations = await tx.findMany('agentConversations', { studentId })
+        for (const conversation of conversations) {
+          await removal.removeAll('agentMessages', await tx.findMany('agentMessages', { conversationId: conversation.id }))
+          await removal.removeAll('agentRuns', await tx.findMany('agentRuns', { conversationId: conversation.id }))
+        }
+        await removal.removeAll('agentConversations', conversations)
+        await removal.removeAll('agentConsents', await tx.findMany('agentConsents', { studentId }))
+        for (const request of await tx.findMany('advisorRequests', { studentId })) {
+          await tx.update('advisorRequests', request.id, { studentId: null, updatedAt: now })
+        }
+        await removal.removeAll('integrationLinks', await tx.findMany('integrationLinks', { entityId: studentId }))
+        // 同意记录排在测评之后：assessments 通过 RESTRICT 指向它们。
+        await removal.removeAll('consents', await tx.findMany('consents', { studentId }))
+        await removal.removeAll('consentGrants', await tx.findMany('consentGrants', { studentId }))
+        await removal.removeAll('students', [student])
+      } else {
+        // 已购报告的访问要检查它的同意记录，所以买过报告的孩子保留全部同意记录。
+        await tx.update('students', studentId, { deletedAt: now, updatedAt: now })
+      }
+
+      const receipt: StudentDeletionReceipt = {
+        studentId, deletedAt: now, mode: hard ? 'HARD' : 'RETAINED_PURCHASES',
+        retainedReports: paidReportIds.size, deletedRows: removal.counts
+      }
+      await tx.insert('auditLogs', {
+        id: this.ids('aud'), actorUserId: userId, action: 'STUDENT_DELETED', entityType: 'students', entityId: studentId,
+        metadata: { mode: receipt.mode, retainedReports: receipt.retainedReports, deletedRows: removal.counts }, createdAt: now
+      })
+      return receipt
     })
   }
 

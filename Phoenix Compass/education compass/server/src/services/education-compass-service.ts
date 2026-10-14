@@ -42,6 +42,7 @@ import {
   ConsentGrant,
   EducationSourceEntry,
   IdempotencyRecord,
+  Order,
   Report,
   ReportModule,
   Student
@@ -50,7 +51,29 @@ import { GROWTH_DISCOVERY_PRODUCT_CODE } from '../domain/products'
 import { Store, StoreTransaction } from '../store/store'
 import { fenceAgentStudentAccess } from '../store/agent-repository'
 import { Clock, IdFactory, iso, randomId, systemClock } from '../utils/runtime'
+import { PersonalDataRemoval } from './personal-data-removal'
 import { appendTimeline } from './profile-service'
+
+/**
+ * Why a questionnaire cannot be deleted, or null when it can (rules decided 2026-10-14): a draft can
+ * always go; a family questionnaire that has its free result cannot, it can be taken again instead;
+ * a student questionnaire cannot once its report was ever paid for, refunded ones included, because
+ * the one re-purchase allowed after a refund is counted per questionnaire, nor while a payment is
+ * in flight.
+ */
+function assessmentDeletionBlocker(assessment: Assessment, orders: Order[]): { code: string; message: string } | null {
+  if (assessment.status === 'DRAFT') return null
+  if (assessment.assessmentKind === 'FREE_PARENT_COMPASS') {
+    return { code: 'ASSESSMENT_RESULT_READY', message: '家长问卷已经出了结果，不能删除；可以重新测评' }
+  }
+  if (orders.some((order) => order.status === 'PENDING')) {
+    return { code: 'ASSESSMENT_PAYMENT_IN_PROGRESS', message: '这份问卷有正在进行的支付，支付结果出来前不能删除' }
+  }
+  if (orders.some((order) => order.status === 'PAID' || order.status === 'REFUNDING' || order.status === 'REFUNDED')) {
+    return { code: 'ASSESSMENT_PURCHASED', message: '这份问卷的报告已经买过，不能删除' }
+  }
+  return null
+}
 
 const SOURCE_ENTRIES: readonly EducationSourceEntry[] = [
   'MINIPROGRAM_HOME', 'LEVEL_1_RESULT', 'DIRECT_LEVEL_2', 'XIAOHONGSHU_CONTENT',
@@ -185,6 +208,7 @@ export class EducationCompassService {
       const family = await tx.findOne('families', { userId })
       if (!family) return { familyId: null, students: [], nextAction: 'CREATE_FAMILY_PROFILE' }
       const students = (await tx.findMany('students', { familyId: family.id }))
+        .filter((student) => !student.deletedAt)
         .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id))
       const states: Array<Record<string, unknown>> = []
       for (const student of students) {
@@ -262,7 +286,7 @@ export class EducationCompassService {
       const replay = await this.findIdempotency(tx, userId, 'ASSESSMENT_CREATE', key, input)
       if (replay) return this.requireAssessmentResource(tx, replay)
       const student = await tx.findById('students', input.studentId, { forUpdate: true })
-      invariant(student, 404, 'STUDENT_NOT_FOUND', '学生档案不存在')
+      invariant(student && !student.deletedAt, 404, 'STUDENT_NOT_FOUND', '学生档案不存在')
       const family = await tx.findById('families', student.familyId)
       invariant(family?.userId === userId, 403, 'ASSESSMENT_FORBIDDEN', '学生不属于当前家庭')
       const consent = await this.ensureActiveConsent(tx, {
@@ -304,7 +328,7 @@ export class EducationCompassService {
       const replay = await this.findIdempotency(tx, userId, 'ASSESSMENT_CREATE', key, { studentId, ...input })
       if (replay) return this.requireAssessmentResource(tx, replay)
       const student = await tx.findById('students', studentId, { forUpdate: true })
-      invariant(student, 404, 'STUDENT_NOT_FOUND', '学生档案不存在')
+      invariant(student && !student.deletedAt, 404, 'STUDENT_NOT_FOUND', '学生档案不存在')
       const family = await tx.findById('families', student.familyId)
       invariant(family?.userId === userId, 403, 'ASSESSMENT_FORBIDDEN', '学生不属于当前家庭')
       const source = await tx.findById('assessments', input.sourceAssessmentId, { forUpdate: true })
@@ -594,7 +618,7 @@ export class EducationCompassService {
     const now = iso(this.clock)
     return this.store.transaction(async (tx) => {
       const student = await tx.findById('students', body.studentId as string)
-      invariant(student, 404, 'STUDENT_NOT_FOUND', '学生档案不存在')
+      invariant(student && !student.deletedAt, 404, 'STUDENT_NOT_FOUND', '学生档案不存在')
       const family = await tx.findById('families', student.familyId)
       invariant(family?.userId === userId, 403, 'CONSENT_FORBIDDEN', '无权管理该学生同意')
       const active = await tx.findOne('consentGrants', {
@@ -745,6 +769,82 @@ export class EducationCompassService {
     return assessment.assessmentKind === 'FREE_PARENT_COMPASS'
       ? getEducationCompassQuestionnaireBank('LEVEL_1', null, assessment.questionnaireVersion)
       : getEducationCompassQuestionnaireBank('LEVEL_2', assessment.educationSystem as EducationSystem, assessment.questionnaireVersion)
+  }
+
+  /** 一个孩子的全部问卷（问卷记录），新的在前；每份都带上现在能做的操作，客户端照着显示按钮。 */
+  async listAssessments(userId: string, studentId: string): Promise<Array<Record<string, unknown>>> {
+    return this.store.read(async (tx) => {
+      const student = await tx.findById('students', studentId)
+      invariant(student && !student.deletedAt, 404, 'STUDENT_NOT_FOUND', '学生档案不存在')
+      const family = await tx.findById('families', student.familyId)
+      invariant(family?.userId === userId, 403, 'ASSESSMENT_FORBIDDEN', '学生不属于当前家庭')
+      const assessments = (await tx.findMany('assessments', { userId, studentId }))
+        .filter((item) => item.assessmentKind === 'FREE_PARENT_COMPASS' || item.assessmentKind === 'STUDENT_GROWTH_DISCOVERY')
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id))
+      const records: Array<Record<string, unknown>> = []
+      for (const assessment of assessments) {
+        const orders = await tx.findMany('orders', { userId, assessmentId: assessment.id })
+        const consentActive = await this.hasActiveAssessmentConsents(tx, assessment)
+        const entitlement = assessment.reportId
+          ? await tx.findOne('entitlements', { userId, reportId: assessment.reportId, status: 'ACTIVE' })
+          : null
+        const latestOrder = [...orders].sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+        const blocker = assessmentDeletionBlocker(assessment, orders)
+        const submitted = assessment.status === 'SUBMITTED'
+        records.push({
+          assessmentId: assessment.id,
+          assessmentKind: assessment.assessmentKind,
+          level: assessment.assessmentKind === 'FREE_PARENT_COMPASS' ? 1 : 2,
+          status: assessment.status,
+          createdAt: assessment.createdAt,
+          updatedAt: assessment.updatedAt,
+          submittedAt: assessment.submittedAt ?? null,
+          completenessCoverage: assessment.completenessScore,
+          sourceAssessmentId: assessment.sourceAssessmentId ?? null,
+          reportId: assessment.reportId ?? null,
+          resultState: !submitted
+            ? 'NONE'
+            : assessment.assessmentKind === 'FREE_PARENT_COMPASS'
+              ? 'READY'
+              : entitlement?.productCode === GROWTH_DISCOVERY_PRODUCT_CODE ? 'UNLOCKED' : 'LOCKED',
+          paymentStatus: latestOrder?.status ?? null,
+          consentActive,
+          canDelete: blocker === null,
+          deleteBlockedReason: blocker?.code ?? null,
+          canReset: !submitted && consentActive,
+          canRedo: submitted && consentActive
+        })
+      }
+      return records
+    })
+  }
+
+  /**
+   * 删除一份问卷，规则见 assessmentDeletionBlocker。锁定的报告随问卷一起删；订单是财务记录，
+   * 只和问卷、报告脱钩，还停在 CREATED 的关掉。
+   */
+  async deleteAssessment(userId: string, assessmentId: string): Promise<Record<string, unknown>> {
+    const now = iso(this.clock)
+    return this.store.transaction(async (tx) => {
+      const assessment = await this.ownedAssessment(tx, userId, assessmentId, true)
+      const orders = await tx.findMany('orders', { userId, assessmentId: assessment.id })
+      const blocker = assessmentDeletionBlocker(assessment, orders)
+      if (blocker) throw new AppError(409, blocker.code, blocker.message)
+      const followUps = await tx.findMany('assessments', { userId, sourceAssessmentId: assessment.id })
+      invariant(followUps.length === 0, 409, 'ASSESSMENT_HAS_FOLLOW_UP', '这份问卷之后还有学生问卷，请先处理学生问卷')
+      const removal = new PersonalDataRemoval(tx, now)
+      await removal.detachOrders(orders, { student: false })
+      const report = assessment.reportId ? await tx.findById('reports', assessment.reportId, { forUpdate: true }) : null
+      if (report) await removal.removeReports([report])
+      await removal.removeAssessments([assessment])
+      await tx.insert('auditLogs', {
+        id: this.ids('aud'), actorUserId: userId, action: 'ASSESSMENT_DELETED', entityType: 'assessments',
+        entityId: assessment.id,
+        metadata: { assessmentKind: assessment.assessmentKind, status: assessment.status, deletedRows: removal.counts },
+        createdAt: now
+      })
+      return { assessmentId: assessment.id, deleted: true }
+    })
   }
 
   private async ownedAssessment(tx: StoreTransaction, userId: string, assessmentId: string, forUpdate = false): Promise<Assessment> {

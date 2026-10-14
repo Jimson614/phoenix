@@ -328,6 +328,18 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
           ]) as unknown as StudentInput
           return json(response, 200, { student: await deps.profiles.updateStudent(user.id, studentId, body) })
         }
+        // 删除一个孩子档案：不可撤销，和注销账号一样要求客户端回传确认串。
+        if (method === 'DELETE') {
+          invariant(deps.accounts, 503, 'STUDENT_DELETION_DISABLED', '孩子档案删除功能尚未配置')
+          const body = exactBody(parseJson(await readRawBody(request)), ['confirm'])
+          invariant(body.confirm === 'DELETE_STUDENT', 400, 'STUDENT_DELETION_NOT_CONFIRMED', '缺少删除确认')
+          return json(response, 200, { deletion: await deps.accounts.deleteStudent(user.id, studentId) })
+        }
+      }
+
+      if (method === 'GET' && url.pathname === '/v1/me/orders') {
+        exactQuery(url)
+        return json(response, 200, { orders: await deps.orders.listOrders(user.id) })
       }
 
       if (method === 'GET' && url.pathname === '/v1/me/reports') {
@@ -435,6 +447,13 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
       }
 
       const createAssessment = url.pathname.match(/^\/v1\/students\/([^/]+)\/education-assessments$/)
+      if (method === 'GET' && createAssessment?.[1]) {
+        exactQuery(url)
+        invariant(deps.education, 503, 'EDUCATION_COMPASS_V05_DISABLED', '新版 Education Compass 尚未配置')
+        return json(response, 200, {
+          assessments: await deps.education.listAssessments(user.id, pathSegment(createAssessment[1], '学生 ID'))
+        })
+      }
       if (method === 'POST' && createAssessment?.[1]) {
         exactQuery(url)
         const rawBody = parseJson(await readRawBody(request))
@@ -468,6 +487,13 @@ export function createHttpHandler(deps: AppDependencies): (request: IncomingMess
           status: assessment.status,
           questionnaireVersion: assessment.questionnaireVersion
         })
+      }
+
+      const ownAssessment = url.pathname.match(/^\/v1\/assessments\/([^/]+)$/)
+      if (method === 'DELETE' && ownAssessment?.[1]) {
+        exactQuery(url)
+        invariant(deps.education, 503, 'EDUCATION_COMPASS_V05_DISABLED', '新版 Education Compass 尚未配置')
+        return json(response, 200, await deps.education.deleteAssessment(user.id, pathSegment(ownAssessment[1], '测评 ID')))
       }
 
       const assessmentQuestionnaire = url.pathname.match(/^\/v1\/assessments\/([^/]+)\/questionnaire$/)

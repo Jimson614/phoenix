@@ -149,6 +149,7 @@ export class ProfileService {
       const family = await tx.findOne('families', { userId })
       if (!family) return []
       return (await tx.findMany('students', { familyId: family.id }))
+        .filter((student) => !student.deletedAt)
         .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id))
     })
   }
@@ -176,7 +177,7 @@ export class ProfileService {
   async getStudent(userId: string, studentId: string): Promise<Student> {
     return this.store.read(async (tx) => {
       const student = await tx.findById('students', studentId)
-      invariant(student, 404, 'STUDENT_NOT_FOUND', '孩子档案不存在')
+      invariant(student && !student.deletedAt, 404, 'STUDENT_NOT_FOUND', '孩子档案不存在')
       const family = await tx.findById('families', student.familyId)
       invariant(family?.userId === userId, 403, 'STUDENT_FORBIDDEN', '无权访问该孩子档案')
       return student
@@ -188,7 +189,7 @@ export class ProfileService {
     const normalized = this.normalizeStudent(input)
     return this.store.transaction(async (tx) => {
       const student = await tx.findById('students', studentId, { forUpdate: true })
-      invariant(student, 404, 'STUDENT_NOT_FOUND', '孩子档案不存在')
+      invariant(student && !student.deletedAt, 404, 'STUDENT_NOT_FOUND', '孩子档案不存在')
       const family = await tx.findById('families', student.familyId)
       invariant(family?.userId === userId, 403, 'STUDENT_FORBIDDEN', '无权修改该孩子档案')
       const revision = Number(student.studentVersion.replace(/^v/, ''))
@@ -304,7 +305,7 @@ export class ProfileService {
       let selectedReport: Report | null = null
       if (input.studentId) {
         const student = await tx.findById('students', input.studentId)
-        invariant(student?.familyId === family.id, 403, 'ADVISOR_STUDENT_FORBIDDEN', '孩子档案不属于当前家庭')
+        invariant(student?.familyId === family.id && !student.deletedAt, 403, 'ADVISOR_STUDENT_FORBIDDEN', '孩子档案不属于当前家庭')
       }
       if (input.reportId) {
         selectedReport = await tx.findById('reports', input.reportId)
@@ -425,7 +426,7 @@ export class ProfileService {
       const studentId = input.studentId ?? null
       if (studentId) {
         const student = await tx.findById('students', studentId)
-        invariant(student?.familyId === family.id, 403, 'ADVISOR_STUDENT_FORBIDDEN', '孩子档案不属于当前家庭')
+        invariant(student?.familyId === family.id && !student.deletedAt, 403, 'ADVISOR_STUDENT_FORBIDDEN', '孩子档案不属于当前家庭')
       }
       const subjectType = studentId ? 'STUDENT' as const : 'FAMILY' as const
       const subjectId = studentId ?? family.id

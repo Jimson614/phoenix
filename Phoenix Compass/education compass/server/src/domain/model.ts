@@ -99,6 +99,8 @@ export interface Student {
   profileStatus?: 'PROVISIONAL' | 'COMPLETE_FOR_LEVEL_2' | 'COMPLETE' | 'LEGACY_COMPLETE'
   profileSchemaVersion?: string
   gradeStage?: string | null
+  /** Set when the family deleted this child but purchased reports keep the row (migration 011). */
+  deletedAt?: string | null
   createdAt: string
   updatedAt: string
 }
