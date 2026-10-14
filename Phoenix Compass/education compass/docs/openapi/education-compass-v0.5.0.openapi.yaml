@@ -110,6 +110,40 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /v1/me/students/{studentId}:
+    delete:
+      tags: [Bootstrap]
+      operationId: deleteStudent
+      description: >-
+        删除一个孩子档案。没买过报告的孩子全部删除；买过报告的标记删除，已购报告和订单保留在历史订单里。
+        有支付或退款正在进行时返回 409 STUDENT_PAYMENT_IN_PROGRESS。
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirm]
+              properties:
+                confirm: { const: DELETE_STUDENT }
+      responses:
+        '200':
+          description: 删除回执，只含数量
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deletion]
+                properties:
+                  deletion: { $ref: '#/components/schemas/StudentDeletionReceipt' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /v1/me/education-compass/state:
     get:
       tags: [Education Compass]
@@ -188,6 +222,27 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
   /v1/students/{studentId}/education-assessments:
+    get:
+      tags: [Education Compass]
+      operationId: listStudentAssessments
+      description: 问卷记录：这个孩子的全部问卷，新的在前，每份带上服务端算好的可做操作。
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200':
+          description: 问卷记录
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [assessments]
+                properties:
+                  assessments:
+                    type: array
+                    items: { $ref: '#/components/schemas/AssessmentRecord' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
     post:
       tags: [Education Compass]
       operationId: createGrowthDiscoveryAssessment
@@ -210,6 +265,30 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/assessments/{assessmentId}:
+    delete:
+      tags: [Education Compass]
+      operationId: deleteAssessment
+      description: >-
+        删除草稿，或已提交但报告从未买过的学生问卷（连同锁定的报告）。已出免费结果的家长问卷、买过的和支付进行中的返回 409。
+      parameters:
+        - $ref: '#/components/parameters/AssessmentId'
+      responses:
+        '200':
+          description: 已删除
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [assessmentId, deleted]
+                properties:
+                  assessmentId: { type: string }
+                  deleted: { const: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
   /v1/assessments/{assessmentId}/questionnaire:
     get:
@@ -382,6 +461,24 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
         '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/me/orders:
+    get:
+      tags: [Payment]
+      operationId: listOrders
+      description: 历史订单：本账号的全部订单，新的在前；已删除孩子的已购报告也在这里。只读，不触发查单。
+      responses:
+        '200':
+          description: 历史订单
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [orders]
+                properties:
+                  orders:
+                    type: array
+                    items: { $ref: '#/components/schemas/OrderHistoryItem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /v1/orders/{orderId}:
     get:
       tags: [Payment]
@@ -1354,6 +1451,48 @@ components:
         reportId: { type: string }
         paidAt: { type: string, format: date-time }
         refundedAt: { type: string, format: date-time }
+    OrderHistoryItem:
+      allOf:
+        - $ref: '#/components/schemas/Order'
+        - type: object
+          required: [createdAt, studentDeleted, canViewReport]
+          properties:
+            createdAt: { type: string, format: date-time }
+            assessmentId: { type: [string, 'null'] }
+            studentId: { type: [string, 'null'] }
+            studentName: { type: [string, 'null'] }
+            studentDeleted: { type: boolean }
+            canViewReport: { type: boolean }
+    StudentDeletionReceipt:
+      type: object
+      required: [studentId, deletedAt, mode, retainedReports, deletedRows]
+      properties:
+        studentId: { type: string }
+        deletedAt: { type: string, format: date-time }
+        mode: { type: string, enum: [HARD, RETAINED_PURCHASES] }
+        retainedReports: { type: integer, minimum: 0 }
+        deletedRows: { type: object, additionalProperties: { type: integer } }
+    AssessmentRecord:
+      type: object
+      required: [assessmentId, assessmentKind, level, status, createdAt, resultState, consentActive, canDelete, canReset, canRedo]
+      properties:
+        assessmentId: { type: string }
+        assessmentKind: { type: string, enum: [FREE_PARENT_COMPASS, STUDENT_GROWTH_DISCOVERY] }
+        level: { type: integer, enum: [1, 2] }
+        status: { type: string, enum: [DRAFT, SUBMITTED] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        submittedAt: { type: [string, 'null'], format: date-time }
+        completenessCoverage: { type: integer, minimum: 0, maximum: 100 }
+        sourceAssessmentId: { type: [string, 'null'] }
+        reportId: { type: [string, 'null'] }
+        resultState: { type: string, enum: [NONE, READY, LOCKED, UNLOCKED] }
+        paymentStatus: { type: [string, 'null'] }
+        consentActive: { type: boolean }
+        canDelete: { type: boolean }
+        deleteBlockedReason: { type: [string, 'null'] }
+        canReset: { type: boolean }
+        canRedo: { type: boolean }
     VirtualPaymentAttempt:
       type: object
       additionalProperties: false

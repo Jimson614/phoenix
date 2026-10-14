@@ -61,6 +61,7 @@
 - `POST /v1/me/students` → `{ "student": Student }`
 - `GET /v1/me/students/:studentId` → `{ "student": Student }`
 - `PUT /v1/me/students/:studentId` → `{ "student": Student }`
+- `DELETE /v1/me/students/:studentId`，请求体 `{ "confirm": "DELETE_STUDENT" }` → `{ "deletion": StudentDeletionReceipt }`
 - `GET /v1/me/reports` → `{ "reports": ReportSummary[] }`
 - `GET /v1/me/timeline` → `{ "events": TimelineEvent[] }`
 - `GET /v1/me/advisor-requests` → `{ "requests": AdvisorRequest[] }`
@@ -69,6 +70,18 @@
 学生档案中，`age` 的规范请求值是 3–100 的整数；为了兼容旧小程序，服务端也接受等价的十进制数字字符串，并把空白值归一为 `null`。`educationSystem` 非空时落库为 `GAOKAO`、`DSE`、`IGCSE`、`A_LEVEL`、`AP_US`、`IB` 或 `OTHER`；服务端会将旧版已发布的显示标签归一为这些编码，未知非空值返回 `400 INVALID_PROFILE`。
 
 服务端从Bearer会话解析owner。资源不属于当前家庭时返回403或404；不得接受客户端传入的owner user ID作为授权依据。
+
+家庭档案只能修改，不能单独删除（整号注销除外）。删除一个孩子档案（2026-10-14 定）：
+
+- 不带确认串返回 `400 STUDENT_DELETION_NOT_CONFIRMED`；这个孩子有 `PENDING` 或 `REFUNDING` 订单时返回 `409 STUDENT_PAYMENT_IN_PROGRESS`。
+- 没买过报告的孩子：孩子、问卷、结果、同意记录全部删除，回执 `mode: "HARD"`。
+- 买过报告的孩子：孩子档案标记删除（`students.deleted_at`，迁移 011），已购报告、它所依据的问卷和同意记录保留，仍可从历史订单打开；其余问卷和结果删除，回执 `mode: "RETAINED_PURCHASES"`、`retainedReports` 为保留的已购报告数。
+- 订单是财务记录，只和被删的问卷、报告脱钩，还停在 `CREATED` 的关闭。
+- 删除后这个孩子不再出现在列表和 Education Compass 状态里，读取、修改、新建问卷、开启同意都返回 `404 STUDENT_NOT_FOUND`（或顾问申请的 `403`）；撤回同意仍然可以。
+
+~~~json
+{ "deletion": { "studentId": "stu_xxx", "deletedAt": "2026-10-14T08:00:00.000Z", "mode": "RETAINED_PURCHASES", "retainedReports": 1, "deletedRows": { "assessments": 1, "reports": 0 } } }
+~~~
 
 ## 4. 测评合同与草稿
 
@@ -102,6 +115,35 @@
 ~~~
 
 服务端验证家庭/学生所有权、studentVersion和版本化同意。未成年人或年龄未知时必须有有效监护人确认。
+
+### GET /v1/students/:studentId/education-assessments
+
+问卷记录：这个孩子的全部 V0.5 问卷，新的在前。每份带上服务端算好的可做操作，客户端照着显示按钮：
+
+~~~json
+{
+  "assessments": [{
+    "assessmentId": "asm_xxx", "assessmentKind": "STUDENT_GROWTH_DISCOVERY", "level": 2, "status": "SUBMITTED",
+    "createdAt": "…", "updatedAt": "…", "submittedAt": "…", "completenessCoverage": 100,
+    "sourceAssessmentId": "asm_level1", "reportId": "rpt_xxx",
+    "resultState": "LOCKED", "paymentStatus": null, "consentActive": true,
+    "canDelete": true, "deleteBlockedReason": null, "canReset": false, "canRedo": true
+  }]
+}
+~~~
+
+`resultState`：`NONE`（填写中）、`READY`（家长问卷已出免费结果）、`LOCKED`（学生问卷已提交、未购买）、`UNLOCKED`（已购买）。`canReset` 只对同意仍有效的草稿为真；`canRedo` 对同意仍有效的已提交问卷为真：家长问卷重新测评就是再建一份，学生问卷用同一份 `sourceAssessmentId` 再建一份。
+
+### DELETE /v1/assessments/:assessmentId
+
+删除一份问卷（2026-10-14 定），返回 `{ "assessmentId": "…", "deleted": true }`：
+
+- 草稿随时能删。
+- 学生问卷提交后没买过的，连同锁定的报告一起删；还停在 `CREATED` 的订单关闭并脱钩。
+- 家长问卷提交后已出免费结果，返回 `409 ASSESSMENT_RESULT_READY`，可以重新测评。
+- 买过的（含已退款的：退款后只能重新购买一次是按问卷计的）返回 `409 ASSESSMENT_PURCHASED`；支付进行中返回 `409 ASSESSMENT_PAYMENT_IN_PROGRESS`。
+
+清空重填不需要单独接口：用当前 `revision` 和空的 `answers` 调一次 `PUT /v1/assessments/:assessmentId/draft`，服务端保存的是整份答案。
 
 ### PUT /v1/assessments/:assessmentId/draft
 
@@ -251,6 +293,10 @@ placeholder、Source版本不一致、生成/QA失败或未锁定报告返回错
 
 客户端把 `virtualPayment` 原样传给 `wx.requestVirtualPayment`。success/cancel/fail 只能改变页面提示，不能修改服务端订单或解锁报告。
 
+### GET /v1/me/orders
+
+历史订单：本账号的全部订单，新的在前，返回 `{ "orders": [...] }`。每笔是 `OrderDto` 加上 `createdAt`、`assessmentId`、`studentId`、`studentName`、`studentDeleted`（孩子档案已删除）和 `canViewReport`（已支付且有报告）。已删除孩子的已购报告也在这里，仍可打开。只读，不触发查单。
+
 ### GET /v1/orders/:orderId
 
 返回扁平 `OrderDto`。对于PENDING订单，服务端可主动查单并通过同一幂等事务完成状态协调；不论客户端轮询多快，微信侧主动查单至少间隔5秒。
@@ -270,7 +316,7 @@ placeholder、Source版本不一致、生成/QA失败或未锁定报告返回错
 
 客户端轮询使用退避和最大等待时间；超时显示“仍在确认”，不能自行把订单标为失败。
 
-`PENDING` 到达 `expiresAt` 时：虚拟支付没有关单接口，服务端逐个查询该订单的全部尝试；有已付款的走正常交付并调用 `notify_provide_goods` 告知已发货；全部未付款时本地写 `CANCELLED`。平台查不到的尝试（买家从未打开支付弹窗）要等过期 30 分钟后才算未付款。`CREATED` 且从未发起支付的过期订单可本地取消。同一测评再次下单前，会先这样处理已过期但仍占着购买位置的订单。
+`PENDING` 到达 `expiresAt` 时：虚拟支付没有关单接口，服务端逐个查询该订单的全部尝试；有已付款的走正常交付并调用 `notify_provide_goods` 告知已发货；全部未付款时本地写 `CANCELLED`。平台明确回答没有这笔单（`268490002`「数据不存在」，买家没付款就关了支付弹窗）算未付款；其他查单错误算情况不明，要等过期 30 分钟后才算未付款。`CREATED` 且从未发起支付的过期订单可本地取消。同一测评再次下单前，会先这样处理已过期但仍占着购买位置的订单。
 
 查单结果按 `query_order` 的 `status` 映射：2/3/4 为已支付，5/7/8 为退款状态，6 为已关闭，其余为未支付。对已支付结果严格核对 3990 分、本环境、尝试号属于该订单和付款 OpenID。
 
@@ -641,6 +687,9 @@ V0.5 owner 可独立、幂等撤回该学生的 `AI_ANALYSIS` 授权；成功返
 | 409 | AGENT_ANALYSIS_IS_ONE_SHOT | 一次性测评/报告分析不接受追加消息 |
 | 409 | REPORT_NOT_LOCKED / REPORT_QA_REQUIRED | 报告未达到收费前门槛 |
 | 409 | REPURCHASE_LIMIT_REACHED | 这份报告已退款两次（退款后只能重新购买一次），不能再下单 |
+| 400 | STUDENT_DELETION_NOT_CONFIRMED | 删除孩子档案缺少确认串 |
+| 409 | STUDENT_PAYMENT_IN_PROGRESS | 这个孩子有支付或退款正在进行，不能删除 |
+| 409 | ASSESSMENT_RESULT_READY / ASSESSMENT_PURCHASED / ASSESSMENT_PAYMENT_IN_PROGRESS / ASSESSMENT_HAS_FOLLOW_UP | 问卷已出免费结果、报告买过、支付进行中或之后还有学生问卷，不能删除 |
 | 409 | ORDER_STATE_CHANGED / ORDER_NOT_PAYABLE | 订单状态不允许操作 |
 | 409 | IDEMPOTENCY_KEY_REUSED / AGENT_RUN_PENDING / AGENT_REPLY_LIMIT_REACHED | Agent幂等冲突、会话已有未决任务或成功回复额度用尽 |
 | 503 | PAID_COMPASS_DISABLED | 购买开关关闭，禁止新的创单或预支付 |
