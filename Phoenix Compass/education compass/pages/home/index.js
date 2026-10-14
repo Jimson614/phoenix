@@ -3,6 +3,7 @@ const assessmentService = require('../../services/assessment')
 const payment = require('../../services/payment')
 const educationCompass = require('../../services/education-compass')
 const educationNavigation = require('../../utils/education-compass-navigation')
+const currentStudent = require('../../utils/current-student')
 const runtime = require('../../config/runtime')
 const session = require('../../services/session')
 const { getNavigationMetrics } = require('../../utils/navigation')
@@ -94,11 +95,17 @@ Page({
   async loadV05(user) {
     this.setData({ loading: true, error: '' })
     try {
-      const [state, family] = await Promise.all([educationCompass.getState(), familyData.getFamily(user.id)])
+      const [rootState, family] = await Promise.all([educationCompass.getState(), familyData.getFamily(user.id)])
       const students = family ? await familyData.getStudents(family.id) : []
       const reports = family ? await familyData.getReports(family.id) : []
-      const primaryStudent = students.find((student) => student.id === state.studentId) || students[0] || null
-      const latestReport = reports.find((report) => report.id === state.reportId) || reports[0] || null
+      // 首页跟着家长选的孩子走；服务端状态里每个孩子各有一份，取当前孩子那份。
+      const currentId = currentStudent.resolve(students, rootState.studentId)
+      const tracked = (rootState.students || []).some((item) => item && item.studentId === currentId)
+      const state = tracked ? educationNavigation.selectStudentState(rootState, currentId) : rootState
+      const primaryStudent = students.find((student) => student.id === currentId) ||
+        students.find((student) => student.id === state.studentId) || students[0] || null
+      const studentReports = primaryStudent ? reports.filter((report) => report.student_id === primaryStudent.id) : reports
+      const latestReport = studentReports.find((report) => report.id === state.reportId) || studentReports[0] || null
       const nextStep = actionCopy(state)
       const coverageValue = state.coverage === undefined ? (state.progress && state.progress.coverage) : state.coverage
       const coverage = Number(coverageValue)
@@ -144,7 +151,7 @@ Page({
       const family = await familyData.getFamily(user.id)
       const students = family ? await familyData.getStudents(family.id) : []
       const reports = family ? await familyData.getReports(family.id) : []
-      const primaryStudent = students[0] || null
+      const primaryStudent = students.find((student) => student.id === currentStudent.resolve(students)) || null
       const studentReports = primaryStudent ? reports.filter((report) => report.student_id === primaryStudent.id) : []
       const latestReport = studentReports.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0] || null
       const reference = primaryStudent ? assessmentService.referenceForStudent(primaryStudent.id) : null
@@ -226,9 +233,37 @@ Page({
     if (this.data.nextStep) wx.navigateTo({ url: this.data.nextStep.url })
   },
   goFamily() { wx.navigateTo({ url: '/pages/family-edit/index' }) },
+  // 点孩子那一行：切换要看的孩子，或编辑、添加孩子档案。孩子太多时操作菜单放不下，去「我的」里切换。
   goStudent() {
-    const id = this.data.primaryStudent && this.data.primaryStudent.id ? `?id=${encodeURIComponent(this.data.primaryStudent.id)}` : ''
-    wx.navigateTo({ url: `/pages/student-edit/index${id}` })
+    const students = this.data.students || []
+    const current = this.data.primaryStudent
+    if (!students.length) return wx.navigateTo({ url: '/pages/student-edit/index' })
+    const pickable = students.length <= 4 ? students : []
+    const itemList = [
+      ...pickable.map((student) => `${student.name || '未填写姓名的孩子'}${current && current.id === student.id ? '（当前）' : ''}`),
+      ...(pickable.length ? [] : ['在「我的」中切换孩子']),
+      '编辑当前孩子档案',
+      '添加孩子档案'
+    ]
+    wx.showActionSheet({
+      itemList,
+      success: ({ tapIndex }) => {
+        if (tapIndex < pickable.length) {
+          const chosen = pickable[tapIndex]
+          if (!current || chosen.id !== current.id) {
+            currentStudent.set(chosen.id)
+            this.onShow()
+          }
+          return
+        }
+        const action = itemList[tapIndex]
+        if (action === '在「我的」中切换孩子') return wx.switchTab({ url: '/pages/mine/index' })
+        if (action === '编辑当前孩子档案' && current) {
+          return wx.navigateTo({ url: `/pages/student-edit/index?id=${encodeURIComponent(current.id)}` })
+        }
+        if (action === '添加孩子档案') wx.navigateTo({ url: '/pages/student-edit/index' })
+      }
+    })
   },
   goCompass() {
     if (this.data.isV05) return this.goNext()

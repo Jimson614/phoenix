@@ -49,7 +49,7 @@
       <view class="child-line" bindtap="goStudent">
         <view class="child-line__avatar">{{studentInitial}}</view>
         <view class="grow">
-          <text class="child-line__label">孩子状态</text>
+          <text class="child-line__label">{{students.length > 1 ? '孩子状态 · 点击切换' : '孩子状态'}}</text>
           <text class="child-line__name">{{primaryStudent ? primaryStudent.name : '添加孩子档案'}}</text>
           <text wx:if="{{primaryStudent}}" class="child-line__stage">{{stage}}</text>
         </view>

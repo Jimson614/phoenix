@@ -7,9 +7,19 @@ const agent = require('../../services/agent')
 const account = require('../../services/account')
 const dataExport = require('../../services/data-export')
 const runtime = require('../../config/runtime')
+const currentStudent = require('../../utils/current-student')
+
+// 订单区默认只展示最近几笔，其余点"显示全部"展开。
+const ORDER_PREVIEW_COUNT = 5
+
+function studentMeta(student) {
+  const system = student.education_system ? familyData.educationSystemLabel(student.education_system) : ''
+  const grade = student.grade && !/^[A-Z_]+$/.test(student.grade) ? student.grade : ''
+  return [system === '请选择' ? '' : system, grade].filter(Boolean).join(' · ') || '资料待完善'
+}
 
 Page({
-  data: { user: { name: '', initial: '家' }, family: null, primaryStudent: null, consentStudents: [], consentStudentNames: [], consentStudentIndex: 0, consentStudent: null, studentCount: 0, reportCount: 0, orderCount: 0, unlockedReportCount: 0, recentOrders: [], loading: true, isV05: !runtime.isDemo(), consentBusy: false, deleteBusy: false, exportBusy: false },
+  data: { user: { name: '', initial: '家' }, family: null, primaryStudent: null, consentStudents: [], consentStudentNames: [], consentStudentIndex: 0, consentStudent: null, studentCount: 0, reportCount: 0, orderCount: 0, unlockedReportCount: 0, recentOrders: [], allOrders: [], showAllOrders: false, students: [], studentBusy: false, loading: true, isV05: !runtime.isDemo(), consentBusy: false, deleteBusy: false, exportBusy: false },
   async onShow() {
     const user = session.guard(['family_user'])
     if (!user) return
@@ -18,13 +28,25 @@ Page({
       const family = await familyData.getFamily(user.id)
       const students = family ? await familyData.getStudents(family.id) : []
       const reports = family ? await familyData.getReports(family.id) : []
-      const orders = (await payment.refreshCachedOrders()).map((order) => ({ ...order, statusLabel: payment.statusLabel(order.status), amountLabel: `${(order.amountFen / 100).toFixed(2)} 元` }))
+      const orders = (await payment.listOrders()).map((order) => ({
+        ...order,
+        statusLabel: payment.statusLabel(order.status),
+        amountLabel: `${(order.amountFen / 100).toFixed(2)} 元`,
+        studentLabel: order.studentName ? `${order.studentName}${order.studentDeleted ? '（档案已删除）' : ''}` : ''
+      }))
+      const currentId = currentStudent.resolve(students)
       // Consent withdrawal must target the child the guardian picks, not silently the first one.
       const previousId = this.data.consentStudent && this.data.consentStudent.id
       const consentStudentIndex = Math.max(0, students.findIndex((student) => student.id === previousId))
       this.setData({
         user: { ...user, name: (family && family.parent_name) || user.name || '', initial: family && family.parent_name ? family.parent_name.charAt(0) : (user.name ? user.name.charAt(0) : '家') }, family,
-        primaryStudent: students[0] || null,
+        primaryStudent: students.find((student) => student.id === currentId) || null,
+        students: students.map((student) => ({
+          ...student,
+          initial: student.name ? student.name.charAt(0) : '学',
+          meta: studentMeta(student),
+          current: student.id === currentId
+        })),
         consentStudents: students,
         consentStudentNames: students.map((student) => student.name || '未填写姓名的学生档案'),
         consentStudentIndex,
@@ -32,7 +54,8 @@ Page({
         studentCount: students.length, reportCount: reports.length,
         orderCount: orders.length,
         unlockedReportCount: reports.filter((report) => report.product_code && report.entitled).length,
-        recentOrders: orders.slice(0, 3), loading: false
+        allOrders: orders,
+        recentOrders: this.data.showAllOrders ? orders : orders.slice(0, ORDER_PREVIEW_COUNT), loading: false
       })
     } catch (error) {
       this.setData({ loading: false })
@@ -44,15 +67,83 @@ Page({
   advisor() { if (this.data.family) wx.navigateTo({ url: '/pages/advisor-request/index' }); else this.editFamily() },
   compass() {
     if (!this.data.family) return this.editFamily()
-    const student = this.data.primaryStudent
+    const student = this.data.primaryStudent || (this.data.students[0] || null)
     if (!student) return this.addStudent()
     wx.navigateTo({ url: `/pages/compass/index?studentId=${student.id}` })
   },
   openOrder({ currentTarget }) {
     const order = this.data.recentOrders.find((item) => item.orderId === currentTarget.dataset.id)
     if (!order) return
-    if (order.status === 'PAID') wx.navigateTo({ url: `/pages/report/index?id=${order.reportId}` })
-    else wx.navigateTo({ url: `/pages/payment-result/index?orderId=${order.orderId}&reportId=${order.reportId}` })
+    if (order.status === 'PAID') return wx.navigateTo({ url: `/pages/report/index?id=${order.reportId}` })
+    // 删除孩子或问卷后，没付款的订单只剩财务记录，已经没有报告可去。
+    if (!order.reportId) return wx.showToast({ title: `订单${order.statusLabel}，没有可查看的报告`, icon: 'none' })
+    wx.navigateTo({ url: `/pages/payment-result/index?orderId=${order.orderId}&reportId=${order.reportId}` })
+  },
+  toggleOrders() {
+    const showAllOrders = !this.data.showAllOrders
+    this.setData({
+      showAllOrders,
+      recentOrders: showAllOrders ? this.data.allOrders : this.data.allOrders.slice(0, ORDER_PREVIEW_COUNT)
+    })
+  },
+  studentFrom({ currentTarget }) {
+    return this.data.students.find((student) => student.id === currentTarget.dataset.id) || null
+  },
+  selectStudent(event) {
+    const student = this.studentFrom(event)
+    if (!student) return
+    currentStudent.set(student.id)
+    this.setData({
+      primaryStudent: student,
+      students: this.data.students.map((item) => ({ ...item, current: item.id === student.id }))
+    })
+    wx.showToast({ title: `当前孩子：${student.name || '未填写姓名'}`, icon: 'none' })
+  },
+  editStudent(event) {
+    const student = this.studentFrom(event)
+    if (student) wx.navigateTo({ url: `/pages/student-edit/index?id=${encodeURIComponent(student.id)}` })
+  },
+  openRecords(event) {
+    const student = this.studentFrom(event)
+    if (!student) return
+    if (!this.data.isV05) return wx.showToast({ title: '演示模式没有问卷记录', icon: 'none' })
+    wx.navigateTo({ url: `/pages/compass/index?mode=records&studentId=${encodeURIComponent(student.id)}` })
+  },
+  /**
+   * 删除一个孩子档案（2026-10-14 定）：两步确认。买过的报告和订单留在历史订单里，
+   * 其余问卷和结果删除，不可恢复——这些在动手前讲清楚。
+   */
+  deleteStudent(event) {
+    const student = this.studentFrom(event)
+    if (!student || this.data.studentBusy) return
+    const name = student.name || '未填写姓名的孩子'
+    wx.showModal({
+      title: `删除「${name}」的档案？`,
+      content: '将删除这个孩子的资料、全部问卷和结果。已经购买的报告和订单会保留在历史订单里，仍可查看。',
+      confirmText: '继续',
+      success: ({ confirm }) => {
+        if (!confirm) return
+        wx.showModal({
+          title: '确认删除？此操作不可撤销',
+          content: '删除后无法恢复这个孩子的问卷和结果。',
+          confirmText: '确认删除',
+          confirmColor: '#9a3f35',
+          cancelText: '再想想',
+          success: async ({ confirm: sure }) => {
+            if (!sure) return
+            this.setData({ studentBusy: true })
+            try {
+              await familyData.deleteStudent(student.id)
+              if (currentStudent.get() === student.id) currentStudent.clear()
+              wx.showToast({ title: '已删除', icon: 'success' })
+              await this.onShow()
+            } catch (error) {
+              wx.showModal({ title: '删除失败', content: (error && error.message) || '请稍后重试', showCancel: false })
+            } finally { this.setData({ studentBusy: false }) }
+          }
+        })
+      }
+    })
   },
   pickConsentStudent({ detail }) {
     const index = Number(detail.value)

@@ -78,7 +78,7 @@ function logout() {
 
 // 清掉只属于某个账号的本机数据。退出登录，以及登录时发现换了账号，都走这里。
 function forgetAccountData() {
-  ;['PFS_CURRENT_USER_ID', 'PFS_REMOTE_PROFILE_MAP_V1', 'PFS_COMPASS_ASSESSMENT_REFS_V1', 'PFS_COMPASS_ORDER_CACHE_V1', ACCOUNT_DATA_OWNER_KEY].forEach((key) => {
+  ;['PFS_CURRENT_USER_ID', 'PFS_REMOTE_PROFILE_MAP_V1', 'PFS_COMPASS_ASSESSMENT_REFS_V1', 'PFS_COMPASS_ORDER_CACHE_V1', 'PFS_CURRENT_STUDENT_ID_V1', ACCOUNT_DATA_OWNER_KEY].forEach((key) => {
     try { wx.removeStorageSync(key) } catch (error) {}
   })
   try {

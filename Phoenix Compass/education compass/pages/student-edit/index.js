@@ -1,3 +1,4 @@
+const currentStudent = require('../../utils/current-student')
 const familyData = require('../../services/family-data')
 const session = require('../../services/session')
 const analytics = require('../../services/analytics')
@@ -65,7 +66,11 @@ Page({
       analytics.track('student_profile_completed', { userId: session.currentUser().id, familyId: this.data.familyId, properties: { student_id: student.id } })
       wx.showToast({ title: '孩子档案已保存', icon: 'success' })
       if (this.data.editing) setTimeout(() => wx.navigateBack(), 500)
-      else setTimeout(() => wx.redirectTo({ url: `/pages/compass/index?studentId=${student.id}` }), 500)
+      else {
+        // 新加的孩子成为当前孩子，回到首页时看到的就是他。
+        currentStudent.set(student.id)
+        setTimeout(() => wx.redirectTo({ url: `/pages/compass/index?studentId=${student.id}` }), 500)
+      }
     } catch (error) {
       wx.showToast({ title: error.message || '保存失败，请重试', icon: 'none' })
       this.setData({ saving: false })

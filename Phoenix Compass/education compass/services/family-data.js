@@ -311,7 +311,25 @@ function assertRemoteProfiles(family, student) {
   return { familyId, studentId, studentVersion: student.student_version }
 }
 
+// 服务端要求显式回传这个串，避免误删孩子档案。
+const STUDENT_DELETION_CONFIRMATION = 'DELETE_STUDENT'
+
+/**
+ * 删除一个孩子档案。没买过报告的孩子连同资料全部删除；买过报告的，已购报告和订单保留在历史订单里。
+ * 不可撤销。
+ */
+async function deleteStudent(studentId) {
+  if (runtime.isDemo()) {
+    throw new api.ApiError('演示模式不支持删除孩子档案', { code: 'STUDENT_DELETION_UNAVAILABLE' })
+  }
+  const result = await api.request(`/v1/me/students/${encodeURIComponent(studentId)}`, {
+    method: 'DELETE', data: { confirm: STUDENT_DELETION_CONFIRMATION }
+  })
+  return result && result.deletion ? result.deletion : result
+}
+
 module.exports = {
+  STUDENT_DELETION_CONFIRMATION, deleteStudent,
   EDUCATION_SYSTEM_OPTIONS, PROFILE_MAP_KEY, assertRemoteProfiles, createAdvisorRequest, educationSystemLabel,
   getAdvisorRequests, getFamily,
   getReports, getStudent, getStudents, getTimeline, mappedId, rememberMapping, saveFamily, saveStudent,

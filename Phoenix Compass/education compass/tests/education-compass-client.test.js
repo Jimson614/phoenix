@@ -1596,6 +1596,203 @@ async function testDraftBufferSurvivesFailedSaves() {
   }
 }
 
+async function testChildAndQuestionnaireManagementServices() {
+  const api = require('../services/api')
+  const client = require('../services/education-compass')
+  const familyData = require('../services/family-data')
+  const payment = require('../services/payment')
+  const draftBuffer = require('../services/draft-buffer')
+  const currentStudent = require('../utils/current-student')
+  const originalRequest = api.request
+  const originalAccountInfo = wx.getAccountInfoSync
+  const calls = []
+  wx.getAccountInfoSync = () => ({ miniProgram: { envVersion: 'release' } })
+  api.request = async (path, options = {}) => {
+    calls.push({ path, method: options.method || 'GET', data: options.data })
+    if (path === '/v1/students/stu_1/education-assessments') {
+      return { assessments: [{ assessmentId: 'asm_draft', level: 1, status: 'DRAFT', canDelete: true, canReset: true }] }
+    }
+    if (path === '/v1/assessments/asm_draft' && options.method === 'DELETE') return { assessmentId: 'asm_draft', deleted: true }
+    if (path === '/v1/assessments/asm_reset/draft' && options.method === 'PUT') {
+      return { draft: { id: 'asm_reset', revision: 4, status: 'DRAFT', answers: options.data.answers } }
+    }
+    if (path === '/v1/assessments/asm_reset/draft') return { draft: { id: 'asm_reset', revision: 3, status: 'DRAFT', answers: { FP01: 'UPPER_SECONDARY' } } }
+    if (path === '/v1/me/students/stu_1' && options.method === 'DELETE') {
+      return { deletion: { studentId: 'stu_1', mode: 'RETAINED_PURCHASES', retainedReports: 1 } }
+    }
+    if (path === '/v1/me/orders') {
+      return { orders: [{ orderId: 'ord_1', status: 'PAID', amountFen: 3990, reportId: 'rpt_1', studentName: '甲', studentDeleted: true, canViewReport: true, createdAt: '2026-10-14T00:00:00.000Z' }] }
+    }
+    throw new Error(`unexpected path ${options.method || 'GET'} ${path}`)
+  }
+  try {
+    assert.deepStrictEqual((await client.listStudentAssessments('stu_1')).map((item) => item.assessmentId), ['asm_draft'])
+
+    draftBuffer.remember('asm_draft', { revision: 2, answers: { FP01: 'UPPER_SECONDARY' } })
+    await client.deleteAssessment('asm_draft')
+    assert.strictEqual(draftBuffer.recall('asm_draft'), null, 'a deleted questionnaire leaves no local draft behind')
+
+    draftBuffer.remember('asm_reset', { revision: 3, answers: { FP01: 'UPPER_SECONDARY' } })
+    await client.resetDraft('asm_reset')
+    const reset = calls.find((call) => call.path === '/v1/assessments/asm_reset/draft' && call.method === 'PUT')
+    assert.deepStrictEqual([reset.data.revision, reset.data.answers], [3, {}], 'reset saves the current revision with no answers')
+    assert.strictEqual(draftBuffer.recall('asm_reset'), null, 'reset also drops the local draft, or the page would offer the old answers back')
+
+    const deletion = await familyData.deleteStudent('stu_1')
+    const remove = calls.find((call) => call.path === '/v1/me/students/stu_1')
+    assert.deepStrictEqual([remove.method, remove.data], ['DELETE', { confirm: 'DELETE_STUDENT' }])
+    assert.strictEqual(deletion.mode, 'RETAINED_PURCHASES')
+
+    const [order] = await payment.listOrders()
+    assert.deepStrictEqual([order.orderId, order.studentName, order.studentDeleted, order.canViewReport], ['ord_1', '甲', true, true])
+
+    currentStudent.set('stu_gone')
+    const students = [{ id: 'stu_a' }, { id: 'stu_b' }]
+    assert.strictEqual(currentStudent.resolve(students, 'stu_b'), 'stu_b', 'a remembered child that no longer exists falls back to the server default')
+    currentStudent.set('stu_a')
+    assert.strictEqual(currentStudent.resolve(students, 'stu_b'), 'stu_a', 'the remembered child wins while it exists')
+    currentStudent.clear()
+    assert.strictEqual(currentStudent.resolve(students), 'stu_a')
+  } finally {
+    api.request = originalRequest
+    wx.getAccountInfoSync = originalAccountInfo
+    currentStudent.clear()
+  }
+}
+
+async function testMineDeletesChildOnlyAfterTwoConfirmations() {
+  const familyData = require('../services/family-data')
+  const currentStudent = require('../utils/current-student')
+  const originalPage = global.Page
+  const originalShowModal = wx.showModal
+  const originalShowToast = wx.showToast
+  const originalDelete = familyData.deleteStudent
+  const deleted = []
+  const modals = []
+  let definition
+  try {
+    global.Page = (value) => { definition = value }
+    wx.showToast = () => undefined
+    familyData.deleteStudent = async (studentId) => { deleted.push(studentId); return { mode: 'HARD' } }
+    delete require.cache[require.resolve('../pages/mine/index')]
+    require('../pages/mine/index')
+    const students = [{ id: 'stu_first', name: '甲', current: true }, { id: 'stu_second', name: '乙', current: false }]
+    const instance = { ...definition, data: { ...definition.data, students } }
+    instance.setData = function setData(update) { Object.assign(this.data, update) }
+    instance.onShow = async () => undefined
+    const event = { currentTarget: { dataset: { id: 'stu_first' } } }
+
+    // Cancelling either step deletes nothing.
+    wx.showModal = (options) => { modals.push(options); if (options.success) return options.success({ confirm: false }) }
+    definition.deleteStudent.call(instance, event)
+    let step = 0
+    wx.showModal = (options) => { modals.push(options); step += 1; if (options.success) return options.success({ confirm: step === 1 }) }
+    definition.deleteStudent.call(instance, event)
+    assert.deepStrictEqual(deleted, [], 'nothing is deleted unless both confirmations are accepted')
+
+    currentStudent.set('stu_first')
+    wx.showModal = (options) => { modals.push(options); if (options.success) return options.success({ confirm: true }) }
+    await definition.deleteStudent.call(instance, event)
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.deepStrictEqual(deleted, ['stu_first'])
+    assert(modals.some((modal) => modal.content.includes('已经购买的报告和订单会保留在历史订单里')),
+      'the confirmation states that purchased reports stay in the order history')
+    assert.strictEqual(currentStudent.get(), '', 'deleting the current child forgets it on this phone')
+  } finally {
+    familyData.deleteStudent = originalDelete
+    currentStudent.clear()
+    if (originalShowModal === undefined) delete wx.showModal
+    else wx.showModal = originalShowModal
+    if (originalShowToast === undefined) delete wx.showToast
+    else wx.showToast = originalShowToast
+    if (originalPage === undefined) delete global.Page
+    else global.Page = originalPage
+  }
+}
+
+async function testHomeSwitchesChildFromTheChildLine() {
+  const currentStudent = require('../utils/current-student')
+  const originalPage = global.Page
+  const originalActionSheet = wx.showActionSheet
+  const originalNavigateTo = wx.navigateTo
+  let definition
+  try {
+    global.Page = (value) => { definition = value }
+    delete require.cache[require.resolve('../pages/home/index')]
+    require('../pages/home/index')
+    const students = [{ id: 'stu_a', name: '甲' }, { id: 'stu_b', name: '乙' }]
+    const instance = { ...definition, data: { ...definition.data, students, primaryStudent: students[0] } }
+    let reloads = 0
+    instance.onShow = () => { reloads += 1 }
+    let sheet
+    wx.showActionSheet = (options) => { sheet = options }
+    const visited = []
+    wx.navigateTo = ({ url }) => visited.push(url)
+
+    definition.goStudent.call(instance)
+    assert.deepStrictEqual(sheet.itemList, ['甲（当前）', '乙', '编辑当前孩子档案', '添加孩子档案'])
+    sheet.success({ tapIndex: 1 })
+    assert.strictEqual(currentStudent.get(), 'stu_b', 'picking a child remembers it')
+    assert.strictEqual(reloads, 1, 'the home page reloads for the picked child')
+    sheet.success({ tapIndex: 2 })
+    assert.deepStrictEqual(visited, ['/pages/student-edit/index?id=stu_a'])
+  } finally {
+    currentStudent.clear()
+    if (originalActionSheet === undefined) delete wx.showActionSheet
+    else wx.showActionSheet = originalActionSheet
+    if (originalNavigateTo === undefined) delete wx.navigateTo
+    else wx.navigateTo = originalNavigateTo
+    if (originalPage === undefined) delete global.Page
+    else global.Page = originalPage
+  }
+}
+
+async function testCompassRecordsOfferTheServerActions() {
+  const familyData = require('../services/family-data')
+  const client = require('../services/education-compass')
+  const originalPage = global.Page
+  const originalAccountInfo = wx.getAccountInfoSync
+  const originalNavigateTo = wx.navigateTo
+  const originals = { getFamily: familyData.getFamily, getStudents: familyData.getStudents, list: client.listStudentAssessments }
+  let definition
+  try {
+    wx.getAccountInfoSync = () => ({ miniProgram: { envVersion: 'release' } })
+    global.Page = (value) => { definition = value }
+    delete require.cache[require.resolve('../pages/compass/index')]
+    require('../pages/compass/index')
+    familyData.getFamily = async () => ({ id: 'fam_1' })
+    familyData.getStudents = async () => [{ id: 'stu_1', name: '甲' }]
+    client.listStudentAssessments = async () => [
+      { assessmentId: 'asm_l2', level: 2, status: 'SUBMITTED', resultState: 'LOCKED', paymentStatus: null, sourceAssessmentId: 'asm_l1', consentActive: true, canDelete: true, canRedo: true, createdAt: '2026-10-14T01:00:00.000Z' },
+      { assessmentId: 'asm_l1', level: 1, status: 'SUBMITTED', resultState: 'READY', consentActive: true, canDelete: false, canRedo: true, createdAt: '2026-10-13T01:00:00.000Z' },
+      { assessmentId: 'asm_new', level: 1, status: 'DRAFT', resultState: 'NONE', completenessCoverage: 38, consentActive: true, canDelete: true, canReset: true, createdAt: '2026-10-14T02:00:00.000Z' }
+    ]
+    const instance = { ...definition, data: { ...definition.data } }
+    instance.setData = function setData(update) { Object.assign(this.data, update) }
+    definition.onLoad.call(instance, { mode: 'records', studentId: 'stu_1' })
+    await definition.loadRecords.call(instance, { id: 'usr_1' })
+    assert.strictEqual(instance.data.error, '')
+    assert.deepStrictEqual(instance.data.records.map((record) => record.statusLabel), ['已提交 · 待解锁', '已出免费结果', '填写中 · 已完成 38%'])
+    const visited = []
+    wx.navigateTo = ({ url }) => visited.push(url)
+    definition.redoRecord.call(instance, { currentTarget: { dataset: { id: 'asm_l2' } } })
+    definition.redoRecord.call(instance, { currentTarget: { dataset: { id: 'asm_l1' } } })
+    assert.deepStrictEqual(visited, [
+      '/pages/compass/index?level=2&redo=1&studentId=stu_1&sourceAssessmentId=asm_l1',
+      '/pages/compass/index?level=1&redo=1&studentId=stu_1'
+    ], 'taking a student questionnaire again starts from the same family questionnaire')
+  } finally {
+    familyData.getFamily = originals.getFamily
+    familyData.getStudents = originals.getStudents
+    client.listStudentAssessments = originals.list
+    wx.getAccountInfoSync = originalAccountInfo
+    if (originalNavigateTo === undefined) delete wx.navigateTo
+    else wx.navigateTo = originalNavigateTo
+    if (originalPage === undefined) delete global.Page
+    else global.Page = originalPage
+  }
+}
+
 async function run() {
   testQuestionnaireModel()
   testStudentProfileNormalization()
@@ -1618,6 +1815,10 @@ async function run() {
   await testLoginAsAnotherAccountDropsPreviousAccountCache()
   await testDraftBufferSurvivesFailedSaves()
   await testApiAdapter()
+  await testChildAndQuestionnaireManagementServices()
+  await testMineDeletesChildOnlyAfterTwoConfirmations()
+  await testHomeSwitchesChildFromTheChildLine()
+  await testCompassRecordsOfferTheServerActions()
   console.log('✓ Education Compass V0.5 client: remote adapter, canonical bank, result registry, revision and server nextAction navigation')
 }
 

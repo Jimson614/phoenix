@@ -61,17 +61,38 @@
         </view>
       </view>
 
+      <view wx:if="{{students.length}}" class="mine-children">
+        <view class="section-head">
+          <view><text class="eyebrow">CHILDREN</text><text class="h3 mine-orders__title">孩子档案</text></view>
+          <text class="mine-count">{{students.length}} 位</text>
+        </view>
+        <view wx:for="{{students}}" wx:key="id" class="mine-child">
+          <view class="mine-child__head">
+            <view class="mine-order__mark" aria-hidden="true">{{item.initial}}</view>
+            <view class="mine-order__copy"><text class="mine-order__title">{{item.name || '未填写姓名的孩子'}}</text><text class="mine-order__meta">{{item.meta}}</text></view>
+            <text wx:if="{{item.current}}" class="mine-child__badge">当前</text>
+          </view>
+          <view class="mine-child__actions">
+            <button wx:if="{{!item.current}}" class="mine-child__action" data-id="{{item.id}}" bindtap="selectStudent">设为当前</button>
+            <button class="mine-child__action" data-id="{{item.id}}" bindtap="editStudent">编辑资料</button>
+            <button class="mine-child__action" data-id="{{item.id}}" bindtap="openRecords">问卷记录</button>
+            <button class="mine-child__action mine-child__action--critical" data-id="{{item.id}}" disabled="{{studentBusy}}" bindtap="deleteStudent">删除档案</button>
+          </view>
+        </view>
+      </view>
+
       <view class="mine-orders">
         <view class="section-head">
-          <view><text class="eyebrow">RECENT ORDERS</text><text class="h3 mine-orders__title">本机最近订单</text></view>
+          <view><text class="eyebrow">ORDER HISTORY</text><text class="h3 mine-orders__title">历史订单</text></view>
           <text class="mine-count">{{orderCount}} 笔</text>
         </view>
         <view wx:if="{{recentOrders.length}}">
           <view wx:for="{{recentOrders}}" wx:key="orderId" class="mine-order" data-id="{{item.orderId}}" role="button" bindtap="openOrder">
             <view class="mine-order__mark" aria-hidden="true">◇</view>
-            <view class="mine-order__copy"><text class="mine-order__title">Education Compass 完整报告</text><text class="mine-order__meta">{{item.amountLabel}} · {{item.statusLabel}}</text></view>
+            <view class="mine-order__copy"><text class="mine-order__title">Education Compass 完整报告</text><text class="mine-order__meta">{{item.studentLabel ? item.studentLabel + ' · ' : ''}}{{item.amountLabel}} · {{item.statusLabel}}</text></view>
             <text class="chevron">›</text>
           </view>
+          <button wx:if="{{allOrders.length > 5}}" class="btn btn--text mine-orders__toggle" bindtap="toggleOrders">{{showAllOrders ? '收起' : '显示全部 ' + allOrders.length + ' 笔'}}</button>
         </view>
         <view wx:else class="mine-empty-row">
           <text class="mine-empty-row__mark" aria-hidden="true">◇</text>

@@ -17,12 +17,12 @@
     <text class="eyebrow">{{level === 1 ? 'FAMILY EDUCATION SNAPSHOT' : 'EDUCATION GROWTH DISCOVERY'}}</text>
     <text class="compass-hero__title">{{heroTitle}}</text>
     <text class="compass-hero__copy">{{heroCopy}}</text>
-    <view wx:if="{{isV05 && level === 1}}" class="compass-benefits">
+    <view wx:if="{{isV05 && level === 1 && mode !== 'records'}}" class="compass-benefits">
       <view class="compass-benefit"><text class="compass-benefit__value">免费</text><text class="compass-benefit__label">完整家庭快照</text></view>
       <view class="compass-benefit"><text class="compass-benefit__value">8</text><text class="compass-benefit__label">道家长必答题</text></view>
       <view class="compass-benefit"><text class="compass-benefit__value">3—5</text><text class="compass-benefit__label">分钟手机完成</text></view>
     </view>
-    <view wx:elif="{{isV05 && level === 2}}" class="compass-benefits">
+    <view wx:elif="{{isV05 && level === 2 && mode !== 'records'}}" class="compass-benefits">
       <view class="compass-benefit"><text class="compass-benefit__value">学生</text><text class="compass-benefit__label">仅本人作答</text></view>
       <view class="compass-benefit"><text class="compass-benefit__value">动态</text><text class="compass-benefit__label">按教育体系选题</text></view>
       <view class="compass-benefit"><text class="compass-benefit__value">4维</text><text class="compass-benefit__label">证据分析非评分</text></view>
@@ -36,6 +36,26 @@
   <view class="page compass-body">
     <view wx:if="{{loading}}" class="compass-state"><image class="compass-state__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" /><text class="h3">正在准备测评…</text><text class="muted">题库、进度与商品信息从服务端读取</text></view>
     <view wx:elif="{{error}}" class="compass-state"><image class="compass-state__compass" src="/assets/ui/compass-champagne.png" mode="aspectFit" aria-hidden="true" /><text class="h3">测评入口暂时不可用</text><text class="muted">{{error}}</text><button class="btn btn--outline" bindtap="retry">重新加载</button></view>
+
+    <view wx:elif="{{mode === 'records'}}" class="records">
+      <view class="section-head"><text class="h3">问卷记录</text><text class="muted">{{records.length}} 份</text></view>
+      <view wx:if="{{!records.length}}" class="records__empty">
+        <text>这个孩子还没有做过问卷。</text>
+        <button class="btn btn--primary records__start" bindtap="startFirstRecord">开始免费家长问卷</button>
+      </view>
+      <view wx:for="{{records}}" wx:key="assessmentId" class="record">
+        <text class="record__title">{{item.title}}</text>
+        <text class="record__meta">{{item.dateLabel}} · {{item.statusLabel}}</text>
+        <text wx:if="{{!item.consentActive}}" class="record__note">相关同意已撤回，这份问卷不能继续填写或查看。</text>
+        <view class="record__actions">
+          <button wx:if="{{item.status === 'DRAFT' && item.consentActive}}" class="record__action" data-id="{{item.assessmentId}}" bindtap="continueRecord">继续填写</button>
+          <button wx:if="{{item.status !== 'DRAFT' && item.consentActive}}" class="record__action" data-id="{{item.assessmentId}}" bindtap="viewRecord">查看结果</button>
+          <button wx:if="{{item.canReset}}" class="record__action" data-id="{{item.assessmentId}}" disabled="{{recordBusy}}" bindtap="resetRecord">清空重填</button>
+          <button wx:if="{{item.canRedo}}" class="record__action" data-id="{{item.assessmentId}}" bindtap="redoRecord">重新测评</button>
+          <button wx:if="{{item.canDelete}}" class="record__action record__action--critical" data-id="{{item.assessmentId}}" disabled="{{recordBusy}}" bindtap="deleteRecord">删除</button>
+        </view>
+      </view>
+    </view>
 
     <block wx:else>
     <view wx:if="{{isV05 && level === 2 && level2EntryAuthorized}}" class="product-card">

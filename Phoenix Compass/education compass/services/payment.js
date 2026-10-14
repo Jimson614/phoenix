@@ -245,7 +245,33 @@ function statusLabel(status) {
   })[status] || '状态确认中'
 }
 
+/**
+ * 历史订单：服务端保存的本账号全部订单，新的在前，换手机也能看到。
+ * 演示模式没有服务端，仍用本机缓存。
+ */
+async function listOrders() {
+  if (runtime.isDemo()) return refreshCachedOrders()
+  const result = await api.request('/v1/me/orders')
+  return (Array.isArray(result && result.orders) ? result.orders : []).map((order) => ({
+    orderId: order.orderId,
+    status: order.status,
+    productCode: order.productCode,
+    amountFen: order.amountFen,
+    currency: order.currency,
+    reportId: order.reportId || '',
+    assessmentId: order.assessmentId || '',
+    studentId: order.studentId || '',
+    studentName: order.studentName || '',
+    studentDeleted: order.studentDeleted === true,
+    canViewReport: order.canViewReport === true,
+    createdAt: order.createdAt || '',
+    paidAt: order.paidAt || undefined,
+    refundedAt: order.refundedAt || undefined
+  }))
+}
+
 module.exports = {
+  listOrders,
   FINAL_STATUSES, ORDER_CACHE_KEY, cacheOrder, clearOrderCache, createOrder, getOrder,
   listCachedOrders, normalizeOrder, pollOrder, refreshCachedOrders, requestWeChatPayment, statusLabel
 }

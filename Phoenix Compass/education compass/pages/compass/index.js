@@ -6,6 +6,7 @@ const runtime = require('../../config/runtime')
 const { PRODUCT, CONSENT_VERSION } = require('../../config/compass')
 const { dateLabel } = require('../../utils/date')
 const educationNavigation = require('../../utils/education-compass-navigation')
+const currentStudent = require('../../utils/current-student')
 
 const GUARDIAN_COPY = '我已了解本测评用于形成教育成长快照与下一步支持建议。我确认有权为该家庭／未成年学生管理必要资料，并同意系统按隐私说明保存版本化问卷与结果。我可以撤回非必要授权；撤回不会被解释为学生能力或意愿不足。'
 const STUDENT_ASSENT_COPY = '这份测评需要由我本人作答。我知道可以暂停、退出或不回答选填成绩区间，也不会因此得到负面评价。我同意系统用本次回答生成成长快照；如果不愿继续，我可以现在退出。'
@@ -22,11 +23,30 @@ function initial(name) {
   return value ? value.charAt(0) : '学'
 }
 
+// 问卷记录里每一行的显示文字；能做哪些操作由服务端算好（canDelete、canReset、canRedo）。
+function recordView(record) {
+  const level = Number(record.level) === 2 ? 2 : 1
+  const coverage = Number(record.completenessCoverage)
+  let statusLabel = '已提交 · 待解锁'
+  if (record.status === 'DRAFT') statusLabel = Number.isFinite(coverage) ? `填写中 · 已完成 ${Math.round(coverage)}%` : '填写中'
+  else if (record.resultState === 'READY') statusLabel = '已出免费结果'
+  else if (record.resultState === 'UNLOCKED') statusLabel = '已解锁完整报告'
+  else if (record.paymentStatus === 'PENDING') statusLabel = '已提交 · 支付处理中'
+  return {
+    ...record,
+    level,
+    title: level === 1 ? '家长问卷 · 免费家庭快照' : '学生问卷 · 成长发现',
+    dateLabel: record.createdAt ? dateLabel(record.createdAt) : '日期待同步',
+    statusLabel
+  }
+}
+
 Page({
   data: {
     isV05: !runtime.isDemo(), level: 1,
     uiScreen: runtime.isDemo() ? UI_SCREENS.LEGACY : UI_SCREENS.FREE,
     student: null, family: null, reports: [], state: null, loading: true, creating: false, error: '',
+    mode: '', records: [], recordBusy: false,
     product: runtime.isDemo() ? PRODUCT : null, isDemo: runtime.isDemo(), level2EntryAuthorized: false,
     consentValues: [], consentComplete: false,
     guardianAccepted: false, studentAssentAccepted: false,
@@ -41,14 +61,39 @@ Page({
     this.sourceAssessmentId = options.sourceAssessmentId || ''
     const level = String(options.level || '') === '2' ? 2 : 1
     this.requestedLevel = level
-    this.setData({ level, uiScreen: runtime.isDemo() ? UI_SCREENS.LEGACY : (level === 2 ? UI_SCREENS.GROWTH : UI_SCREENS.FREE) })
+    // mode=records：问卷记录；redo=1：从问卷记录"重新测评"，新建一份同级问卷。
+    this.mode = options.mode === 'records' ? 'records' : ''
+    this.redo = String(options.redo || '') === '1'
+    this.setData({ level, mode: this.mode, uiScreen: runtime.isDemo() ? UI_SCREENS.LEGACY : (level === 2 ? UI_SCREENS.GROWTH : UI_SCREENS.FREE) })
   },
 
   async onShow() {
     const user = session.guard(['family_user'])
     if (!user) return
+    this.user = user
     if (runtime.isDemo()) return this.loadLegacy(user)
+    if (this.mode === 'records') return this.loadRecords(user)
     return this.loadV05(user)
+  },
+
+  async loadRecords(user) {
+    this.setData({ loading: true, error: '' })
+    try {
+      const family = await familyData.getFamily(user.id)
+      const students = family ? await familyData.getStudents(family.id) : []
+      const student = students.find((item) => item.id === (this.studentId || currentStudent.resolve(students)))
+      if (!student) throw new Error('这个孩子档案已不存在')
+      this.studentId = student.id
+      const records = (await educationCompass.listStudentAssessments(student.id)).map(recordView)
+      this.setData({
+        family, student: { ...student, initial: initial(student.name) }, records, uiScreen: UI_SCREENS.FREE,
+        heroTitle: '问卷记录',
+        heroCopy: '这个孩子做过的全部问卷都在这里：可以继续填写、查看结果、清空重填或重新测评；还没出报告的问卷可以删除。',
+        loading: false
+      })
+    } catch (error) {
+      this.setData({ loading: false, error: error.message || '问卷记录暂时无法加载' })
+    }
   },
 
   async loadV05(user) {
@@ -56,12 +101,15 @@ Page({
     try {
       const [rootState, family] = await Promise.all([educationCompass.getState(), familyData.getFamily(user.id)])
       const students = family ? await familyData.getStudents(family.id) : []
-      const state = educationNavigation.selectStudentState(rootState, this.studentId || rootState.studentId)
+      const state = educationNavigation.selectStudentState(rootState, this.studentId || currentStudent.resolve(students, rootState.studentId))
       const studentId = state.studentId
       const student = students.find((item) => item.id === studentId) || (studentId
         ? { id: studentId, name: '', grade: '', education_system: '' }
         : null)
-      const entry = educationNavigation.resolveCompassEntry(state, this.requestedLevel || this.data.level)
+      // 从问卷记录"重新测评"时不按当前进度跳转：新建时服务端仍会校验来源问卷和同意。
+      const entry = this.redo
+        ? { authorized: true, level: this.requestedLevel }
+        : educationNavigation.resolveCompassEntry(state, this.requestedLevel || this.data.level)
       if (!entry.authorized) {
         this.setData({ state, family, student: student ? { ...student, initial: initial(student.name) } : null })
         this.redirectToAuthoritative(entry.destination)
@@ -70,7 +118,7 @@ Page({
       if (!student || !student.id) throw new Error('服务端尚未建立可用于测评的 Student ID')
       this.studentId = student.id
       const level = entry.level
-      this.sourceAssessmentId = level === 2 ? (state.sourceAssessmentId || '') : ''
+      this.sourceAssessmentId = level === 2 ? ((this.redo && this.sourceAssessmentId) || state.sourceAssessmentId || '') : ''
       if (level === 2 && !this.sourceAssessmentId) throw new Error('服务端尚未返回已完成的 Level 1 Assessment ID')
       const reports = family ? (await familyData.getReports(family.id))
         .filter((report) => report.student_id === student.id)
@@ -188,7 +236,7 @@ Page({
     if (this.data.level === 2 && !this.data.level2EntryAuthorized) return wx.showToast({ title: '请先完成免费家长教育快照', icon: 'none' })
     this.setData({ creating: true })
     try {
-      if (this.data.level === 2) {
+      if (this.data.level === 2 && !this.redo) {
         const rootState = await educationCompass.getState()
         const state = educationNavigation.selectStudentState(rootState, this.data.student.id)
         const entry = educationNavigation.resolveCompassEntry(state, 2)
@@ -213,9 +261,10 @@ Page({
           guardianConsent: this.guardianConsent(), studentAssent: this.studentAssent()
         }, this.createKey)
       this.createKey = ''
-      wx.navigateTo({
-        url: `/pages/compass-questionnaire/index?level=${this.data.level}&studentId=${encodeURIComponent(this.data.student.id)}&assessmentId=${encodeURIComponent(result.assessmentId)}`
-      })
+      // 重新测评建好后替换掉本页，返回时不会停在"开始"上再建一份。
+      const url = `/pages/compass-questionnaire/index?level=${this.data.level}&studentId=${encodeURIComponent(this.data.student.id)}&assessmentId=${encodeURIComponent(result.assessmentId)}`
+      if (this.redo) wx.redirectTo({ url })
+      else wx.navigateTo({ url })
     } catch (error) {
       wx.showModal({ title: '暂时无法开始测评', content: error.message || '请稍后重试', showCancel: false })
     } finally { this.setData({ creating: false }) }
@@ -226,6 +275,64 @@ Page({
     if (!destination || !destination.url) throw new Error('服务端下一步缺少目标页面')
     if (destination.method === 'switchTab') return wx.switchTab({ url: destination.url })
     return wx.redirectTo({ url: destination.url })
+  },
+  recordFrom({ currentTarget }) {
+    return this.data.records.find((item) => item.assessmentId === currentTarget.dataset.id) || null
+  },
+  continueRecord(event) {
+    const record = this.recordFrom(event)
+    if (!record) return
+    wx.navigateTo({ url: `/pages/compass-questionnaire/index?level=${record.level}&studentId=${encodeURIComponent(this.studentId)}&assessmentId=${encodeURIComponent(record.assessmentId)}` })
+  },
+  viewRecord(event) {
+    const record = this.recordFrom(event)
+    if (!record) return
+    if (record.resultState === 'UNLOCKED' && record.reportId) {
+      return wx.navigateTo({ url: `/pages/report/index?id=${encodeURIComponent(record.reportId)}` })
+    }
+    wx.navigateTo({ url: `/pages/compass-preview/index?assessmentId=${encodeURIComponent(record.assessmentId)}` })
+  },
+  redoRecord(event) {
+    const record = this.recordFrom(event)
+    if (!record) return
+    const source = record.level === 2 ? `&sourceAssessmentId=${encodeURIComponent(record.sourceAssessmentId || '')}` : ''
+    wx.navigateTo({ url: `/pages/compass/index?level=${record.level}&redo=1&studentId=${encodeURIComponent(this.studentId)}${source}` })
+  },
+  startFirstRecord() {
+    wx.redirectTo({ url: `/pages/compass/index?studentId=${encodeURIComponent(this.studentId)}` })
+  },
+  confirmRecordChange(record, modal, action, doneTitle) {
+    if (!record || this.data.recordBusy) return
+    wx.showModal({
+      ...modal,
+      confirmColor: '#9a3f35',
+      success: async ({ confirm }) => {
+        if (!confirm) return
+        this.setData({ recordBusy: true })
+        try {
+          await action(record.assessmentId)
+          wx.showToast({ title: doneTitle, icon: 'success' })
+          await this.loadRecords(this.user)
+        } catch (error) {
+          wx.showModal({ title: '操作失败', content: (error && error.message) || '请稍后重试', showCancel: false })
+        } finally { this.setData({ recordBusy: false }) }
+      }
+    })
+  },
+  resetRecord(event) {
+    this.confirmRecordChange(this.recordFrom(event), {
+      title: '清空这份问卷？', content: '已填写的答案会全部清空，从第一题重新开始。', confirmText: '清空'
+    }, (assessmentId) => educationCompass.resetDraft(assessmentId), '已清空')
+  },
+  deleteRecord(event) {
+    const record = this.recordFrom(event)
+    this.confirmRecordChange(record, {
+      title: '删除这份问卷？',
+      content: record && record.status === 'DRAFT'
+        ? '这份问卷还没提交，删除后已填写的答案无法恢复。'
+        : '这份问卷已提交但还没购买报告，删除后问卷和锁定的报告都无法恢复。',
+      confirmText: '删除'
+    }, (assessmentId) => educationCompass.deleteAssessment(assessmentId), '已删除')
   },
   openReport({ currentTarget }) {
     if (currentTarget.dataset.access !== 'full' && currentTarget.dataset.assessmentId) {
