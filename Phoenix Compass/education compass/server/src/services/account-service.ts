@@ -80,7 +80,10 @@ export class AccountService {
       // 1. 先让财务记录与个人数据脱钩，否则下面的删除会撞上 ON DELETE RESTRICT。
       for (const order of orders) {
         await tx.update('orders', order.id, {
-          familyId: null, studentId: null, assessmentId: null, reportId: null
+          familyId: null, studentId: null, assessmentId: null, reportId: null,
+          // 还没签过支付的订单不可能再收到付款，直接关掉，免得永远停在 CREATED。
+          // 已签过支付的（PENDING）可能还有付款在路上，保持原状。
+          ...(order.status === 'CREATED' ? { status: 'CANCELLED' as const, updatedAt: now } : {})
         })
       }
       for (const entitlement of entitlements) {

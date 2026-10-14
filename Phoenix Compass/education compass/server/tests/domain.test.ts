@@ -855,17 +855,38 @@ test('an order detached by account deletion cannot re-enter a business flow', as
   const order = await context.orders.createOrder(context.session.user.id, submitted.assessmentId, {
     productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: `detached-${submitted.assessmentId}`
   })
+  // Two more purchases that already have a signed payment attempt. Once detached, all three share a
+  // null assessment, which PostgreSQL's one-active-purchase index does not treat as equal.
+  const waitingOrders = []
+  for (let i = 0; i < 2; i += 1) {
+    const other = await createSubmitted(context)
+    const created = await context.orders.createOrder(context.session.user.id, other.submitted.assessmentId, {
+      productCode: 'COMPASS_REPORT_SINGLE_39_9', idempotencyKey: `detached-${other.submitted.assessmentId}`
+    })
+    await context.orders.createVirtualPayment(context.session.user.id, created.orderId, await payer(context))
+    waitingOrders.push(created)
+  }
+  const waiting = waitingOrders[0]!
   const accounts = new AccountService(context.store, clock)
   await accounts.deleteAccount(context.session.user.id)
 
   const detached = await context.store.read((tx) => tx.findById('orders', order.orderId))
   assert.equal(detached?.amountFen, 3990, 'the financial record must survive')
   assert.equal(detached?.assessmentId, null, 'but it must no longer point at personal data')
+  // Nothing was signed for it, so no payment can arrive: it is closed rather than left open forever.
+  assert.equal(detached?.status, 'CANCELLED')
+  await expectCode(
+    context.orders.createVirtualPayment(context.session.user.id, order.orderId, { openid: 'deleted', sessionKey: 'deleted' }),
+    'ORDER_NOT_PAYABLE'
+  )
 
+  // A signed attempt may still be paid, so that order keeps its state.
+  const stillWaiting = await context.store.read((tx) => tx.findById('orders', waiting.orderId))
+  assert.equal(stillWaiting?.status, 'PENDING')
   // 需要个人数据的流程必须明确拒绝，而不是拿着 null 去查库、报出难以追查的错。
   // The identity is gone with the account, so the payer is synthetic: the order guard answers first.
   await expectCode(
-    context.orders.createVirtualPayment(context.session.user.id, order.orderId, { openid: 'deleted', sessionKey: 'deleted' }),
+    context.orders.createVirtualPayment(context.session.user.id, waiting.orderId, { openid: 'deleted', sessionKey: 'deleted' }),
     'ORDER_DETACHED'
   )
 })

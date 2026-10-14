@@ -80,10 +80,12 @@ class MemoryTransaction implements StoreTransaction {
       if (duplicate((item) => {
         const other = item as EntityMap['orders']
         const active = ['CREATED', 'PENDING', 'PAID', 'REFUNDING']
+        // Like orders_one_active_purchase_idx in PostgreSQL, where null values never equal each other:
+        // orders detached by account deletion all have a null assessment.
         return other.outTradeNo === order.outTradeNo ||
           (other.userId === order.userId && other.idempotencyKey === order.idempotencyKey) ||
           (active.includes(other.status) && active.includes(order.status) && other.userId === order.userId &&
-            other.assessmentId === order.assessmentId && other.productCode === order.productCode)
+            order.assessmentId !== null && other.assessmentId === order.assessmentId && other.productCode === order.productCode)
       })) throw new AppError(409, 'DUPLICATE_ORDER', 'An order already exists for this assessment and product')
     }
     if (table === 'orders' && (value as EntityMap['orders']).providerTransactionId) {
