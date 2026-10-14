@@ -640,6 +640,7 @@ V0.5 owner 可独立、幂等撤回该学生的 `AI_ANALYSIS` 授权；成功返
 | 409 | AGENT_ASSESSMENT_NOT_READY | 免费测评尚未完成提交、完整度或安全快照门槛 |
 | 409 | AGENT_ANALYSIS_IS_ONE_SHOT | 一次性测评/报告分析不接受追加消息 |
 | 409 | REPORT_NOT_LOCKED / REPORT_QA_REQUIRED | 报告未达到收费前门槛 |
+| 409 | REPURCHASE_LIMIT_REACHED | 这份报告已退款两次（退款后只能重新购买一次），不能再下单 |
 | 409 | ORDER_STATE_CHANGED / ORDER_NOT_PAYABLE | 订单状态不允许操作 |
 | 409 | IDEMPOTENCY_KEY_REUSED / AGENT_RUN_PENDING / AGENT_REPLY_LIMIT_REACHED | Agent幂等冲突、会话已有未决任务或成功回复额度用尽 |
 | 503 | PAID_COMPASS_DISABLED | 购买开关关闭，禁止新的创单或预支付 |

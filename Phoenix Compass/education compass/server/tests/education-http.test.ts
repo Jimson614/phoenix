@@ -56,6 +56,7 @@ async function listen() {
     store,
     auth,
     mockPay,
+    orders,
     server,
     base: `http://127.0.0.1:${address.port}`,
     close: () => new Promise<void>((resolve, reject) => {
@@ -1475,6 +1476,65 @@ test('real HTTP backend and wx.request adapter complete login, profiles, Level 1
     else (globalThis as any).wx = originalWx
     if (originalGetApp === undefined) delete (globalThis as any).getApp
     else (globalThis as any).getApp = originalGetApp
+    await app.close()
+  }
+})
+
+test('a refunded report can be bought again once, and not after a second refund', async () => {
+  const app = await listen()
+  try {
+    const owner = await createProfile(app, 'education-http-repurchase', '6')
+    const free = await completeLevelOne(app, owner, 'GAOKAO', 'repurchase-free')
+    const growth = await completeLevelTwo(app, owner, free.assessmentId, 'GAOKAO', 'repurchase-growth')
+    const adminId = 'usr_mock_refund_admin'
+    await app.store.transaction(async (tx) => {
+      await tx.insert('users', { id: adminId, role: 'admin', createdAt: new Date().toISOString() })
+    })
+    const buy = (key: string) => jsonRequest(app.base, `/v1/assessments/${growth.assessmentId}/orders`, {
+      method: 'POST',
+      headers: { ...owner.headers, 'Idempotency-Key': key },
+      body: JSON.stringify({ productCode: GROWTH_DISCOVERY_PRODUCT_CODE })
+    })
+    const result = async () => (await jsonRequest(app.base, `/v1/assessments/${growth.assessmentId}/result`, { headers: owner.headers })).body
+    const payAndRefund = async (key: string) => {
+      const order = await buy(key)
+      assert.equal(order.response.status, 201, JSON.stringify(order.body))
+      const prepay = await jsonRequest(app.base, `/v1/orders/${order.body.orderId}/virtual-payment`, {
+        method: 'POST', headers: owner.headers, body: JSON.stringify({ code: owner.loginCode })
+      })
+      assert.equal(prepay.response.status, 200, JSON.stringify(prepay.body))
+      app.mockPay.setOrderState(prepay.body.outTradeNo, 'SUCCESS')
+      assert.equal((await postPush(app.base, app.mockPay.deliveryEvent(prepay.body.outTradeNo))).status, 200)
+      assert.equal((await result()).resultState, 'READY', 'the paid report is unlocked')
+      const refund = await app.orders.requestRefund(adminId, order.body.orderId, { idempotencyKey: `refund-${key}`, reason: '家长申请退款' })
+      app.mockPay.setRefundState(refund.outRefundNo, 'SUCCESS')
+      assert.equal((await postPush(app.base, app.mockPay.refundEvent(refund.outRefundNo))).status, 200)
+      return order.body.orderId as string
+    }
+
+    const first = await payAndRefund('repurchase-order-1')
+    // The refund withdraws access and puts the report back on sale.
+    const relocked = await app.store.read(async (tx) => tx.findById('reports', growth.reportId))
+    assert.equal(relocked?.status, 'LOCKED')
+    assert.equal(relocked?.deliveryStatus, 'LOCKED')
+    assert.equal((await result()).resultState, 'LOCKED')
+    // A report refunded before this rule still shows as delivered; ordering locks it again first.
+    await app.store.transaction(async (tx) => {
+      await tx.update('reports', growth.reportId, { status: 'READY', deliveryStatus: 'DELIVERED' })
+    })
+
+    const second = await payAndRefund('repurchase-order-2')
+    assert.notEqual(second, first)
+    const refused = await buy('repurchase-order-3')
+    assert.equal(refused.response.status, 409, JSON.stringify(refused.body))
+    assert.equal(refused.body.error.code, 'REPURCHASE_LIMIT_REACHED')
+    assert.match(refused.body.error.message, /重新购买过一次/)
+    const ledger = await app.store.read(async (tx) => ({
+      orders: (await tx.findMany('orders', { userId: owner.userId })).map((order) => order.status).sort(),
+      entitlements: (await tx.findMany('entitlements', { userId: owner.userId })).map((entitlement) => entitlement.status)
+    }))
+    assert.deepEqual(ledger, { orders: ['REFUNDED', 'REFUNDED'], entitlements: ['REVOKED', 'REVOKED'] })
+  } finally {
     await app.close()
   }
 })

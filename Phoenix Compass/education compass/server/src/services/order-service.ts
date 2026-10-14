@@ -22,6 +22,9 @@ const PROVIDER_QUERY_MIN_INTERVAL_MS = 5_000
 const UNKNOWN_ATTEMPT_GRACE_MS = 30 * 60_000
 const REFUND_RECONCILIATION_MIN_INTERVAL_MS = 60_000
 const MAX_PAYMENT_ATTEMPTS = 10
+// A refunded report can be bought again once (decided 2026-10-14): two refunds end it for that
+// assessment, so buy, read and refund cannot repeat without limit.
+const MAX_REFUNDED_PURCHASES = 2
 
 /** Every order number this order has handed to the platform; the first attempt reuses outTradeNo. */
 function paymentAttempts(order: Order): string[] {
@@ -228,10 +231,16 @@ export class OrderService {
         provider: this.provider.name, createdAt: now, updatedAt: now,
         expiresAt: addMilliseconds(nowDate, 2 * 60 * 60 * 1000)
       }
-      await this.validatePayableDependencies(tx, dependencyOrder)
-
       const existingOrders = await tx.findMany('orders', { userId, assessmentId, productCode: productCode as Order['productCode'] })
       const active = existingOrders.find((order) => ['CREATED', 'PENDING', 'PAID', 'REFUNDING'].includes(order.status))
+      if (!active) {
+        const refunded = existingOrders.filter((order) => order.status === 'REFUNDED').length
+        invariant(refunded < MAX_REFUNDED_PURCHASES, 409, 'REPURCHASE_LIMIT_REACHED', '这份报告退款后已重新购买过一次，不能再次购买')
+        // A report refunded before refunds put it back on sale still shows as delivered.
+        if (refunded > 0) await this.relockRefundedReport(tx, assessment.reportId, now)
+      }
+      await this.validatePayableDependencies(tx, dependencyOrder)
+
       if (active) {
         if (isGrowthDiscovery) {
           await tx.insert('idempotencyRecords', {
@@ -749,6 +758,14 @@ export class OrderService {
     invariant(result.transactionId.length > 0, 400, 'PAYMENT_TRANSACTION_ID_MISSING', '支付交易号缺失')
   }
 
+  /** A refunded report goes back on sale, unless another order of it still grants access. */
+  private async relockRefundedReport(tx: StoreTransaction, reportId: string, now: string): Promise<void> {
+    const report = await tx.findById('reports', reportId, { forUpdate: true })
+    if (report?.status !== 'READY' || report.deliveryStatus !== 'DELIVERED') return
+    if (await tx.findOne('entitlements', { reportId, status: 'ACTIVE' })) return
+    await tx.update('reports', reportId, { status: 'LOCKED', deliveryStatus: 'LOCKED', updatedAt: now })
+  }
+
   private async hasActiveGrowthConsents(tx: StoreTransaction, rawOrder: Order): Promise<boolean> {
     const order = linkedOrder(rawOrder)
     const assessment = await tx.findById('assessments', order.assessmentId, { forUpdate: true })
@@ -831,6 +848,7 @@ export class OrderService {
         if (entitlement && entitlement.status !== 'REVOKED') {
           await tx.update('entitlements', entitlement.id, { status: 'REVOKED', revokedAt: now })
         }
+        if (order.reportId !== null) await this.relockRefundedReport(tx, order.reportId, now)
         // 账号注销后退款回调仍会到达：财务处理照常，但时间线写不进去——
         // 家庭记录已经删除，时间线本身就是个人数据。跳过，不要因此让退款失败。
         if (order.familyId !== null && order.reportId !== null) {

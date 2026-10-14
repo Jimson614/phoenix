@@ -143,7 +143,7 @@ API进程只入队。生产Agent worker是独立进程，使用独立小PostgreS
 
 ## 8. PDF与交付
 
-报告正文与PDF只存在于可信服务端。GET report/pdf 在检查 ACTIVE entitlement 后返回鉴权的临时文件流/短时下载；永久对象URL不可公开。退款后的访问、报告期限和重新生成由上线政策配置。
+报告正文与PDF只存在于可信服务端。GET report/pdf 在检查 ACTIVE entitlement 后返回鉴权的临时文件流/短时下载；永久对象URL不可公开。退款成功撤回权益，并把报告重新锁定为待购买；同一份报告退款后可以重新购买一次，退款满两次后不能再下单（`REPURCHASE_LIMIT_REACHED`）。报告期限和重新生成由上线政策配置。
 
 Agent正文与PDF/报告正文采用独立访问路径。Agent失败、队列积压或关闭时，完整报告和PDF继续可用；Agent不能修改报告快照或延迟微信回调。
 
