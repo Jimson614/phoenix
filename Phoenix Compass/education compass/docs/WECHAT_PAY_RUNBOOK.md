@@ -4,7 +4,7 @@
 
 本产品是小程序内销售的虚拟商品（付费测评报告）。按微信《小程序虚拟支付业务管理规范》（2026-02-27 更新，2026-04-01 起执行），这类商品在全部终端都必须走**小程序虚拟支付**，普通微信支付（JSAPI）能力会被关闭。原来的 API v3 商户证书方案已经整体移除。
 
-- 只出售一个道具：V0.5「学生成长发现」完整报告（商品 `EDUCATION_GROWTH_DISCOVERY_SINGLE_V1`，道具 ID `EC_GROWTH_REPORT_V1`，道具名称「付费版问卷分析报告」），3990 分、CNY，模式为道具直购（`short_series_goods`）。旧版 `COMPASS_REPORT_SINGLE_39_9` 没有配置道具，不能购买。
+- 只出售一个道具：V0.5「学生成长发现」完整报告（商品 `EDUCATION_GROWTH_DISCOVERY_SINGLE_V1`，道具 ID `EC_GROWTH_REPORT_V1`，道具名称「学生成长发现完整报告」，与页面说法一致；服务端商品名按商业政策 RC1 冻结值仍是 `Education Growth Discovery 单次报告`），3990 分、CNY，模式为道具直购（`short_series_goods`）。旧版 `COMPASS_REPORT_SINGLE_39_9` 没有配置道具，不能购买。
 - `wx.requestVirtualPayment` 在 iOS 上走 Apple 支付，在 Android、鸿蒙、Windows 上走微信支付。小程序只拉起支付；订单和权益的事实源在服务端。
 
 官方依据（每次上线前复核）：
@@ -21,7 +21,7 @@
 1. 小程序后台「虚拟支付」开通：签协议 → 提交营业执照、提现账户、支付管理员 → 审核 1–7 个工作日 → 账户验证 → 扫码签约（约 1–2 个工作日）。显示「已签约」即开通了一个新的微信支付商户号。
 2. 「虚拟支付 → 基础配置」：记下 offerId；沙箱 AppKey 与现网 AppKey 是秘密，只用 `ops/server/set-virtual-payment.sh` 隐藏输入录到服务器。
 3. 配置**小程序简称**（iOS 走 Apple 支付必须有）。
-4. 「虚拟支付 → 道具管理」：建一个普通道具：道具 ID `EC_GROWTH_REPORT_V1`（后台限制最多 20 个字符；改用别的 ID 要同时写进 `WECHAT_XPAY_GROWTH_PRODUCT_ID`），名称「付费版问卷分析报告」，价格 39.90 元，关联关系选「自定义」，道具图片 200×200、PNG/JPG、小于 200KB。先上传到开发版本供沙箱测试，沙箱通过后再发布到现网（发布后约 10 分钟生效）。
+4. 「虚拟支付 → 道具管理」：建一个普通道具：道具 ID `EC_GROWTH_REPORT_V1`（后台限制最多 20 个字符；改用别的 ID 要同时写进 `WECHAT_XPAY_GROWTH_PRODUCT_ID`），名称「学生成长发现完整报告」（2026-10-14 定，与页面说法一致），价格 39.90 元，关联关系选「自定义」，道具图片 200×200、PNG/JPG、小于 200KB。先上传到开发版本供沙箱测试，沙箱通过后再发布到现网（发布后约 10 分钟生效）。
 5. 「开发管理 → 消息推送」：URL `https://<API 域名>/v1/webhooks/wechat-message`，消息加解密方式选**安全模式**，数据格式选 **JSON**，Token 与 EncodingAESKey 与服务器配置一致。保存时微信会立即访问 URL 校验，所以必须先部署服务端、录好 Token 和 EncodingAESKey 再保存。一个小程序只有一个推送地址，沙箱与现网的推送都到这里。
 
 ## 3. 配置项
