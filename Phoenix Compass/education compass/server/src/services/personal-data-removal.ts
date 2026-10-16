@@ -11,7 +11,7 @@ import { StoreTransaction } from '../store/store'
 export class PersonalDataRemoval {
   readonly counts: Record<string, number> = {}
 
-  constructor(private readonly tx: StoreTransaction, private readonly now: string) {}
+  constructor(private readonly tx: StoreTransaction, readonly now: string) {}
 
   async removeAll<K extends TableName>(table: K, rows: Array<{ id: string }>): Promise<void> {
     for (const row of rows) await this.tx.delete(table, row.id)
@@ -71,6 +71,61 @@ export class PersonalDataRemoval {
     }
     await this.removeAll('assessments', dependencyOrder(assessments))
   }
+}
+
+/**
+ * 删除孩子的规则（2026-10-14 定）：只保留已买过的报告、它们依据的问卷和这个孩子的同意记录，其余全部删除；
+ * 一份购买都不剩时连孩子一起删除。孩子删除时执行一次；之后它的某份购买退款成功，那份就不再算"已买过"，
+ * 再执行一次。支付或退款还在进行的订单，它的报告先保留，等结果出来再算。
+ * 返回 HARD 时孩子这一行已经删除；返回 RETAINED_PURCHASES 时由调用方把孩子标记为已删除。
+ */
+export async function removeUnpurchasedStudentData(
+  tx: StoreTransaction, removal: PersonalDataRemoval, userId: string, studentId: string
+): Promise<{ mode: 'HARD' | 'RETAINED_PURCHASES'; retainedReports: number }> {
+  const orders = await tx.findMany('orders', { userId, studentId })
+  const held = orders.filter((order) => order.status === 'PAID' || order.status === 'PENDING' || order.status === 'REFUNDING')
+  const heldReportIds = new Set(held.map((order) => order.reportId).filter(Boolean))
+  const assessments = await tx.findMany('assessments', { userId, studentId })
+  const byId = new Map(assessments.map((item) => [item.id, item]))
+  // 已购报告依据的问卷，以及它的来源问卷（第二级通过 sourceAssessmentId RESTRICT 指向第一级）。
+  const retained = new Set<string>()
+  for (const assessment of assessments) {
+    if (!assessment.reportId || !heldReportIds.has(assessment.reportId)) continue
+    let current: Assessment | undefined = assessment
+    while (current && !retained.has(current.id)) {
+      retained.add(current.id)
+      current = current.sourceAssessmentId ? byId.get(current.sourceAssessmentId) : undefined
+    }
+  }
+  const doomed = assessments.filter((item) => !retained.has(item.id))
+  const doomedIds = new Set(doomed.map((item) => item.id))
+  // 只要还有已付款或在途的订单就不整行删除：哪怕找不到它对应的问卷，也不能连带删掉已购报告。
+  const hard = retained.size === 0 && held.length === 0
+
+  await removal.detachOrders(
+    orders.filter((order) => !held.includes(order) && (!order.assessmentId || doomedIds.has(order.assessmentId))),
+    { student: hard }
+  )
+  await removal.removeReports((await tx.findMany('reports', { userId, studentId })).filter((report) => doomedIds.has(report.assessmentId)))
+  await removal.removeAssessments(doomed)
+  if (hard) {
+    const conversations = await tx.findMany('agentConversations', { studentId })
+    for (const conversation of conversations) {
+      await removal.removeAll('agentMessages', await tx.findMany('agentMessages', { conversationId: conversation.id }))
+      await removal.removeAll('agentRuns', await tx.findMany('agentRuns', { conversationId: conversation.id }))
+    }
+    await removal.removeAll('agentConversations', conversations)
+    await removal.removeAll('agentConsents', await tx.findMany('agentConsents', { studentId }))
+    for (const request of await tx.findMany('advisorRequests', { studentId })) {
+      await tx.update('advisorRequests', request.id, { studentId: null, updatedAt: removal.now })
+    }
+    await removal.removeAll('integrationLinks', await tx.findMany('integrationLinks', { entityId: studentId }))
+    // 同意记录排在测评之后：assessments 通过 RESTRICT 指向它们。
+    await removal.removeAll('consents', await tx.findMany('consents', { studentId }))
+    await removal.removeAll('consentGrants', await tx.findMany('consentGrants', { studentId }))
+    await removal.removeAll('students', [{ id: studentId }])
+  }
+  return { mode: hard ? 'HARD' : 'RETAINED_PURCHASES', retainedReports: heldReportIds.size }
 }
 
 /**

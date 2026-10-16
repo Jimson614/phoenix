@@ -1626,6 +1626,50 @@ test('a child keeps a record of every questionnaire; drafts and unpaid student q
   }
 })
 
+test('refunding one of a deleted child\'s two purchases deletes that one and keeps the other', async () => {
+  const app = await listen()
+  try {
+    const owner = await createProfile(app, 'education-http-child-two-purchases', '9')
+    const free = await completeLevelOne(app, owner, 'GAOKAO', 'two-free')
+    const bought = []
+    for (const key of ['two-first', 'two-second']) {
+      const growth = await completeLevelTwo(app, owner, free.assessmentId, 'GAOKAO', key)
+      const payment = await payForGrowth(app, owner, growth.assessmentId, `${key}-order`)
+      app.mockPay.setOrderState(payment.outTradeNo, 'SUCCESS')
+      assert.equal((await postPush(app.base, app.mockPay.deliveryEvent(payment.outTradeNo))).status, 200)
+      bought.push({ ...growth, ...payment })
+    }
+    const [refunded, kept] = bought as [typeof bought[0], typeof bought[0]]
+    const removed = await jsonRequest(app.base, `/v1/me/students/${owner.studentId}`, {
+      method: 'DELETE', headers: owner.headers, body: JSON.stringify({ confirm: 'DELETE_STUDENT' })
+    })
+    assert.deepEqual([removed.body.deletion.mode, removed.body.deletion.retainedReports], ['RETAINED_PURCHASES', 2])
+
+    const adminId = 'usr_mock_two_purchases_admin'
+    await app.store.transaction(async (tx) => {
+      await tx.insert('users', { id: adminId, role: 'admin', createdAt: new Date().toISOString() })
+    })
+    const refund = await app.orders.requestRefund(adminId, refunded.orderId, { idempotencyKey: 'two-refund', reason: '家长申请退款' })
+    app.mockPay.setRefundState(refund.outRefundNo, 'SUCCESS')
+    assert.equal((await postPush(app.base, app.mockPay.refundEvent(refund.outRefundNo))).status, 200)
+
+    const left = await app.store.read(async (tx) => ({
+      deleted: Boolean((await tx.findById('students', owner.studentId))?.deletedAt),
+      assessments: (await tx.findMany('assessments', { studentId: owner.studentId })).map((item) => item.id).sort(),
+      refundedReport: Boolean(await tx.findById('reports', refunded.reportId))
+    }))
+    assert.deepEqual(left, { deleted: true, assessments: [free.assessmentId, kept.assessmentId].sort(), refundedReport: false })
+    const report = await jsonRequest(app.base, `/v1/reports/${kept.reportId}`, { headers: owner.headers })
+    assert.equal(report.body.access, 'full', 'the purchase that was not refunded still opens')
+    const rebuy = await jsonRequest(app.base, `/v1/assessments/${kept.assessmentId}/orders`, {
+      method: 'POST', headers: { ...owner.headers, 'Idempotency-Key': 'two-rebuy' }, body: JSON.stringify({ productCode: GROWTH_DISCOVERY_PRODUCT_CODE })
+    })
+    assert.equal(rebuy.body.error.code, 'STUDENT_NOT_FOUND')
+  } finally {
+    await app.close()
+  }
+})
+
 test('deleting a child removes its questionnaires but keeps purchased reports and their orders in the order history', async () => {
   const app = await listen()
   try {
@@ -1700,9 +1744,42 @@ test('deleting a child removes its questionnaires but keeps purchased reports an
     const result = await jsonRequest(app.base, `/v1/assessments/${growth.assessmentId}/result`, { headers: owner.headers })
     assert.equal(result.response.status, 200, JSON.stringify(result.body))
     assert.equal(result.body.resultState, 'READY')
+    // The order history opens the report through the report route.
+    const report = await jsonRequest(app.base, `/v1/reports/${growth.reportId}`, { headers: owner.headers })
+    assert.equal(report.response.status, 200, JSON.stringify(report.body))
+    assert.equal(report.body.access, 'full')
     // Only the purchase and the free result it was based on are kept; the later draft is deleted.
     const keptA = await app.store.read(async (tx) => (await tx.findMany('assessments', { studentId: owner.studentId })).map((item) => item.id).sort())
     assert.deepEqual(keptA, [free.assessmentId, growth.assessmentId].sort())
+
+    // Nothing can be bought again for a deleted child.
+    const rebuy = await jsonRequest(app.base, `/v1/assessments/${growth.assessmentId}/orders`, {
+      method: 'POST', headers: { ...owner.headers, 'Idempotency-Key': 'child-a-rebuy' }, body: JSON.stringify({ productCode: GROWTH_DISCOVERY_PRODUCT_CODE })
+    })
+    assert.equal(rebuy.response.status, 404, JSON.stringify(rebuy.body))
+    assert.equal(rebuy.body.error.code, 'STUDENT_NOT_FOUND')
+
+    // Once its last purchase is refunded nothing bought is left, so the deletion is completed.
+    const adminId = 'usr_mock_child_refund_admin'
+    await app.store.transaction(async (tx) => {
+      await tx.insert('users', { id: adminId, role: 'admin', createdAt: new Date().toISOString() })
+    })
+    const refund = await app.orders.requestRefund(adminId, payment.orderId, { idempotencyKey: 'child-a-refund', reason: '家长申请退款' })
+    app.mockPay.setRefundState(refund.outRefundNo, 'SUCCESS')
+    assert.equal((await postPush(app.base, app.mockPay.refundEvent(refund.outRefundNo))).status, 200)
+    const purged = await app.store.read(async (tx) => ({
+      student: Boolean(await tx.findById('students', owner.studentId)),
+      assessments: (await tx.findMany('assessments', { studentId: owner.studentId })).length,
+      reports: (await tx.findMany('reports', { studentId: owner.studentId })).length,
+      grants: (await tx.findMany('consentGrants', { studentId: owner.studentId })).length,
+      order: await tx.findById('orders', payment.orderId)
+    }))
+    assert.deepEqual([purged.student, purged.assessments, purged.reports, purged.grants], [false, 0, 0, 0])
+    assert.deepEqual([purged.order?.status, purged.order?.studentId, purged.order?.reportId], ['REFUNDED', null, null])
+    const afterRefund = await jsonRequest(app.base, '/v1/me/orders', { headers: owner.headers })
+    const refunded = afterRefund.body.orders.find((item: any) => item.orderId === payment.orderId)
+    assert.deepEqual([refunded.status, refunded.canViewReport, refunded.studentName], ['REFUNDED', false, null],
+      'the refunded order stays in the order history as a financial record')
   } finally {
     await app.close()
   }

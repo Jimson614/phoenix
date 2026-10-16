@@ -77,7 +77,9 @@
 - 没买过报告的孩子：孩子、问卷、结果、同意记录全部删除，回执 `mode: "HARD"`。
 - 买过报告的孩子：孩子档案标记删除（`students.deleted_at`，迁移 011），已购报告、它所依据的问卷和同意记录保留，仍可从历史订单打开；其余问卷和结果删除，回执 `mode: "RETAINED_PURCHASES"`、`retainedReports` 为保留的已购报告数。
 - 订单是财务记录，只和被删的问卷、报告脱钩，还停在 `CREATED` 的关闭。
-- 删除后这个孩子不再出现在列表和 Education Compass 状态里，读取、修改、新建问卷、开启同意都返回 `404 STUDENT_NOT_FOUND`（或顾问申请的 `403`）；撤回同意仍然可以。
+- 删除后这个孩子不再出现在列表和 Education Compass 状态里，读取、修改、新建问卷、开启同意、下单和发起支付都返回 `404 STUDENT_NOT_FOUND`（或顾问申请的 `403`）；撤回同意仍然可以。
+- 之后这个孩子的某份购买退款成功，那份就不再算"已买过"：它的问卷和报告按同一规则删除；最后一份退完，孩子和其余资料一起删除（审计 `STUDENT_DELETION_CONTINUED`）。订单仍留在历史订单里。
+- 飞书运营镜像：删除时撤回这个孩子的镜像同意，阻断他及其问卷、报告的同步（家里没有别的孩子还在镜像时，家庭记录也阻断）；远端已有记录时写审计 `FEISHU_REMOTE_MINIMIZATION_REVIEW_REQUIRED`（`reason: STUDENT_DELETED`），交给运营人工最小化。同步本身也不再投影已删除孩子的任何资料。
 
 ~~~json
 { "deletion": { "studentId": "stu_xxx", "deletedAt": "2026-10-14T08:00:00.000Z", "mode": "RETAINED_PURCHASES", "retainedReports": 1, "deletedRows": { "assessments": 1, "reports": 0 } } }

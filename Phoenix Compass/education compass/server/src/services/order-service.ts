@@ -14,6 +14,7 @@ import { PayerSession, PaymentProvider, RefundResult, TransactionResult } from '
 import { VirtualPaymentRequest } from '../payments/wechat-virtual-payment'
 import { Store, StoreTransaction } from '../store/store'
 import { addMilliseconds, Clock, IdFactory, iso, outTradeNo, randomId, systemClock } from '../utils/runtime'
+import { PersonalDataRemoval, removeUnpurchasedStudentData } from './personal-data-removal'
 import { appendTimeline } from './profile-service'
 
 const PROVIDER_QUERY_MIN_INTERVAL_MS = 5_000
@@ -123,6 +124,9 @@ export class OrderService {
 
   private async validatePayableDependencies(tx: StoreTransaction, rawOrder: Order): Promise<void> {
     const order = linkedOrder(rawOrder)
+    // 已删除的孩子不能再买：买过的报告只为家庭保留查看。
+    const student = await tx.findById('students', order.studentId)
+    invariant(student && !student.deletedAt, 404, 'STUDENT_NOT_FOUND', '孩子档案不存在')
     invariant(
       (order.productCode === COMPASS_PRODUCT_CODE || order.productCode === GROWTH_DISCOVERY_PRODUCT_CODE) &&
         order.amountFen === 3990 && order.currency === 'CNY',
@@ -887,6 +891,17 @@ export class OrderService {
           await appendTimeline(tx, this.ids, now, {
             userId: order.userId, familyId: order.familyId, eventType: 'order_refunded',
             description: '报告订单已退款，付费访问权益已撤回', reportId: order.reportId, orderId: order.id
+          })
+        }
+        // 孩子已经删除时，这份购买退款后就不再算"已买过的报告"：按删除规则继续删，最后一份退完连孩子一起删。
+        const student = order.studentId ? await tx.findById('students', order.studentId, { forUpdate: true }) : null
+        if (student?.deletedAt) {
+          const removal = new PersonalDataRemoval(tx, now)
+          const outcome = await removeUnpurchasedStudentData(tx, removal, order.userId, student.id)
+          await tx.insert('auditLogs', {
+            id: this.ids('aud'), actorUserId: null, action: 'STUDENT_DELETION_CONTINUED', entityType: 'students',
+            entityId: student.id, metadata: { reason: 'PURCHASE_REFUNDED', mode: outcome.mode, deletedRows: removal.counts },
+            createdAt: now
           })
         }
       } else if ((result.refundStatus === 'CLOSED' || result.refundStatus === 'ABNORMAL') && order.status === 'REFUNDING') {

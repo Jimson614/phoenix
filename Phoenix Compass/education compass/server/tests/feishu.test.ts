@@ -23,6 +23,7 @@ import {
 } from '../src/integrations/feishu/schema-contract'
 import { MockPaymentProvider } from '../src/payments/mock-payment-provider'
 import { AssessmentService } from '../src/services/assessment-service'
+import { AccountService } from '../src/services/account-service'
 import { AuthService } from '../src/services/auth-service'
 import { EducationCompassService } from '../src/services/education-compass-service'
 import { OrderService, seedProducts } from '../src/services/order-service'
@@ -469,6 +470,22 @@ test('Feishu reconciliation projects only pseudonymous operational fields and sk
   const links = await store.read((tx) => tx.findMany('integrationLinks'))
   assert.equal(links.length, 7)
   assert.ok(links.every((link) => link.status === 'SYNCED' && link.attempts === 0 && Boolean(link.externalRecordId)))
+})
+
+test('A deleted child is not mirrored, nor its questionnaires, reports, feedback or advisor requests', async () => {
+  const store = populatedStore()
+  // A legacy child is mirrored under a pseudonym without a mirror consent, so only this filter stops it.
+  await store.transaction(async (tx) => {
+    await tx.update('students', 'stu_private_1', { deletedAt: '2026-08-21T07:00:00.000Z' })
+  })
+  const gateway = new CapturingGateway()
+  const service = new FeishuSyncService(
+    store, gateway, allTables, 'standalone-pseudonym-key-with-32-bytes', 'test', 50, () => new Date(fixedNow)
+  )
+  const result = await service.reconcile(20)
+  assert.deepEqual(result, { enabled: true, discovered: 2, attempted: 2, succeeded: 2, failed: 0, skipped: 0 })
+  assert.deepEqual(gateway.calls.map((call) => call.tableId).sort(), [allTables.family_profile, allTables.order_payment].sort(),
+    'only the family and the order, a financial record, are mirrored')
 })
 
 test('Legacy customer profile reconcile preserves its core contract and stable pseudonyms', async () => {
@@ -962,6 +979,72 @@ test('Authenticated customer profile APIs persist to the Phoenix store contract 
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
   }
+})
+
+test('Deleting a child stops its Feishu mirror and flags the mirrored records for minimization', async () => {
+  const store = new InMemoryStore()
+  await seedProducts(store, fixedNow.toISOString())
+  const clock = () => new Date(fixedNow)
+  const auth = new AuthService(store, new MockWechatAuthProvider(), sessionSecret)
+  const profiles = new ProfileService(store, clock)
+  const education = new EducationCompassService(store, false, clock)
+  const accounts = new AccountService(store, clock)
+  const gateway = new CapturingGateway()
+  const profileTables: Record<FeishuEntityType, string> = {
+    family_profile: 'tblFamily', student_profile: 'tblStudent', assessment_session: '', report_job: '',
+    order_payment: '', feedback: '', advisor_request: ''
+  }
+  const feishu = new FeishuSyncService(
+    store, gateway, profileTables, 'standalone-pseudonym-key-with-32-bytes', 'test', 10, clock, undefined, true
+  )
+  const login = await auth.createWechatSession('feishu-child-deletion-user')
+  const userId = login.user.id
+  const family = await profiles.upsertFamily(userId, {
+    familyName: '周氏家庭', parentName: '周先生', phone: '+852 9000 0001', location: '香港', goal: '规划升学方向'
+  })
+  const staying = await profiles.createStudent(userId, { name: '小周', age: 13, educationSystem: 'DSE', grade: '中二' })
+  const leaving = await profiles.createStudent(userId, { name: '小林', age: 15, educationSystem: 'DSE', grade: '中四' })
+  for (const student of [staying, leaving]) {
+    await education.setFeishuProfileConsent(userId, {
+      studentId: student.id, enabled: true, copyVersion: 'feishu_profile_mirror_opt_in_v1.0.0-rc1',
+      locale: 'zh-CN', guardianAuthorityConfirmed: true
+    })
+  }
+  assert.equal((await feishu.reconcile()).succeeded, 3, 'the family and both children are mirrored')
+
+  // The child bought a report, so deleting it keeps the profile row, marked deleted.
+  const at = fixedNow.toISOString()
+  await store.transaction(async (tx) => {
+    await tx.insert('orders', {
+      id: 'ord_feishu_paid', outTradeNo: 'PXfeishupaid0001', userId, familyId: family.id, studentId: leaving.id,
+      assessmentId: null, reportId: null, productCode: 'EDUCATION_GROWTH_DISCOVERY_SINGLE_V1', amountFen: 3990,
+      currency: 'CNY', status: 'PAID', idempotencyKey: 'feishu-paid-order', provider: 'mock', providerPrepayId: null,
+      paymentParams: null, providerTransactionId: 'mock_tx_feishu', lastProviderQueryAt: null,
+      createdAt: at, updatedAt: at, expiresAt: at, paidAt: at, refundedAt: null
+    })
+  })
+  const receipt = await accounts.deleteStudent(userId, leaving.id)
+  assert.equal(receipt.mode, 'RETAINED_PURCHASES')
+
+  const afterDeletion = await store.read(async (tx) => ({
+    grants: await tx.findMany('consentGrants', { studentId: leaving.id, scope: 'FEISHU_PROFILE_MIRROR' }),
+    links: await tx.findMany('integrationLinks', { entityId: leaving.id }),
+    familyLinks: await tx.findMany('integrationLinks', { entityId: family.id }),
+    audits: await tx.findMany('auditLogs', { action: 'FEISHU_REMOTE_MINIMIZATION_REVIEW_REQUIRED' })
+  }))
+  assert.ok(afterDeletion.grants.length > 0 && afterDeletion.grants.every((grant) => grant.withdrawnAt), 'the child mirror consent is withdrawn')
+  assert.deepEqual(afterDeletion.links.map((link) => [link.status, link.lastErrorCode]), [['BLOCKED', 'FEISHU_SUBJECT_DELETED']])
+  assert.deepEqual(afterDeletion.familyLinks.map((link) => link.status), ['SYNCED'], 'another child still consents, so the family keeps its mirror')
+  assert.deepEqual(afterDeletion.audits.map((audit) => [audit.entityId, audit.metadata.reason, audit.metadata.remoteRecordCount]),
+    [[leaving.id, 'STUDENT_DELETED', 1]])
+
+  // A manual reconcile requeues blocked links, but not these, and nothing about the child is sent again.
+  gateway.calls.length = 0
+  await feishu.manualReconcile('usr_feishu_admin')
+  const links = await store.read((tx) => tx.findMany('integrationLinks', { entityId: leaving.id }))
+  assert.deepEqual(links.map((link) => link.status), ['BLOCKED'])
+  assert.doesNotMatch(JSON.stringify(gateway.calls), /小林/)
+  assert.equal(gateway.calls.filter((call) => call.tableId === 'tblStudent').length, 0)
 })
 
 test('Feishu management endpoints require admin role and expose no credentials', async () => {

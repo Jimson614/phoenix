@@ -1,8 +1,8 @@
 import { AppError, invariant } from '../domain/errors'
-import { Assessment, TableName } from '../domain/model'
+import { TableName } from '../domain/model'
 import { Store, StoreTransaction } from '../store/store'
 import { Clock, IdFactory, iso, randomId, systemClock } from '../utils/runtime'
-import { dependencyOrder, PersonalDataRemoval } from './personal-data-removal'
+import { dependencyOrder, PersonalDataRemoval, removeUnpurchasedStudentData } from './personal-data-removal'
 
 /**
  * 账号注销。
@@ -166,57 +166,28 @@ export class AccountService {
       invariant(!orders.some((order) => order.status === 'PENDING' || order.status === 'REFUNDING'), 409,
         'STUDENT_PAYMENT_IN_PROGRESS', '这个孩子有正在进行的支付或退款，处理完成后再删除')
 
+      // 飞书运营镜像：按撤回镜像同意的方式停掉——撤回这个孩子的镜像同意、阻断他的同步；
+      // 同步不会删除远端已有的记录，所以有远端记录时记一条审计，交给运营走人工最小化流程。
       const assessments = await tx.findMany('assessments', { userId, studentId })
-      const byId = new Map(assessments.map((item) => [item.id, item]))
-      const paidReportIds = new Set(orders.filter((order) => order.status === 'PAID' && order.reportId).map((order) => order.reportId))
-      // 已购报告依据的问卷，以及它的来源问卷（第二级通过 sourceAssessmentId RESTRICT 指向第一级）。
-      const retained = new Set<string>()
-      for (const assessment of assessments) {
-        if (!assessment.reportId || !paidReportIds.has(assessment.reportId)) continue
-        let current: Assessment | undefined = assessment
-        while (current && !retained.has(current.id)) {
-          retained.add(current.id)
-          current = current.sourceAssessmentId ? byId.get(current.sourceAssessmentId) : undefined
-        }
+      const studentReports = await tx.findMany('reports', { userId, studentId })
+      const remoteRecords = await this.stopFeishuMirror(tx, userId, family.id, studentId,
+        [studentId, ...assessments.map((item) => item.id), ...studentReports.map((item) => item.id)], now)
+      if (remoteRecords > 0) {
+        await tx.insert('auditLogs', {
+          id: this.ids('aud'), actorUserId: userId, action: 'FEISHU_REMOTE_MINIMIZATION_REVIEW_REQUIRED',
+          entityType: 'student', entityId: studentId,
+          metadata: { reason: 'STUDENT_DELETED', remoteRecordCount: remoteRecords, sopStatus: 'BLOCKED_EXTERNAL_PRIVACY_APPROVAL' },
+          createdAt: now
+        })
       }
-      const doomedAssessments = assessments.filter((item) => !retained.has(item.id))
-      const doomedIds = new Set(doomedAssessments.map((item) => item.id))
-      const reports = (await tx.findMany('reports', { userId, studentId }))
-        .filter((report) => doomedIds.has(report.assessmentId))
-      // 只要还有已付款的订单就不整行删除：哪怕找不到它对应的问卷，也不能连带删掉已购报告。
-      const hard = retained.size === 0 && !orders.some((order) => order.status === 'PAID')
 
       const removal = new PersonalDataRemoval(tx, now)
-      await removal.detachOrders(
-        orders.filter((order) => order.status !== 'PAID' && (!order.assessmentId || doomedIds.has(order.assessmentId))),
-        { student: hard }
-      )
-      await removal.removeReports(reports)
-      await removal.removeAssessments(doomedAssessments)
-      if (hard) {
-        const conversations = await tx.findMany('agentConversations', { studentId })
-        for (const conversation of conversations) {
-          await removal.removeAll('agentMessages', await tx.findMany('agentMessages', { conversationId: conversation.id }))
-          await removal.removeAll('agentRuns', await tx.findMany('agentRuns', { conversationId: conversation.id }))
-        }
-        await removal.removeAll('agentConversations', conversations)
-        await removal.removeAll('agentConsents', await tx.findMany('agentConsents', { studentId }))
-        for (const request of await tx.findMany('advisorRequests', { studentId })) {
-          await tx.update('advisorRequests', request.id, { studentId: null, updatedAt: now })
-        }
-        await removal.removeAll('integrationLinks', await tx.findMany('integrationLinks', { entityId: studentId }))
-        // 同意记录排在测评之后：assessments 通过 RESTRICT 指向它们。
-        await removal.removeAll('consents', await tx.findMany('consents', { studentId }))
-        await removal.removeAll('consentGrants', await tx.findMany('consentGrants', { studentId }))
-        await removal.removeAll('students', [student])
-      } else {
-        // 已购报告的访问要检查它的同意记录，所以买过报告的孩子保留全部同意记录。
-        await tx.update('students', studentId, { deletedAt: now, updatedAt: now })
-      }
+      const outcome = await removeUnpurchasedStudentData(tx, removal, userId, studentId)
+      // 已购报告的访问要检查它的同意记录，所以买过报告的孩子保留全部同意记录，只标记删除。
+      if (outcome.mode === 'RETAINED_PURCHASES') await tx.update('students', studentId, { deletedAt: now, updatedAt: now })
 
       const receipt: StudentDeletionReceipt = {
-        studentId, deletedAt: now, mode: hard ? 'HARD' : 'RETAINED_PURCHASES',
-        retainedReports: paidReportIds.size, deletedRows: removal.counts
+        studentId, deletedAt: now, mode: outcome.mode, retainedReports: outcome.retainedReports, deletedRows: removal.counts
       }
       await tx.insert('auditLogs', {
         id: this.ids('aud'), actorUserId: userId, action: 'STUDENT_DELETED', entityType: 'students', entityId: studentId,
@@ -224,6 +195,32 @@ export class AccountService {
       })
       return receipt
     })
+  }
+
+  /**
+   * 撤回孩子的飞书镜像同意，阻断这个孩子及其问卷、报告的同步关联；家里没有别的孩子还在镜像时，
+   * 家庭记录也一起阻断（和撤回同意时一样，家庭镜像依附于孩子的同意）。返回远端已有记录的条数。
+   */
+  private async stopFeishuMirror(
+    tx: StoreTransaction, userId: string, familyId: string, studentId: string, entityIds: string[], now: string
+  ): Promise<number> {
+    for (const grant of await tx.findMany('consentGrants', { userId, studentId, scope: 'FEISHU_PROFILE_MIRROR', withdrawnAt: null })) {
+      await tx.update('consentGrants', grant.id, { withdrawnAt: now, updatedAt: now })
+    }
+    const familyStillMirrored = Boolean(await tx.findOne('consentGrants', {
+      userId, familyId, scope: 'FEISHU_PROFILE_MIRROR', withdrawnAt: null
+    }))
+    let remoteRecords = 0
+    for (const entityId of familyStillMirrored ? entityIds : [...entityIds, familyId]) {
+      for (const link of await tx.findMany('integrationLinks', { provider: 'feishu_bitable', entityId })) {
+        if (link.externalRecordId) remoteRecords += 1
+        await tx.update('integrationLinks', link.id, {
+          status: 'BLOCKED', leaseToken: null, operationToken: null, operationDigest: null, operationBody: null,
+          lastErrorCode: 'FEISHU_SUBJECT_DELETED', nextAttemptAt: null, updatedAt: now
+        })
+      }
+    }
+    return remoteRecords
   }
 
   /** 注销后的 users 行不得再通过微信登录复活，登录路径据此拒绝。 */

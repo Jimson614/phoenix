@@ -87,7 +87,8 @@ export class FeishuSyncService {
     const now = iso(this.clock)
     await this.store.transaction(async (tx) => {
       const blocked = await tx.findMany('integrationLinks', { provider: 'feishu_bitable', status: 'BLOCKED' })
-      const retryableBlocked = blocked.filter((link) => link.lastErrorCode !== 'FEISHU_CONSENT_WITHDRAWN')
+      const retryableBlocked = blocked.filter((link) =>
+        link.lastErrorCode !== 'FEISHU_CONSENT_WITHDRAWN' && link.lastErrorCode !== 'FEISHU_SUBJECT_DELETED')
       for (const link of retryableBlocked) await tx.update('integrationLinks', link.id, { status: 'FAILED', nextAttemptAt: null, updatedAt: now })
       await tx.insert('auditLogs', {
         id: this.ids('aud'), actorUserId, action: 'FEISHU_RECONCILE_REQUESTED',
@@ -220,7 +221,7 @@ export class FeishuSyncService {
   }
 
   private async collectProjections(): Promise<Projection[]> {
-    const snapshot = await this.store.read(async (tx) => ({
+    const stored = await this.store.read(async (tx) => ({
       families: await tx.findMany('families'),
       students: await tx.findMany('students'),
       assessments: await tx.findMany('assessments'),
@@ -230,6 +231,20 @@ export class FeishuSyncService {
       advisorRequests: await tx.findMany('advisorRequests'),
       consentGrants: await tx.findMany('consentGrants')
     }))
+    // A child the family deleted is never mirrored again, nor its questionnaires, reports, feedback,
+    // advisor requests or consents: what was kept (purchased reports) is kept for the family only.
+    // Orders stay in the mirror as financial records.
+    const deletedStudentIds = new Set(stored.students.filter((item) => item.deletedAt).map((item) => item.id))
+    const deletedReportIds = new Set(stored.reports.filter((item) => deletedStudentIds.has(item.studentId)).map((item) => item.id))
+    const snapshot = {
+      ...stored,
+      students: stored.students.filter((item) => !deletedStudentIds.has(item.id)),
+      assessments: stored.assessments.filter((item) => !deletedStudentIds.has(item.studentId)),
+      reports: stored.reports.filter((item) => !deletedReportIds.has(item.id)),
+      feedback: stored.feedback.filter((item) => !deletedReportIds.has(item.reportId)),
+      advisorRequests: stored.advisorRequests.filter((item) => !item.studentId || !deletedStudentIds.has(item.studentId)),
+      consentGrants: stored.consentGrants.filter((item) => !item.studentId || !deletedStudentIds.has(item.studentId))
+    }
     const projections: Projection[] = []
     const add = (
       entityType: FeishuEntityType,
