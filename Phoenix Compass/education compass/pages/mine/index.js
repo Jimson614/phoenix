@@ -268,5 +268,14 @@ Page({
         })
       }
     })
-  }
+  },
+  openTerms() {
+    wx.navigateTo({ url: '/pages/legal/index?type=terms' })
+  },
+  openAiReport() {
+    wx.navigateTo({ url: '/pages/legal/index?type=ai-report' })
+  },
+  openGuardianConsent() {
+    wx.navigateTo({ url: '/pages/legal/index?type=guardian-consent' })
+  },
 })
