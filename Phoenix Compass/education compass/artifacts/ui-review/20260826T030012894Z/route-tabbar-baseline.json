@@ -18,7 +18,8 @@
       "pages/advisor-request/index",
       "pages/mine/index",
       "pages/admin-families/index",
-      "pages/admin-family/index"
+      "pages/admin-family/index",
+      "pages/legal/index"
     ],
     "window": {
       "navigationStyle": null,
@@ -78,6 +79,10 @@
       "pages/family-edit/index.json": {
         "navigationStyle": null,
         "navigationBarTitleText": "家庭档案"
+      },
+      "pages/legal/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "法务文本"
       },
       "pages/home/index.json": {
         "navigationStyle": "custom",

@@ -1,7 +1,9 @@
+page {
+  background: var(--pn-bg, #faf7f1);
+}
+
 .legal {
   padding: 0 0 40rpx;
-  background: var(--pn-bg, #faf7f1);
-  min-height: 100vh;
 }
 
 .legal__hero {

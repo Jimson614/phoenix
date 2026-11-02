@@ -758,6 +758,11 @@
         }
       ],
       "dataAttributes": []
+    },
+    {
+      "path": "pages/legal/index.wxml",
+      "handlers": [],
+      "dataAttributes": []
     }
   ]
 }
