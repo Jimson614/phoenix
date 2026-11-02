@@ -276,6 +276,9 @@ Page({
     wx.navigateTo({ url: '/pages/legal/index?type=ai-report' })
   },
   openGuardianConsent() {
-    wx.navigateTo({ url: '/pages/legal/index?type=guardian-consent' })
+    const student = this.data.primaryStudent || this.data.consentStudent
+    const name = student && student.name ? String(student.name).trim() : ''
+    const query = name ? `&name=${encodeURIComponent(name)}` : ''
+    wx.navigateTo({ url: `/pages/legal/index?type=guardian-consent${query}` })
   },
 })

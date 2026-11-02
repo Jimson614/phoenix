@@ -28,8 +28,8 @@
       </view>
       <view wx:elif="{{bk.t === 'note'}}" class="legal__note-block"><text>{{bk.text}}</text></view>
       <view wx:elif="{{bk.t === 'confirm'}}" class="legal__confirm">
-        <text class="legal__confirm-tag">确认按钮</text>
-        <text class="legal__confirm-txt">{{bk.text}}</text>
+        <text class="legal__confirm-tag">确认按钮文案</text>
+        <text class="legal__confirm-txt">「{{bk.text}}」</text>
       </view>
       <view wx:elif="{{bk.t === 'divider'}}" class="legal__divider"></view>
     </block>

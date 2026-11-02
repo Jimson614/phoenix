@@ -82,7 +82,7 @@
       </view>
 
             <view class="mine-section-head">
-        <view><text class="eyebrow">LEGAL &amp; PRIVACY</text><text class="h2 mine-section-title">协议与隐私</text></view>
+        <view><text class="eyebrow">LEGAL & PRIVACY</text><text class="h2 mine-section-title">协议与隐私</text></view>
         <text class="mine-section-head__mark" aria-hidden="true">✦</text>
       </view>
       <view class="mine-menu">

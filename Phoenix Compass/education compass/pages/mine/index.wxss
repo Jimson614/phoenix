@@ -86,7 +86,23 @@ button.mine-orders__toggle { width: 100%; }
 .mine-child__head { align-items: center; display: flex; }
 .mine-child__badge { background: #f6ecd9; border-radius: 999rpx; color: #8d672a; flex-shrink: 0; font-size: 19rpx; padding: 7rpx 14rpx; }
 .mine-child__actions { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 16rpx; padding-left: 68rpx; }
-.mine-child__action { background: #fffdf9; border: 1rpx solid #ded2c1; border-radius: 999rpx; color: #2d4052; font-size: 22rpx; line-height: 1.2; padding: 14rpx 24rpx; }
+.mine-child__action {
+  align-items: center;
+  background: linear-gradient(180deg, #ffffff 0%, #fffaf2 100%);
+  border: 1rpx solid #e3d8c8;
+  border-radius: 999rpx;
+  box-shadow: 0 2rpx 8rpx rgba(120, 96, 60, 0.06);
+  box-sizing: border-box;
+  color: #2d4052;
+  display: flex;
+  font-size: 22rpx;
+  font-weight: 500;
+  justify-content: center;
+  line-height: 1;
+  min-height: 62rpx;
+  padding: 0 28rpx;
+  text-align: center;
+}
 .mine-child__action::after { border: 0; }
 .mine-child__action--critical { background: #fffaf7; border-color: rgba(145,67,57,.22); color: #873f37; }
 .mine-child__action[disabled] { background: #f4f0e9; color: #8b867e; opacity: .72; }
