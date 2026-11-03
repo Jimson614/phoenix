@@ -39,6 +39,12 @@
 
     <view wx:elif="{{mode === 'records'}}" class="records">
       <view class="section-head"><text class="h3">问卷记录</text><text class="muted">{{records.length}} 份</text></view>
+      <view wx:if="{{readinessHint}}" class="readiness-hint">
+        <text class="readiness-hint__eyebrow">NEXT STEP</text>
+        <text class="readiness-hint__title">孩子现在愿意做「学生成长发现」了？</text>
+        <text class="readiness-hint__copy">上一次填写时，「学生成长发现」还没有被确认为可以开始。如果后来跟孩子沟通后他愿意了，重新填写一次家长问卷（8 题，约 3 分钟），以最新一次为准；填完即可进入成长发现，并由孩子本人确认后再作答。</text>
+        <button class="btn btn--primary readiness-hint__action" bindtap="updateReadiness">更新孩子意愿</button>
+      </view>
       <view wx:if="{{!records.length}}" class="records__empty">
         <text>这个孩子还没有做过问卷。</text>
         <button class="btn btn--primary records__start" bindtap="startFirstRecord">开始免费家长问卷</button>

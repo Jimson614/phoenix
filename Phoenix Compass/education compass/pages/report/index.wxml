@@ -64,8 +64,8 @@
       </view>
       <view class="report-note">{{rendered.disclaimer || '本报告用于发现学习与成长问题，不构成诊断、完整升学规划、录取预测或结果保证。'}}</view>
 
-      <view wx:if="{{userRole === 'family_user'}}" class="report-tools">
-        <button class="btn btn--primary" loading="{{pdfLoading}}" bindtap="openPdf">打开 / 保存 PDF</button>
+      <view wx:if="{{userRole === 'family_user' && (pdfExportEnabled || paidAnalysisVisible || agentEntryVisible)}}" class="report-tools">
+        <button wx:if="{{pdfExportEnabled}}" class="btn btn--primary" loading="{{pdfLoading}}" bindtap="openPdf">打开 / 保存 PDF</button>
         <view wx:if="{{paidAnalysisVisible}}" class="agent-entry agent-entry--analysis">
           <text class="agent-entry__eyebrow">PAID REPORT AI ANALYSIS</text>
           <text class="agent-entry__title">完整已购报告 AI 总分析</text>
@@ -164,7 +164,7 @@
       <view class="report-note">{{response.full.disclaimer}}</view>
 
       <view wx:if="{{userRole === 'family_user'}}" class="report-tools">
-        <button class="btn btn--primary" loading="{{pdfLoading}}" bindtap="openPdf">打开 / 保存 PDF</button>
+        <button wx:if="{{pdfExportEnabled}}" class="btn btn--primary" loading="{{pdfLoading}}" bindtap="openPdf">打开 / 保存 PDF</button>
         <view wx:if="{{paidAnalysisVisible}}" class="agent-entry agent-entry--analysis">
           <text class="agent-entry__eyebrow">PAID REPORT AI ANALYSIS</text>
           <text class="agent-entry__title">完整已购报告 AI 总分析</text>

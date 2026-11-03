@@ -268,5 +268,17 @@ Page({
         })
       }
     })
-  }
+  },
+  openTerms() {
+    wx.navigateTo({ url: '/pages/legal/index?type=terms' })
+  },
+  openAiReport() {
+    wx.navigateTo({ url: '/pages/legal/index?type=ai-report' })
+  },
+  openGuardianConsent() {
+    const student = this.data.primaryStudent || this.data.consentStudent
+    const name = student && student.name ? String(student.name).trim() : ''
+    const query = name ? `&name=${encodeURIComponent(name)}` : ''
+    wx.navigateTo({ url: `/pages/legal/index?type=guardian-consent${query}` })
+  },
 })

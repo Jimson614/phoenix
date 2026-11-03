@@ -1,0 +1,56 @@
+<view class="orders">
+  <view class="orders__hero">
+    <text class="orders__kicker">ORDER CENTER · 订单中心</text>
+    <text class="orders__title">订单中心</text>
+    <text class="orders__copy">本页汇总你在本小程序内的全部资金交易记录，包含待支付、已支付与退款状态。支付结果以服务端核验的微信平台通知为准。</text>
+  </view>
+
+  <view wx:if="{{needLogin}}" class="orders-gate">
+    <text class="orders-gate__title">登录后查看订单</text>
+    <text class="orders-gate__copy">订单与微信账号绑定。登录成功后停留在本页，不会跳转其他页面。</text>
+    <button class="btn btn--primary" loading="{{loginBusy}}" bindtap="login">微信一键登录</button>
+  </view>
+
+  <block wx:else>
+    <view class="orders__summary">
+      <text class="orders__count">共 {{orderCount}} 笔订单</text>
+      <text class="orders__hint" wx:if="{{orderCount}}">点任一订单查看支付状态与报告</text>
+    </view>
+
+    <view wx:if="{{loading}}" class="orders-empty">
+      <text class="orders-empty__title">正在读取订单…</text>
+    </view>
+
+    <view wx:elif="{{!orderCount}}" class="orders-empty">
+      <text class="orders-empty__mark" aria-hidden="true">◇</text>
+      <text class="orders-empty__title">暂无订单记录</text>
+      <text class="orders-empty__copy">完成学生问卷后，可自主选择是否付款解锁完整成长报告。付款前不展示报告结论。</text>
+      <button class="btn btn--outline" bindtap="goCompass">去教育罗盘</button>
+    </view>
+
+    <view wx:else class="orders-list">
+      <view
+        wx:for="{{orders}}"
+        wx:key="orderId"
+        class="orders-item"
+        role="button"
+        aria-label="{{item.productLabel}} {{item.statusLabel}}"
+        data-id="{{item.orderId}}"
+        bindtap="openOrder"
+      >
+        <view class="orders-item__head">
+          <text class="orders-item__title">{{item.productLabel}}</text>
+          <text class="orders-item__status orders-item__status--{{item.statusTone}}">{{item.statusLabel}}</text>
+        </view>
+        <text class="orders-item__meta">{{item.metaLabel}}</text>
+        <view class="orders-item__foot">
+          <text class="orders-item__amount">{{item.amountLabel}}</text>
+          <text class="orders-item__chevron" aria-hidden="true">›</text>
+        </view>
+      </view>
+    </view>
+
+    <button class="btn btn--text orders__help" open-type="contact">订单有问题？联系客服</button>
+    <text class="orders__foot">订单记录按法规留存；退款由客服人工受理，不提供自助退款。</text>
+  </block>
+</view>

@@ -1,0 +1,42 @@
+<view class="legal">
+  <view class="legal__hero">
+    <view class="legal__kicker">Phoenix Family OS · 法务文本</view>
+    <text class="legal__title">{{title}}</text>
+    <view class="legal__notes" wx:if="{{notes.length}}">
+      <text class="legal__note" wx:for="{{notes}}" wx:for-item="nt" wx:for-index="ni" wx:key="ni">{{nt}}</text>
+    </view>
+  </view>
+
+  <view class="legal__body">
+    <block wx:for="{{blocks}}" wx:for-item="bk" wx:for-index="bi" wx:key="bi">
+      <view wx:if="{{bk.t === 'h2'}}" class="legal__h2">{{bk.text}}</view>
+      <view wx:elif="{{bk.t === 'h3'}}" class="legal__h3">{{bk.text}}</view>
+      <view wx:elif="{{bk.t === 'p'}}" class="legal__p">
+        <text wx:for="{{bk.runs}}" wx:for-item="rn" wx:for-index="ri" wx:key="ri" class="{{rn.b ? 'legal__b' : (rn.var ? 'legal__var' : '')}}">{{rn.text}}</text>
+      </view>
+      <view wx:elif="{{bk.t === 'ol'}}" class="legal__ol">
+        <view class="legal__li" wx:for="{{bk.items}}" wx:for-item="li" wx:for-index="lii" wx:key="lii">
+          <text class="legal__li-num">{{lii + 1}}.</text>
+          <text class="legal__li-txt"><text wx:for="{{li}}" wx:for-item="rn" wx:for-index="ri" wx:key="ri" class="{{rn.b ? 'legal__b' : (rn.var ? 'legal__var' : '')}}">{{rn.text}}</text></text>
+        </view>
+      </view>
+      <view wx:elif="{{bk.t === 'ul'}}" class="legal__ul">
+        <view class="legal__li" wx:for="{{bk.items}}" wx:for-item="li" wx:for-index="lii" wx:key="lii">
+          <text class="legal__dot">·</text>
+          <text class="legal__li-txt"><text wx:for="{{li}}" wx:for-item="rn" wx:for-index="ri" wx:key="ri" class="{{rn.b ? 'legal__b' : (rn.var ? 'legal__var' : '')}}">{{rn.text}}</text></text>
+        </view>
+      </view>
+      <view wx:elif="{{bk.t === 'note'}}" class="legal__note-block"><text>{{bk.text}}</text></view>
+      <view wx:elif="{{bk.t === 'confirm'}}" class="legal__confirm">
+        <text class="legal__confirm-tag">确认按钮文案</text>
+        <text class="legal__confirm-txt">「{{bk.text}}」</text>
+      </view>
+      <view wx:elif="{{bk.t === 'divider'}}" class="legal__divider"></view>
+    </block>
+  </view>
+
+  <view class="legal__footer">
+    <text>经营主体：凤启环球信息科技（深圳）有限公司</text>
+    <text>本页文本与官网公示版本（api.phoenixnova.com.cn/legal/）具有同等效力。</text>
+  </view>
+</view>

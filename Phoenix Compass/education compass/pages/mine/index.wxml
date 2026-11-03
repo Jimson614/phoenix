@@ -81,7 +81,41 @@
         </view>
       </view>
 
-      <view class="mine-orders">
+            <view class="mine-section-head">
+        <view><text class="eyebrow">LEGAL & PRIVACY</text><text class="h2 mine-section-title">协议与隐私</text></view>
+        <text class="mine-section-head__mark" aria-hidden="true">✦</text>
+      </view>
+      <view class="mine-menu">
+        <view class="mine-menu__item" role="button" aria-label="用户协议" bindtap="openTerms">
+          <view class="mine-menu__icon" aria-hidden="true">协</view>
+          <view class="mine-menu__copy"><text>用户协议</text><text>服务条款与使用规则</text></view>
+          <text class="chevron">›</text>
+        </view>
+        <view class="mine-menu__item" role="button" aria-label="AI 报告声明" bindtap="openAiReport">
+          <view class="mine-menu__icon" aria-hidden="true">AI</view>
+          <view class="mine-menu__copy"><text>AI 报告声明</text><text>AI 分析的性质与边界</text></view>
+          <text class="chevron">›</text>
+        </view>
+        <view class="mine-menu__item" role="button" aria-label="监护人同意文本" bindtap="openGuardianConsent">
+          <view class="mine-menu__icon" aria-hidden="true">监</view>
+          <view class="mine-menu__copy"><text>监护人同意文本</text><text>未成年子女信息收集授权</text></view>
+          <text class="chevron">›</text>
+        </view>
+      </view>
+
+      <view class="mine-section-head">
+        <view><text class="eyebrow">HELP & SUPPORT</text><text class="h2 mine-section-title">帮助与支持</text></view>
+        <text class="mine-section-head__mark" aria-hidden="true">✦</text>
+      </view>
+      <view class="mine-menu">
+        <button class="mine-menu__item mine-menu__item--action" open-type="contact" session-from="mine_help" aria-label="联系客服">
+          <view class="mine-menu__icon" aria-hidden="true">客</view>
+          <view class="mine-menu__copy"><text>联系客服</text><text>已付款报告的售后、退款与问题反馈</text></view>
+          <text class="chevron">›</text>
+        </button>
+      </view>
+
+<view class="mine-orders">
         <view class="section-head">
           <view><text class="eyebrow">ORDER HISTORY</text><text class="h3 mine-orders__title">历史订单</text></view>
           <text class="mine-count">{{orderCount}} 笔</text>

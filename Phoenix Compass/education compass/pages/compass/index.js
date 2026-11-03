@@ -7,6 +7,7 @@ const { PRODUCT, CONSENT_VERSION } = require('../../config/compass')
 const { dateLabel } = require('../../utils/date')
 const educationNavigation = require('../../utils/education-compass-navigation')
 const currentStudent = require('../../utils/current-student')
+const reportModel = require('../../models/education-compass-report')
 
 const GUARDIAN_COPY = '我已了解本测评用于形成教育成长快照与下一步支持建议。我确认有权为该家庭／未成年学生管理必要资料，并同意系统按隐私说明保存版本化问卷与结果。我可以撤回非必要授权；撤回不会被解释为学生能力或意愿不足。'
 const STUDENT_ASSENT_COPY = '这份测评需要由我本人作答。我知道可以暂停、退出或不回答选填成绩区间，也不会因此得到负面评价。我同意系统用本次回答生成成长快照；如果不愿继续，我可以现在退出。'
@@ -46,7 +47,7 @@ Page({
     isV05: !runtime.isDemo(), level: 1,
     uiScreen: runtime.isDemo() ? UI_SCREENS.LEGACY : UI_SCREENS.FREE,
     student: null, family: null, reports: [], state: null, loading: true, creating: false, error: '',
-    mode: '', records: [], recordBusy: false,
+    mode: '', records: [], recordBusy: false, readinessHint: false, latestParentId: '',
     product: runtime.isDemo() ? PRODUCT : null, isDemo: runtime.isDemo(), level2EntryAuthorized: false,
     consentValues: [], consentComplete: false,
     guardianAccepted: false, studentAssentAccepted: false,
@@ -85,8 +86,23 @@ Page({
       if (!student) throw new Error('这个孩子档案已不存在')
       this.studentId = student.id
       const records = (await educationCompass.listStudentAssessments(student.id)).map(recordView)
+      // 只对最新一份已提交的家长问卷读一次结果：家长当时若选了「可能愿意／目前不愿意／不确定」，
+      // 服务端不会放行「学生成长发现」，这里要给出「孩子后来愿意了」的重新填写入口。
+      const latestParent = records.find((item) => item.level === 1 && item.status === 'SUBMITTED' && item.consentActive)
+      let readinessHint = false
+      if (latestParent) {
+        try {
+          const rendered = reportModel.renderResult(await educationCompass.getResult(latestParent.assessmentId))
+          readinessHint = Boolean(rendered && rendered.nextStepStatus) && rendered.nextStepStatus !== 'AVAILABLE'
+        } catch (error) {
+          // 读不到结果就不提示：不能把加载失败伪造成「孩子不愿意」。
+          readinessHint = false
+        }
+      }
       this.setData({
-        family, student: { ...student, initial: initial(student.name) }, records, uiScreen: UI_SCREENS.FREE,
+        family, student: { ...student, initial: initial(student.name) }, records,
+        latestParentId: latestParent ? latestParent.assessmentId : '', readinessHint,
+        uiScreen: UI_SCREENS.FREE,
         heroTitle: '问卷记录',
         heroCopy: '这个孩子做过的全部问卷都在这里：可以继续填写、查看结果、清空重填或重新测评；还没出报告的问卷可以删除。',
         loading: false
@@ -297,6 +313,11 @@ Page({
     if (!record) return
     const source = record.level === 2 ? `&sourceAssessmentId=${encodeURIComponent(record.sourceAssessmentId || '')}` : ''
     wx.navigateTo({ url: `/pages/compass/index?level=${record.level}&redo=1&studentId=${encodeURIComponent(this.studentId)}${source}` })
+  },
+  /** 孩子后来愿意了：复用「重新测评」新建一份家长问卷，答案以最新一次为准。 */
+  updateReadiness() {
+    if (!this.data.latestParentId) return
+    wx.navigateTo({ url: `/pages/compass/index?level=1&redo=1&studentId=${encodeURIComponent(this.studentId)}` })
   },
   startFirstRecord() {
     wx.redirectTo({ url: `/pages/compass/index?studentId=${encodeURIComponent(this.studentId)}` })

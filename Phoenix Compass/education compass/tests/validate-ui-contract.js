@@ -173,7 +173,7 @@ const interactionBaseline = readJson(interactionBaselinePath)
 const protectedBaseline = readJson(protectedBaselinePath)
 const app = readJson(path.join(root, 'app.json'))
 
-assert.strictEqual(app.pages.length, 16, 'source Mini Program must keep all 16 registered pages')
+assert.strictEqual(app.pages.length, 18, 'source Mini Program must keep all 18 registered pages')
 assert.deepStrictEqual(app.pages, routeBaseline.pages, 'app.json page order changed from the approved pre-UI baseline')
 assert.strictEqual(app.lazyCodeLoading, routeBaseline.lazyCodeLoading, 'lazyCodeLoading changed from the approved baseline')
 assert(app.tabBar && Array.isArray(app.tabBar.list), 'tabBar list is missing')
@@ -190,7 +190,7 @@ for (const page of app.pages) {
   }
 }
 
-assert.strictEqual(interactionBaseline.pages.length, 16, 'required-handler baseline must cover all 16 pages')
+assert.strictEqual(interactionBaseline.pages.length, 18, 'required-handler baseline must cover all 18 pages')
 for (const page of interactionBaseline.pages) assertInteractionContract(page)
 
 const copyContract = {
@@ -644,7 +644,7 @@ for (const lockPath of ['package-lock.json', 'server/package-lock.json']) {
   assert.strictEqual(sha256(path.join(root, ...lockPath.split('/'))), baseline.sha256, `${lockPath} changed during the UI-only update`)
 }
 
-console.log('✓ UI route contract: 16 ordered pages, 3 tab paths and lazy loading preserved')
+console.log('✓ UI route contract: 18 ordered pages, 3 tab paths and lazy loading preserved')
 console.log('✓ UI interaction contract: required WXML handlers and data-* bindings preserved')
 console.log('✓ UI V2 screen contract: seven screen hooks, Level 2/report/Askwise gates and Consent controls preserved')
 console.log('✓ UI share contract: native sharing is limited to preview/report and exposes only the generic welcome entry')

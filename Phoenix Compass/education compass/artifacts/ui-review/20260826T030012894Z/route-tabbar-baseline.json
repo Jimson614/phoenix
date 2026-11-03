@@ -18,7 +18,9 @@
       "pages/advisor-request/index",
       "pages/mine/index",
       "pages/admin-families/index",
-      "pages/admin-family/index"
+      "pages/admin-family/index",
+      "pages/legal/index",
+      "pages/orders/index"
     ],
     "window": {
       "navigationStyle": null,
@@ -79,6 +81,10 @@
         "navigationStyle": null,
         "navigationBarTitleText": "家庭档案"
       },
+      "pages/legal/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "法务文本"
+      },
       "pages/home/index.json": {
         "navigationStyle": "custom",
         "navigationBarTitleText": null
@@ -106,6 +112,10 @@
       "pages/welcome/index.json": {
         "navigationStyle": "custom",
         "navigationBarTitleText": null
+      },
+      "pages/orders/index.json": {
+        "navigationStyle": null,
+        "navigationBarTitleText": "订单中心"
       }
     }
   }

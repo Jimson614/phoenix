@@ -758,6 +758,34 @@
         }
       ],
       "dataAttributes": []
+    },
+    {
+      "path": "pages/legal/index.wxml",
+      "handlers": [],
+      "dataAttributes": []
+    },
+    {
+      "path": "pages/orders/index.wxml",
+      "handlers": [
+        {
+          "attribute": "bindtap",
+          "handler": "login"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "openOrder"
+        },
+        {
+          "attribute": "bindtap",
+          "handler": "goCompass"
+        }
+      ],
+      "dataAttributes": [
+        {
+          "attribute": "data-id",
+          "value": "{{item.orderId}}"
+        }
+      ]
     }
   ]
 }
