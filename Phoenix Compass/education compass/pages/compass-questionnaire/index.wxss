@@ -29,7 +29,7 @@
 .questionnaire__meta { color: #0f2238; font-size: 20rpx; font-weight: 650; margin-top: 18rpx; }
 .questionnaire__score { color: #8a6b36; font-size: 20rpx; line-height: 1.5; margin-top: 12rpx; }
 .questionnaire__save-row { border-top: 1rpx solid rgba(190,151,82,.14); color: #8b857c; font-size: 19rpx; margin-top: 15rpx; min-height: 88rpx; }
-.questionnaire__save-exit { background: transparent; color: #8b6a2e; font-size: 23rpx; line-height: 88rpx; min-height: 88rpx; padding: 0 8rpx; text-align: right; }
+.questionnaire__save-exit { background: transparent; color: #8b6a2e; font-size: 23rpx; justify-content: flex-end; min-height: 88rpx; padding: 0 8rpx; text-align: right; }
 button.questionnaire__save-exit { margin: 0 -8rpx 0 16rpx; width: 190rpx; }
 .questionnaire__save-exit::after { border: 0; }
 .questionnaire-state { align-items: center; background: rgba(255,253,249,.9); border: 1rpx solid #eadfcf; border-radius: 30rpx; box-shadow: 0 18rpx 54rpx rgba(22,35,50,.07); display: flex; flex-direction: column; margin: 46rpx 32rpx 0; min-height: 420rpx; padding: 86rpx 42rpx; text-align: center; }
@@ -67,7 +67,7 @@ button.option { width: 100%; }
 .matrix__subject { color: #11273b; flex: 1; font-size: 25rpx; font-weight: 650; }
 .matrix__picker { flex: 1.25; }
 .matrix__range { align-items: center; color: #7e5d23; display: flex; font-size: 23rpx; justify-content: space-between; min-height: 44px; padding: 0 15rpx; }
-.matrix__remove { background: transparent; color: #8b5b50; font-size: 21rpx; line-height: 88rpx; margin: 0; min-height: 44px; padding: 0 10rpx; }
+.matrix__remove { background: transparent; color: #8b5b50; font-size: 21rpx; margin: 0; min-height: 44px; padding: 0 10rpx; }
 .matrix__remove::after { border: 0; }
 .matrix__add { align-items: center; background: #fcf7ee; border: 1rpx dashed #bd8d38; border-radius: 18rpx; color: #83652f; display: flex; font-size: 24rpx; justify-content: center; margin-top: 18rpx; min-height: 92rpx; }
 .questionnaire__privacy { align-items: center; color: #898279; display: flex; font-size: 21rpx; justify-content: center; line-height: 1.55; margin: 30rpx auto 0; min-height: 88rpx; text-align: center; }
@@ -75,7 +75,7 @@ button.option { width: 100%; }
 .questionnaire__completion-note { align-items: flex-start; background: rgba(250,244,233,.86); border: 1rpx solid rgba(185,134,45,.16); border-radius: 18rpx; color: #74695c; display: flex; font-size: 20rpx; line-height: 1.65; margin: 0 auto; max-width: 620rpx; padding: 18rpx 20rpx; }
 .questionnaire__completion-label { color: #9a6c20; flex: 0 0 auto; font-weight: 700; margin-right: 12rpx; }
 .questionnaire__actions { align-items: center; background: rgba(255,253,249,.98); border-top: 1rpx solid rgba(188,145,69,.16); bottom: 0; box-shadow: 0 -14rpx 42rpx rgba(13,27,42,.08); display: flex; left: 0; padding: 20rpx 30rpx calc(20rpx + env(safe-area-inset-bottom)); position: fixed; right: 0; z-index: 20; }
-.questionnaire__back { background: transparent; border: 1rpx solid #c79a4c; border-radius: 999rpx; color: #815d20; flex: 0 0 calc(44% - 10rpx); font-size: 24rpx; line-height: 88rpx; min-height: 88rpx; padding: 0; }
+.questionnaire__back { background: transparent; border: 1rpx solid #c79a4c; border-radius: 999rpx; color: #815d20; flex: 0 0 calc(44% - 10rpx); font-size: 24rpx; min-height: 88rpx; padding: 0; }
 button.questionnaire__back { margin: 0 20rpx 0 0; }
 .questionnaire__back::after { border: 0; }
 .questionnaire__next { background: linear-gradient(105deg, #d9af48 0%, #c99217 56%, #b77a0b 100%); box-shadow: 0 14rpx 34rpx rgba(181,126,30,.28); color: #fffdf8; flex: 1; min-height: 88rpx; }

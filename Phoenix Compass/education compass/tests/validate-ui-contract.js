@@ -644,6 +644,118 @@ for (const lockPath of ['package-lock.json', 'server/package-lock.json']) {
   assert.strictEqual(sha256(path.join(root, ...lockPath.split('/'))), baseline.sha256, `${lockPath} changed during the UI-only update`)
 }
 
+// 按钮居中契约：0.5.3 提审前「查看结果／重新测评」把文字贴在了胶囊顶部。
+// 微信 button 默认靠 line-height:2.55555556 居中，一旦真实高度来自 min-height（44px 点击区）
+// 或上下 padding，行盒就贴在内容区顶部，文字整体偏上。所以锁三件事：
+// 1) app.wxss 的 button 基础规则必须用 flex 垂直居中；2) 不许再用 line-height: Nrpx 冒充高度；
+// 3) 除下列行式布局外，按钮的水平方向也必须在正中。新增行式按钮要先登记理由，避免下次又长出一个歪的。
+const rowLayoutButtons = new Map([
+  ['mine-menu__item', '菜单行：左图标 + 右箭头'],
+  ['mine-menu__item--action', '客服菜单行：左图标 + 右箭头'],
+  ['consent-action', '授权行：左标题 + 右箭头'],
+  ['option', '选项卡片：左标签 + 右勾选'],
+  ['questionnaire__save-exit', '右对齐的「保存并退出」文字按钮']
+])
+
+function stripCssComments(source) {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
+function buttonAttributeBlocks(source) {
+  const blocks = []
+  const pattern = /<button\b/g
+  let match
+  while ((match = pattern.exec(source))) {
+    let index = match.index + match[0].length
+    let quote = ''
+    for (; index < source.length; index += 1) {
+      const character = source[index]
+      if (quote) {
+        if (character === quote) quote = ''
+        continue
+      }
+      if (character === '"' || character === "'") {
+        quote = character
+        continue
+      }
+      if (character === '>') break
+    }
+    blocks.push(source.slice(match.index + match[0].length, index))
+  }
+  return blocks
+}
+
+function buttonClassTokens(attributes) {
+  const match = /class\s*=\s*(["'])([\s\S]*?)\1/.exec(attributes)
+  if (!match) return []
+  const raw = match[2]
+  const staticTokens = raw.replace(/\{\{[\s\S]*?\}\}/g, ' ').split(/\s+/).filter(Boolean)
+  const conditionalTokens = [...raw.matchAll(/(['"])([A-Za-z][\w-]*)\1/g)].map((item) => item[2])
+  return [...new Set([...staticTokens, ...conditionalTokens])]
+}
+
+function cssDeclaration(rules, token) {
+  const declaration = {}
+  for (const rule of rules) {
+    const matches = rule.selector.split(',').some((selector) => {
+      const normalised = selector.trim().replace(/^button(?=[.:[])/, '').replace(/^\./, '')
+      return normalised === token
+    })
+    if (!matches) continue
+    for (const part of rule.body.split(';')) {
+      const split = part.indexOf(':')
+      if (split < 0) continue
+      const property = part.slice(0, split).trim().toLowerCase()
+      const value = part.slice(split + 1).trim()
+      if (property && value) declaration[property] = value
+    }
+  }
+  return declaration
+}
+
+const appStyleRules = cssRules(stripCssComments(readSource('app.wxss')))
+const baseButtonRules = cssRuleBodies(stripCssComments(readSource('app.wxss')), 'button')
+assert(baseButtonRules.length > 0, 'app.wxss must keep the global button rule')
+const baseButton = baseButtonRules[0].replace(/\s+/g, ' ')
+assert(/display:\s*flex/i.test(baseButton) && /align-items:\s*center/i.test(baseButton),
+  'app.wxss button must centre its label vertically with display:flex + align-items:center')
+assert(/justify-content:\s*center/i.test(baseButton),
+  'app.wxss button must centre its label horizontally with justify-content:center')
+assert(!/line-height:\s*\d+(?:\.\d+)?rpx/i.test(baseButton),
+  'app.wxss button must not fake its height with a fixed line-height')
+const baseButtonDeclaration = cssDeclaration([{ selector: 'button', body: baseButtonRules[0] }], 'button')
+
+let buttonCount = 0
+const usedRowLayouts = new Set()
+for (const page of app.pages) {
+  const wxml = readSource(`${page}.wxml`)
+  const wxssRules = cssRules(stripCssComments(readSource(`${page}.wxss`)))
+  for (const attributes of buttonAttributeBlocks(wxml)) {
+    const tokens = buttonClassTokens(attributes)
+    const declaration = { ...baseButtonDeclaration }
+    for (const token of tokens) Object.assign(declaration, cssDeclaration(appStyleRules, token))
+    for (const token of tokens) Object.assign(declaration, cssDeclaration(wxssRules, token))
+    buttonCount += 1
+    const label = `${page}.wxml button${tokens.length ? ` [${tokens.join(' ')}]` : ''}`
+    assert(/flex/.test(String(declaration.display || '')) && /center/.test(String(declaration['align-items'] || '')),
+      `${label} must centre its label vertically; do not override display/align-items on a button`)
+    assert(!/^\d+(?:\.\d+)?rpx$/.test(String(declaration['line-height'] || '').trim()),
+      `${label} must not fake its height with line-height; rely on height/min-height plus flex centring`)
+    const horizontal = `${declaration['justify-content'] || ''} ${declaration['text-align'] || ''}`
+    if (/center/.test(horizontal)) continue
+    const rowLayouts = tokens.filter((token) => rowLayoutButtons.has(token))
+    assert(rowLayouts.length > 0,
+      `${label} does not centre its label horizontally; row layouts must be registered in rowLayoutButtons with a reason`)
+    for (const rowLayout of rowLayouts) usedRowLayouts.add(rowLayout)
+  }
+}
+assert(buttonCount > 90, `button centring contract must scan every page button, only saw ${buttonCount}`)
+assert.deepStrictEqual(
+  [...rowLayoutButtons.keys()].filter((token) => !usedRowLayouts.has(token)),
+  [],
+  'rowLayoutButtons lists a button that no page renders any more; drop the stale entry'
+)
+
 console.log('✓ UI route contract: 18 ordered pages, 3 tab paths and lazy loading preserved')
 console.log('✓ UI interaction contract: required WXML handlers and data-* bindings preserved')
 console.log('✓ UI V2 screen contract: seven screen hooks, Level 2/report/Askwise gates and Consent controls preserved')
@@ -651,4 +763,5 @@ console.log('✓ UI share contract: native sharing is limited to preview/report 
 console.log('✓ UI safety contract: dynamic presentation facts, native-only assets, privacy controls and raster budgets verified')
 console.log('✓ UI WXSS contract: compiler compatibility, 44px targets, safe fixed bars, selected state and narrow layouts verified')
 console.log('✓ UI spacing contract: non-root content cannot force large viewport-height blanks')
+console.log(`✓ UI button contract: ${buttonCount} buttons centre their label, ${usedRowLayouts.size} registered row layouts`)
 console.log('✓ UI release contract: demo admin pages remain excluded and package lockfiles are unchanged')

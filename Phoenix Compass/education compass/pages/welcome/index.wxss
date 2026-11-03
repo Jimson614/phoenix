@@ -189,8 +189,6 @@
   background: transparent;
   color: var(--gold-deep);
   font-size: 25rpx;
-  height: 88rpx;
-  line-height: 88rpx;
   margin-top: 12rpx;
 }
 
